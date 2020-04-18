@@ -12,16 +12,17 @@ class MotionPrimitive():
         self.n = (self.control_space_q)*self.num_dims
 
         self.max_u = 1  # max control input
-        self.num_u_set = 3  # Number of MPs to consider at a given time
+        self.num_u_set = 10  # Number of MPs to consider at a given time
+        self.min_dt = 0.01
         self.max_dt = 1  # Max time horizon of MP
-        self.num_dts = 5  # Number of time horizons to consider between 0 and max_dt
+        self.num_dts = 10  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
 
     def compute_all_possible_mps(self, start_pt):
 
         single_u_set = np.linspace(-self.max_u, self.max_u, self.num_u_set)
-        dt_set = np.linspace(0, self.max_dt, self.num_dts)
+        dt_set = np.linspace(self.min_dt, self.max_dt, self.num_dts)
         integral_set = np.empty((self.num_dts, self.n, self.num_dims))
         expm_A_set = np.empty((self.num_dts, self.n, self.n))
         for i, dt in enumerate(dt_set):
@@ -37,37 +38,40 @@ class MotionPrimitive():
 
         sample_pts = first_terms_repeated + second_terms
         sample_pts = np.transpose(sample_pts, (0, 2, 1))  # Order so that it's dt_index, du_index, state_space_index
-        plt.plot(sample_pts[:, :, 0], sample_pts[:, :, 1], marker='.', color='k', linestyle='none')
-
-        plt.plot(start_pt[0], start_pt[1], 'og')
-        plt.xlabel("X Position")
-        plt.ylabel("Y Position")
+        if self.num_dims > 1:
+            plt.plot(sample_pts[:, :, 0], sample_pts[:, :, 1], marker='.', color='k', linestyle='none')
+            plt.plot(start_pt[0], start_pt[1], 'og')
+            plt.xlabel("X Position")
+            plt.ylabel("Y Position")
+        else:
+            plt.plot(sample_pts[:, :, 0], np.zeros(sample_pts.shape[0:1]), marker='.', color='k', linestyle='none')
+            plt.plot(start_pt[0], 0, 'og')
 
         # plt.show()
 
-        return sample_pts
+        return sample_pts, dt_set, u_set
 
     def compute_min_dispersion_set(self, start_pt, num_output_mps):
-        potential_sample_pts = self.compute_all_possible_mps(start_pt)
+        potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
         # TODO maybe dont make a rectangle in state space; do another polygon?
-        border = np.array((np.amin(potential_sample_pts, axis=(0, 1)), np.amax(potential_sample_pts, axis=(0, 1))))
-        plt.plot(border[0][0], border[0][1], 'ro')
-        plt.plot(border[1][0], border[1][1], 'ro')
+        # border = np.array((np.amin(potential_sample_pts, axis=(0, 1)), np.amax(potential_sample_pts, axis=(0, 1))))
+        # print(border.shape)
+        # border = np.vstack((border, np.array((border[0], border[1])), np.array((border[1], border[0]))))
+        # print(border.shape)
+        # plt.plot(border[:, 0], border[:, 1], 'ro')
 
-        # actual_sample_pts = np.zeros((self.n, 1))
-        # comparison_pts = np.hstack((actual_sample_pts, border))
-        comparison_pts = np.vstack((border, start_pt.T))
+        # comparison_pts = np.vstack((border, start_pt.T))
+        comparison_pts = start_pt.T
+        # comparison_pts = border
+
         actual_sample_pts = None
         actual_sample_indices = None
-        # comparison_pts = start_pt.T
-        for mp_num in range(2):  # num_output_mps
-            print("New mp")
-            score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1]))
+        for mp_num in range(num_output_mps):  # num_output_mps
+            score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1], comparison_pts.shape[0]))
             for i in range(comparison_pts.shape[0]):  # TODO vectorize
-                # print(potential_sample_pts - comparison_pts[i, :])
-                score += np.linalg.norm(potential_sample_pts - comparison_pts[i, :], axis=2)
+                score[:, :, i] = np.linalg.norm(potential_sample_pts - comparison_pts[i, :], axis=2)
+            score = np.amin(score, axis=2)
             if actual_sample_indices is not None:
-                print(actual_sample_indices)
                 score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
             dt_index, du_index = np.where(score == np.amax(score))
             result_pt = potential_sample_pts[dt_index[0], du_index[0], :].T
@@ -80,7 +84,11 @@ class MotionPrimitive():
                 actual_sample_pts = np.vstack((actual_sample_pts, result_pt))
                 actual_sample_indices = np.vstack((actual_sample_indices, np.array((dt_index[0], du_index[0]))))
             comparison_pts = np.vstack((comparison_pts, result_pt))
-        plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'ob')
+        if self.num_dims > 1:
+            plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'ob')
+        else:
+            plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'ob')
+
         plt.show()
         # print(potential_sample_pts.shape)
         # print((np.repeat(potential_sample_pts, comparison_pts.shape[1], 2)).shape)
@@ -110,7 +118,7 @@ class MotionPrimitive():
 
 
 if __name__ == "__main__":
-    mp = MotionPrimitive(control_space_q=1, num_dims=2)
-    start_pt = np.ones((mp.n, 1))*0.01
+    mp = MotionPrimitive(control_space_q=3, num_dims=2)
+    start_pt = np.ones((mp.n, 1))*0.1
     # mp.compute_all_possible_mps(start_pt)
-    mp.compute_min_dispersion_set(start_pt, 5)
+    mp.compute_min_dispersion_set(start_pt, 30)
