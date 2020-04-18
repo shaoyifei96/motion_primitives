@@ -11,11 +11,11 @@ class MotionPrimitive():
         self.num_dims = num_dims  # Dimension of the configuration space
         self.n = (self.control_space_q)*self.num_dims
 
-        self.max_u = 1  # max control input
-        self.num_u_set = 10  # Number of MPs to consider at a given time
+        self.max_u = 1  # max control input #TODO should be a vector b/c different in Z
+        self.num_u_set = 30  # Number of MPs to consider at a given time
         self.min_dt = 0.01
         self.max_dt = 1  # Max time horizon of MP
-        self.num_dts = 10  # Number of time horizons to consider between 0 and max_dt
+        self.num_dts = 60  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
 
@@ -89,10 +89,32 @@ class MotionPrimitive():
         else:
             plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'ob')
 
-        plt.show()
-        # print(potential_sample_pts.shape)
-        # print((np.repeat(potential_sample_pts, comparison_pts.shape[1], 2)).shape)
-        # print(potential_sample_pts - border[:, 0])
+        dts = dt_set[actual_sample_indices[:, 0]]
+        us = u_set[:, actual_sample_indices[:, 1]]
+        return zip(dts, us)
+
+    def create_evenly_spaced_mps(self):
+        # i.e. old sikang method
+        dt = self.max_dt/2.0
+        num_u = 5
+        single_u_set = np.linspace(-self.max_u, self.max_u, num_u)
+        integral_set = np.empty((self.n, self.num_dims))
+        expm_A_set = np.empty((self.n, self.n))
+        integral_set = integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]
+        expm_A_set = expm(self.A*dt)
+        u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
+        u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
+
+        first_terms = expm_A_set@start_pt  # indexed by dt index num_dt x n x 1
+        first_terms_repeated = np.repeat(first_terms, num_u**self.num_dims,
+                                         1)  # num_dt x n x num_u_set**num_dims
+        second_terms = integral_set@u_set  # num_dt x n x num_u_set^num_dims
+        sample_pts = first_terms_repeated + second_terms
+        plt.plot(sample_pts[0,:],sample_pts[1,:],'oy')
+        # sample_pts = np.transpose(sample_pts, (0, 2, 1))  # Order so that it's dt_index, du_index, state_space_index
+
+    def create_state_space_MP_lookup_table(self):
+        pass
 
     def A_and_B_matrices_quadrotor(self):
         n = self.n
@@ -118,7 +140,9 @@ class MotionPrimitive():
 
 
 if __name__ == "__main__":
-    mp = MotionPrimitive(control_space_q=3, num_dims=2)
-    start_pt = np.ones((mp.n, 1))*0.1
+    mp = MotionPrimitive(control_space_q=4, num_dims=2)
+    start_pt = np.ones((mp.n, 1))*0.05
     # mp.compute_all_possible_mps(start_pt)
     mp.compute_min_dispersion_set(start_pt, 30)
+    mp.create_evenly_spaced_mps()
+    plt.show()
