@@ -7,6 +7,23 @@ import cProfile
 from pycallgraph import PyCallGraph
 from pycallgraph.output import GraphvizOutput
 import json
+import time
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+
+    def default(self, obj):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+                            np.int16, np.int32, np.int64, np.uint8,
+                            np.uint16, np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32,
+                              np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.ndarray,)):  # This is the fix
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 
 class MotionPrimitive():
@@ -121,8 +138,7 @@ class MotionPrimitive():
         if self.plot:
             plt.plot(sample_pts[0, :], sample_pts[1, :], 'oy')
 
-    def create_state_space_MP_lookup_table(self):
-        num_state_deriv_pts = 3
+    def create_state_space_MP_lookup_table(self, num_state_deriv_pts=10):
         # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
         y = np.array([np.tile(np.linspace(-i, i, num_state_deriv_pts), (self.num_dims, 1))
                       for i in self.max_state_derivs[:self.control_space_q-1]])
@@ -131,9 +147,17 @@ class MotionPrimitive():
         start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
         start_pts_set = np.vstack((np.zeros_like(start_pts_set[:num_dims, :]), start_pts_set))
 
-        mp_dict = {}
+        output_dict = {}
+        key = 0
         for start_pt in start_pts_set.T:
-            mp_dict[tuple(start_pt)] = mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1)))
+            # TODO store in a cool CS way so that lookup is fast
+            output_dict[str(key)] = {}
+            output_dict[str(key)]['primitives'] = mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1)))
+            output_dict[str(key)]['start_pt'] = start_pt
+            key += 1
+
+        timestr = time.strftime('%Y_%m_%d_%H_%M_%S')
+        json.dump(output_dict, open("json/mp_dictionary_" + timestr + ".json", 'w'), cls=NumpyEncoder)
 
     def A_and_B_matrices_quadrotor(self):
         n = self.n
@@ -174,5 +198,5 @@ if __name__ == "__main__":
     # mp.compute_min_dispersion_set(start_pt)
     # mp.create_evenly_spaced_mps(mp.max_dt/2.0)
 
-    # mp.create_state_space_MP_lookup_table()
+    mp.create_state_space_MP_lookup_table()
     # plt.show()
