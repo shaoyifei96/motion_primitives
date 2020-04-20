@@ -57,7 +57,10 @@ class GraphSearch:
         self.queue = []      # A priority queue of nodes as a heapq.
 
         # Choose a heuristic function based on input arguments.
-        self.heuristic = self.zero_heuristic
+        # self.heuristic = self.zero_heuristic
+        self.rho = .01
+        # self.heuristic = self.min_time_heuristic
+        self.heuristic = self.euclidean_distance_heuristic
 
         self.mp_start_pts_tree = spatial.KDTree(self.motion_primitive.start_pts.T)
 
@@ -78,6 +81,13 @@ class GraphSearch:
 
     def zero_heuristic(self, state):
         return 0
+
+    def min_time_heuristic(self, state):
+        # sikang heuristic 1
+        return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive.max_state_derivs[0]
+
+    def euclidean_distance_heuristic(self, state):
+        return np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims])
 
     def update_node_cost_to_come(self, state, g, parent):
         """
@@ -101,7 +111,7 @@ class GraphSearch:
         # Build list of node centers.
         path = [node.state]
         while node.parent:
-            path.append(node.parent.state)
+            path.append(node.parent)
             node = self.node_dict[node.parent]
         path.reverse()
         return np.array(path)
@@ -126,7 +136,7 @@ class GraphSearch:
         while self.queue:
             node = heappop(self.queue)
             if self.plot:
-                self.ax.plot(node.state[0], node.state[0], 'bo')
+                self.ax.plot(node.state[0], node.state[1], 'bo')
 
             # If node has been closed already, skip.
             if node.is_closed:
@@ -134,10 +144,6 @@ class GraphSearch:
 
             # If node is the goal node, return path.
             # TODO separately compare derivative for goal tolerance
-            print(node.state[:self.num_dims])
-            print(self.goal_state[:self.num_dims])
-            print(np.linalg.norm(node.state[:self.num_dims] - self.goal_state[:self.num_dims]))
-            print(self.goal_tolerance[0])
             if np.linalg.norm(node.state[:self.num_dims] - self.goal_state[:self.num_dims]) < self.goal_tolerance[0]:
                 path = self.build_path(node)
                 break
@@ -149,13 +155,12 @@ class GraphSearch:
             for neighbor in neighbors:
                 # print(neighbor)
                 # If the neighbor is valid, calculate a new cost-to-come g.
-                rho = .1
                 if self.is_valid_state(neighbor[0]):
-                    g = neighbor[2]*(rho + (np.linalg.norm(neighbor[1]))**2)
+                    g = node.g + neighbor[2]*(self.rho + (np.linalg.norm(neighbor[1]))**2)
                     self.update_node_cost_to_come(neighbor[0], g, parent=node.state)
                     if self.plot:
                         self.ax.plot(neighbor[0][0], neighbor[0][1], 'ko')
-                        plt.pause(.01)
+                        plt.pause(.001)
 
                     # g = node.g + np.linalg.norm(neighbor[1]) + neighbor[2]
             #         neighbor = find_node.get(neighbor_index, None)
@@ -171,6 +176,17 @@ class GraphSearch:
 
         return path
 
+    def plot_path(self, path):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(start_state[0], start_state[1], 'og')
+        ax.plot(goal_state[0], goal_state[1], 'or')
+        circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
+        ax.add_artist(circle)
+        positions = path[:, :self.num_dims]
+        ax.plot(positions[:, 0], positions[:, 1], 'o')
+        plt.show()
+
 
 if __name__ == "__main__":
 
@@ -184,4 +200,6 @@ if __name__ == "__main__":
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
 
-    gs.run_graph_search()
+    path = gs.run_graph_search()
+    plt.ioff()
+    gs.plot_path(path)
