@@ -1,20 +1,30 @@
+#!/usr/bin/python3
 import numpy as np
 from scipy.linalg import expm
 import scipy.integrate as integrate
 import matplotlib.pyplot as plt
+import cProfile
+from pycallgraph import PyCallGraph
+from pycallgraph.output import GraphvizOutput
+import json
 
 
 class MotionPrimitive():
 
-    def __init__(self, control_space_q=3, num_dims=3):
+    def __init__(self, control_space_q=3, num_dims=3, num_u_per_dimension=5, max_state_derivs=[1, 1, 1, 1], plot=False):
         self.control_space_q = control_space_q  # which derivative of position is the control space
         self.num_dims = num_dims  # Dimension of the configuration space
+        self.num_u_per_dimension = num_u_per_dimension
+        self.max_state_derivs = max_state_derivs
+        self.plot = plot
+
         self.n = (self.control_space_q)*self.num_dims
+        self.num_output_mps = num_u_per_dimension**num_dims
 
         self.max_u = 1  # max control input #TODO should be a vector b/c different in Z
         self.num_u_set = 30  # Number of MPs to consider at a given time
-        self.min_dt = 0.01
-        self.max_dt = 1  # Max time horizon of MP
+        self.min_dt = 0
+        self.max_dt = .2  # Max time horizon of MP
         self.num_dts = 60  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
@@ -38,20 +48,19 @@ class MotionPrimitive():
 
         sample_pts = first_terms_repeated + second_terms
         sample_pts = np.transpose(sample_pts, (0, 2, 1))  # Order so that it's dt_index, du_index, state_space_index
-        if self.num_dims > 1:
-            plt.plot(sample_pts[:, :, 0], sample_pts[:, :, 1], marker='.', color='k', linestyle='none')
-            plt.plot(start_pt[0], start_pt[1], 'og')
-            plt.xlabel("X Position")
-            plt.ylabel("Y Position")
-        else:
-            plt.plot(sample_pts[:, :, 0], np.zeros(sample_pts.shape[0:1]), marker='.', color='k', linestyle='none')
-            plt.plot(start_pt[0], 0, 'og')
-
-        # plt.show()
+        if self.plot:
+            if self.num_dims > 1:
+                plt.plot(sample_pts[:, :, 0], sample_pts[:, :, 1], marker='.', color='k', linestyle='none')
+                plt.plot(start_pt[0], start_pt[1], 'og')
+                plt.xlabel("X Position")
+                plt.ylabel("Y Position")
+            else:
+                plt.plot(sample_pts[:, :, 0], np.zeros(sample_pts.shape[0:1]), marker='.', color='k', linestyle='none')
+                plt.plot(start_pt[0], 0, 'og')
 
         return sample_pts, dt_set, u_set
 
-    def compute_min_dispersion_set(self, start_pt, num_output_mps):
+    def compute_min_dispersion_set(self, start_pt):
         potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
         # TODO maybe dont make a rectangle in state space; do another polygon?
         # border = np.array((np.amin(potential_sample_pts, axis=(0, 1)), np.amax(potential_sample_pts, axis=(0, 1))))
@@ -66,7 +75,7 @@ class MotionPrimitive():
 
         actual_sample_pts = None
         actual_sample_indices = None
-        for mp_num in range(num_output_mps):  # num_output_mps
+        for mp_num in range(self.num_output_mps):  # num_output_mps
             score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1], comparison_pts.shape[0]))
             for i in range(comparison_pts.shape[0]):  # TODO vectorize
                 score[:, :, i] = np.linalg.norm(potential_sample_pts - comparison_pts[i, :], axis=2)
@@ -84,20 +93,19 @@ class MotionPrimitive():
                 actual_sample_pts = np.vstack((actual_sample_pts, result_pt))
                 actual_sample_indices = np.vstack((actual_sample_indices, np.array((dt_index[0], du_index[0]))))
             comparison_pts = np.vstack((comparison_pts, result_pt))
-        if self.num_dims > 1:
-            plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'ob')
-        else:
-            plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'ob')
+        if self.plot:
+            if self.num_dims > 1:
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'ob')
+            else:
+                plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'ob')
 
         dts = dt_set[actual_sample_indices[:, 0]]
         us = u_set[:, actual_sample_indices[:, 1]]
-        return zip(dts, us)
+        return np.vstack((dts, us))
 
-    def create_evenly_spaced_mps(self):
+    def create_evenly_spaced_mps(self, dt):
         # i.e. old sikang method
-        dt = self.max_dt/2.0
-        num_u = 5
-        single_u_set = np.linspace(-self.max_u, self.max_u, num_u)
+        single_u_set = np.linspace(-self.max_u, self.max_u, self.num_u_per_dimension)
         integral_set = np.empty((self.n, self.num_dims))
         expm_A_set = np.empty((self.n, self.n))
         integral_set = integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]
@@ -106,15 +114,26 @@ class MotionPrimitive():
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
 
         first_terms = expm_A_set@start_pt  # indexed by dt index num_dt x n x 1
-        first_terms_repeated = np.repeat(first_terms, num_u**self.num_dims,
+        first_terms_repeated = np.repeat(first_terms, self.num_output_mps,
                                          1)  # num_dt x n x num_u_set**num_dims
         second_terms = integral_set@u_set  # num_dt x n x num_u_set^num_dims
         sample_pts = first_terms_repeated + second_terms
-        plt.plot(sample_pts[0,:],sample_pts[1,:],'oy')
-        # sample_pts = np.transpose(sample_pts, (0, 2, 1))  # Order so that it's dt_index, du_index, state_space_index
+        if self.plot:
+            plt.plot(sample_pts[0, :], sample_pts[1, :], 'oy')
 
     def create_state_space_MP_lookup_table(self):
-        pass
+        num_state_deriv_pts = 3
+        # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
+        y = np.array([np.tile(np.linspace(-i, i, num_state_deriv_pts), (self.num_dims, 1))
+                      for i in self.max_state_derivs[:self.control_space_q-1]])
+        z = np.reshape(y, (y.shape[0]*y.shape[1], y.shape[2]))
+        start_pts_grid = np.meshgrid(*z)
+        start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
+        start_pts_set = np.vstack((np.zeros_like(start_pts_set[:num_dims, :]), start_pts_set))
+
+        mp_dict = {}
+        for start_pt in start_pts_set.T:
+            mp_dict[tuple(start_pt)] = mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1)))
 
     def A_and_B_matrices_quadrotor(self):
         n = self.n
@@ -140,9 +159,20 @@ class MotionPrimitive():
 
 
 if __name__ == "__main__":
-    mp = MotionPrimitive(control_space_q=4, num_dims=2)
+    control_space_q = 3
+    num_dims = 2
+    num_u_per_dimension = 5
+    max_state_derivs = [1, 1, 1, 1]
+    plot = False
+    mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
+                         num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, plot=plot)
     start_pt = np.ones((mp.n, 1))*0.05
     # mp.compute_all_possible_mps(start_pt)
-    mp.compute_min_dispersion_set(start_pt, 30)
-    mp.create_evenly_spaced_mps()
-    plt.show()
+
+    # with PyCallGraph(output=GraphvizOutput()):
+
+    # mp.compute_min_dispersion_set(start_pt)
+    # mp.create_evenly_spaced_mps(mp.max_dt/2.0)
+
+    # mp.create_state_space_MP_lookup_table()
+    # plt.show()
