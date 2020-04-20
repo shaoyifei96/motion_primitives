@@ -6,33 +6,18 @@ import matplotlib.pyplot as plt
 import cProfile
 from pycallgraph import PyCallGraph
 from pycallgraph.output import GraphvizOutput
-import json
 import time
-
-
-class NumpyEncoder(json.JSONEncoder):
-    """ Special json encoder for numpy types """
-
-    def default(self, obj):
-        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
-                            np.int16, np.int32, np.int64, np.uint8,
-                            np.uint16, np.uint32, np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32,
-                              np.float64)):
-            return float(obj)
-        elif isinstance(obj, (np.ndarray,)):  # This is the fix
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+import pickle
 
 
 class MotionPrimitive():
 
-    def __init__(self, control_space_q=3, num_dims=3, num_u_per_dimension=5, max_state_derivs=[1, 1, 1, 1], plot=False):
+    def __init__(self, control_space_q=3, num_dims=2, num_u_per_dimension=5, max_state_derivs=[1, 1, 1, 1], num_state_deriv_pts=10, plot=False):
         self.control_space_q = control_space_q  # which derivative of position is the control space
         self.num_dims = num_dims  # Dimension of the configuration space
         self.num_u_per_dimension = num_u_per_dimension
         self.max_state_derivs = max_state_derivs
+        self.num_state_deriv_pts = num_state_deriv_pts
         self.plot = plot
 
         self.n = (self.control_space_q)*self.num_dims
@@ -138,26 +123,25 @@ class MotionPrimitive():
         if self.plot:
             plt.plot(sample_pts[0, :], sample_pts[1, :], 'oy')
 
-    def create_state_space_MP_lookup_table(self, num_state_deriv_pts=10):
+    def create_state_space_MP_lookup_table(self):
         # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
-        y = np.array([np.tile(np.linspace(-i, i, num_state_deriv_pts), (self.num_dims, 1))
+        y = np.array([np.tile(np.linspace(-i, i, self.num_state_deriv_pts), (self.num_dims, 1))
                       for i in self.max_state_derivs[:self.control_space_q-1]])
         z = np.reshape(y, (y.shape[0]*y.shape[1], y.shape[2]))
         start_pts_grid = np.meshgrid(*z)
         start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
         start_pts_set = np.vstack((np.zeros_like(start_pts_set[:num_dims, :]), start_pts_set))
 
-        output_dict = {}
-        key = 0
+        prim_list = []
         for start_pt in start_pts_set.T:
             # TODO store in a cool CS way so that lookup is fast
-            output_dict[str(key)] = {}
-            output_dict[str(key)]['primitives'] = mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1)))
-            output_dict[str(key)]['start_pt'] = start_pt
-            key += 1
-
-        timestr = time.strftime('%Y_%m_%d_%H_%M_%S')
-        json.dump(output_dict, open("json/mp_dictionary_" + timestr + ".json", 'w'), cls=NumpyEncoder)
+            prim_list.append(mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
+        # np.save('start_pts.npy', start_pts_set)
+        # np.save('motion_prims.npy', prim_list)
+        self.start_pts = start_pts_set
+        self.motion_primitives_list = prim_list
+        with open('pickle/MotionPrimitive.pkl', 'wb') as output: #TODO add timestamp of something back
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def A_and_B_matrices_quadrotor(self):
         n = self.n
@@ -185,11 +169,12 @@ class MotionPrimitive():
 if __name__ == "__main__":
     control_space_q = 3
     num_dims = 2
-    num_u_per_dimension = 5
+    num_u_per_dimension = 3
     max_state_derivs = [1, 1, 1, 1]
+    num_state_deriv_pts = 5
     plot = False
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
-                         num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, plot=plot)
+                         num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n, 1))*0.05
     # mp.compute_all_possible_mps(start_pt)
 
