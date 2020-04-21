@@ -105,7 +105,7 @@ class MotionPrimitive():
         us = u_set[:, actual_sample_indices[:, 1]]
         return np.vstack((dts, us))
 
-    def create_evenly_spaced_mps(self, dt):
+    def create_evenly_spaced_mps(self, start_pt, dt):
         # i.e. old sikang method
         single_u_set = np.linspace(-self.max_u, self.max_u, self.num_u_per_dimension)
         integral_set = np.empty((self.n, self.num_dims))
@@ -115,13 +115,15 @@ class MotionPrimitive():
         u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
 
-        first_terms = expm_A_set@start_pt  # indexed by dt index num_dt x n x 1
+        first_terms = expm_A_set@start_pt
         first_terms_repeated = np.repeat(first_terms, self.num_output_mps,
-                                         1)  # num_dt x n x num_u_set**num_dims
-        second_terms = integral_set@u_set  # num_dt x n x num_u_set^num_dims
+                                         1)
+        second_terms = integral_set@u_set
         sample_pts = first_terms_repeated + second_terms
         if self.plot:
             plt.plot(sample_pts[0, :], sample_pts[1, :], 'oy')
+
+        return np.vstack((sample_pts, np.ones((1, self.num_output_mps))*dt, u_set)).T
 
     def create_state_space_MP_lookup_table(self):
         # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
@@ -140,7 +142,7 @@ class MotionPrimitive():
         # np.save('motion_prims.npy', prim_list)
         self.start_pts = start_pts_set
         self.motion_primitives_list = prim_list
-        with open('pickle/MotionPrimitive.pkl', 'wb') as output: #TODO add timestamp of something back
+        with open('pickle/MotionPrimitive.pkl', 'wb') as output:  # TODO add timestamp of something back
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def A_and_B_matrices_quadrotor(self):
@@ -172,7 +174,7 @@ if __name__ == "__main__":
     num_u_per_dimension = 3
     max_state_derivs = [1, 1, 1, 1]
     num_state_deriv_pts = 5
-    plot = False
+    plot = True
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n, 1))*0.05
@@ -181,7 +183,7 @@ if __name__ == "__main__":
     # with PyCallGraph(output=GraphvizOutput()):
 
     # mp.compute_min_dispersion_set(start_pt)
-    # mp.create_evenly_spaced_mps(mp.max_dt/2.0)
+    mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
-    mp.create_state_space_MP_lookup_table()
-    # plt.show()
+    # mp.create_state_space_MP_lookup_table()
+    plt.show()

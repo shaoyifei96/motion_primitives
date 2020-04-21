@@ -10,6 +10,7 @@ from min_dispersion_primitives import MotionPrimitive
 import pickle
 from scipy import spatial
 import matplotlib.pyplot as plt
+from enum import Enum
 
 
 class Node:
@@ -34,7 +35,7 @@ class Node:
 
 class GraphSearch:
 
-    def __init__(self, motion_primitive, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False):
+    def __init__(self, motion_primitive, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False, heuristic_type=1, neighbor_type=1):
         self.motion_primitive = motion_primitive
         self.start_state = np.array(start_state)
         self.goal_state = np.array(goal_state)
@@ -43,10 +44,12 @@ class GraphSearch:
         self.goal_tolerance = np.array(goal_tolerance)
         self.map_size = np.array(map_size)
         self.plot = plot
+        self.heuristic_type = heuristic_type
+        self.neighbor_type = neighbor_type
 
         self.num_dims = self.motion_primitive.num_dims
         self.control_space_q = self.motion_primitive.control_space_q
-        self.n = self.motion_primitive.num_dims
+        self.n = self.motion_primitive.n
 
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
                                               [np.repeat(-i, self.num_dims) for i in self.motion_primitive.max_state_derivs[:self.control_space_q-1]])
@@ -58,9 +61,23 @@ class GraphSearch:
 
         # Choose a heuristic function based on input arguments.
         # self.heuristic = self.zero_heuristic
-        self.rho = .01
+        self.rho = .1
         # self.heuristic = self.min_time_heuristic
-        self.heuristic = self.euclidean_distance_heuristic
+        # self.heuristic = self.euclidean_distance_heuristic
+
+        class HeuristicType(Enum):
+            ZERO = self.zero_heuristic
+            EUCLIDEAN = self.euclidean_distance_heuristic
+            MIN_TIME = self.min_time_heuristic
+        self.heuristic_type = HeuristicType
+        self.heuristic = HeuristicType.EUCLIDEAN
+
+        class NeighborType(Enum):
+            MIN_DISPERSION = self.min_dipsersion_neighbors
+            EVENLY_SPACED = self.evenly_spaced_neighbors
+
+        self.neighbor_type = NeighborType
+        self.get_neighbors = NeighborType.MIN_DISPERSION
 
         self.mp_start_pts_tree = spatial.KDTree(self.motion_primitive.start_pts.T)
 
@@ -116,17 +133,24 @@ class GraphSearch:
         path.reverse()
         return np.array(path)
 
-    def get_neighbors(self, node):
+    def min_dipsersion_neighbors(self, node):
         start_pt = np.array(node.state)
         closest_start_pt_index = self.mp_start_pts_tree.query(start_pt)[1]
         motion_primitives_list = self.motion_primitive.motion_primitives_list[closest_start_pt_index]
         neighbors = []
         for column in motion_primitives_list.T:
-            neighbors.append([self.motion_primitive.quad_dynamics(
-                start_pt, column[1:], column[0]), column[1:], column[0]])
+            neighbors.append(np.concatenate(
+                (self.motion_primitive.quad_dynamics(start_pt, column[1:], column[0]), column)))
+
+        return np.array(neighbors)
+
+    def evenly_spaced_neighbors(self, node):
+        dt = .2
+        s = np.reshape(np.array(node.state), (self.n, 1))
+        neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt)
         return neighbors
 
-    def run_graph_search(self):
+    def run_graph_search(self, neighbor_method="min_dispersion"):
         # # Initialize priority queue with start index.
         self.update_node_cost_to_come(self.start_state, 0, None)
 
@@ -152,17 +176,23 @@ class GraphSearch:
             nodes_expanded += 1
 
             neighbors = self.get_neighbors(node)
+
             for neighbor in neighbors:
                 # print(neighbor)
                 # If the neighbor is valid, calculate a new cost-to-come g.
-                if self.is_valid_state(neighbor[0]):
-                    g = node.g + neighbor[2]*(self.rho + (np.linalg.norm(neighbor[1]))**2)
-                    self.update_node_cost_to_come(neighbor[0], g, parent=node.state)
-                    if self.plot:
-                        self.ax.plot(neighbor[0][0], neighbor[0][1], 'ko')
-                        plt.pause(.001)
+                neighbor_state = neighbor[:self.n]
+                if self.is_valid_state(neighbor_state):
+                    dt = neighbor[self.n]
+                    u = neighbor[-self.num_dims:]
+                    g = node.g + dt*(self.rho + (np.linalg.norm(u))**2)
 
-                    # g = node.g + np.linalg.norm(neighbor[1]) + neighbor[2]
+                    old_neighbor = self.node_dict.get(tuple(neighbor_state.tolist()), None)
+                    if old_neighbor is None or g < old_neighbor.g:
+                        self.update_node_cost_to_come(neighbor_state, g, parent=node.state)
+                        if self.plot:
+                            self.ax.plot(neighbor_state[0], neighbor_state[1], 'ko')
+                            plt.pause(.001)
+
             #         neighbor = find_node.get(neighbor_index, None)
             #         # If the cost-to-come g is better than previous, update the node cost and parent.
             #         if neighbor is None or g < neighbor.g:
@@ -199,6 +229,8 @@ if __name__ == "__main__":
     map_size = [-1, -1, 1, 1]
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
+    gs.heuristic = gs.heuristic_type.EUCLIDEAN
+    gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
 
     path = gs.run_graph_search()
     plt.ioff()
