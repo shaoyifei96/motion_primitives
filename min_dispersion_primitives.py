@@ -26,7 +26,7 @@ class MotionPrimitive():
         self.max_u = 1  # max control input #TODO should be a vector b/c different in Z
         self.num_u_set = 30  # Number of MPs to consider at a given time
         self.min_dt = 0
-        self.max_dt = .2  # Max time horizon of MP
+        self.max_dt = .5  # Max time horizon of MP
         self.num_dts = 60  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
@@ -72,32 +72,27 @@ class MotionPrimitive():
         # plt.plot(border[:, 0], border[:, 1], 'ro')
 
         # comparison_pts = np.vstack((border, start_pt.T))
-        comparison_pts = start_pt.T
-        # comparison_pts = border
-
-        actual_sample_pts = None
-        actual_sample_indices = None
+        # TODO add stopping policy?
+        a = np.linalg.norm(potential_sample_pts-start_pt.T, axis=2)
+        closest_pt = np.unravel_index(np.argmin(a, axis=None), a.shape)
+        actual_sample_pts = potential_sample_pts[closest_pt]
+        actual_sample_pts = actual_sample_pts.reshape((1, self.n))
+        actual_sample_indices = np.array(closest_pt)
+        actual_sample_indices = actual_sample_indices.reshape((1, 2))
         for mp_num in range(self.num_output_mps):  # num_output_mps
-            score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1], comparison_pts.shape[0]))
-            for i in range(comparison_pts.shape[0]):  # TODO vectorize
-                score[:, :, i] = np.linalg.norm(potential_sample_pts - comparison_pts[i, :], axis=2)
+            score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1], actual_sample_pts.shape[0]))
+            for i in range(actual_sample_pts.shape[0]):  # TODO vectorize
+                score[:, :, i] = np.linalg.norm(potential_sample_pts - actual_sample_pts[i, :], axis=2)
             score = np.amin(score, axis=2)
-            if actual_sample_indices is not None:
-                score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
+            score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
             dt_index, du_index = np.where(score == np.amax(score))
             result_pt = potential_sample_pts[dt_index[0], du_index[0], :].T
-            if actual_sample_pts is None:
-                actual_sample_pts = result_pt
-                actual_sample_pts = actual_sample_pts.reshape((1, self.n))
-                actual_sample_indices = np.array((dt_index[0], du_index[0]))
-                actual_sample_indices = actual_sample_indices.reshape((1, 2))
-            else:
-                actual_sample_pts = np.vstack((actual_sample_pts, result_pt))
-                actual_sample_indices = np.vstack((actual_sample_indices, np.array((dt_index[0], du_index[0]))))
-            comparison_pts = np.vstack((comparison_pts, result_pt))
+            actual_sample_pts = np.vstack((actual_sample_pts, result_pt))
+            actual_sample_indices = np.vstack((actual_sample_indices, np.array((dt_index[0], du_index[0]))))
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'ob')
+                self.create_evenly_spaced_mps(start_pt, self.max_dt/2.0)
             else:
                 plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'ob')
 
@@ -138,11 +133,15 @@ class MotionPrimitive():
         for start_pt in start_pts_set.T:
             # TODO store in a cool CS way so that lookup is fast
             prim_list.append(mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
+            if self.plot:
+                plt.show()
+
         # np.save('start_pts.npy', start_pts_set)
         # np.save('motion_prims.npy', prim_list)
         self.start_pts = start_pts_set
         self.motion_primitives_list = prim_list
         with open('pickle/MotionPrimitive.pkl', 'wb') as output:  # TODO add timestamp of something back
+            self.plot = False
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def A_and_B_matrices_quadrotor(self):
@@ -171,19 +170,19 @@ class MotionPrimitive():
 if __name__ == "__main__":
     control_space_q = 3
     num_dims = 2
-    num_u_per_dimension = 3
+    num_u_per_dimension = 5
     max_state_derivs = [1, 1, 1, 1]
     num_state_deriv_pts = 5
-    plot = True
+    plot = False
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
-    start_pt = np.ones((mp.n, 1))*0.05
+    start_pt = np.ones((mp.n, 1))*0.5
     # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput()):
 
     # mp.compute_min_dispersion_set(start_pt)
-    mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
+    # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
-    # mp.create_state_space_MP_lookup_table()
+    mp.create_state_space_MP_lookup_table()
     plt.show()

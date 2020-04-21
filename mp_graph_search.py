@@ -11,6 +11,8 @@ import pickle
 from scipy import spatial
 import matplotlib.pyplot as plt
 from enum import Enum
+from pycallgraph import PyCallGraph
+from pycallgraph.output import GraphvizOutput
 
 
 class Node:
@@ -82,12 +84,14 @@ class GraphSearch:
         self.mp_start_pts_tree = spatial.KDTree(self.motion_primitive.start_pts.T)
 
         if self.plot:
-            fig = plt.figure()
-            self.ax = fig.add_subplot(111)
-            self.ax.plot(start_state[0], start_state[1], 'og')
-            self.ax.plot(goal_state[0], goal_state[1], 'or')
-            circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
-            self.ax.add_artist(circle)
+            self.neighbor_list = []
+            self.expanded_nodes_list = []
+            # fig = plt.figure()
+            # self.ax = fig.add_subplot(111)
+            # self.ax.plot(start_state[0], start_state[1], 'og')
+            # self.ax.plot(goal_state[0], goal_state[1], 'or')
+            # circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
+            # self.ax.add_artist(circle)
             plt.ion()
             plt.show()
 
@@ -138,14 +142,14 @@ class GraphSearch:
         closest_start_pt_index = self.mp_start_pts_tree.query(start_pt)[1]
         motion_primitives_list = self.motion_primitive.motion_primitives_list[closest_start_pt_index]
         neighbors = []
-        for column in motion_primitives_list.T:
+        for column in motion_primitives_list.T:  # TODO Vectorize!!! Precompute integration
             neighbors.append(np.concatenate(
                 (self.motion_primitive.quad_dynamics(start_pt, column[1:], column[0]), column)))
 
         return np.array(neighbors)
 
     def evenly_spaced_neighbors(self, node):
-        dt = .2
+        dt = .5
         s = np.reshape(np.array(node.state), (self.n, 1))
         neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt)
         return neighbors
@@ -160,7 +164,8 @@ class GraphSearch:
         while self.queue:
             node = heappop(self.queue)
             if self.plot:
-                self.ax.plot(node.state[0], node.state[1], 'bo')
+                self.expanded_nodes_list.append(node.state[0:2])
+                # self.ax.plot(node.state[0], node.state[1], 'b.')
 
             # If node has been closed already, skip.
             if node.is_closed:
@@ -174,29 +179,25 @@ class GraphSearch:
 
             # Otherwise, expand node and for each neighbor...
             nodes_expanded += 1
+            # if (nodes_expanded) > 10:
+            #     break
 
             neighbors = self.get_neighbors(node)
-
             for neighbor in neighbors:
-                # print(neighbor)
                 # If the neighbor is valid, calculate a new cost-to-come g.
                 neighbor_state = neighbor[:self.n]
                 if self.is_valid_state(neighbor_state):
                     dt = neighbor[self.n]
                     u = neighbor[-self.num_dims:]
-                    g = node.g + dt*(self.rho + (np.linalg.norm(u))**2)
+                    g = node.g + dt*(self.rho)  # + (np.linalg.norm(u)))
 
                     old_neighbor = self.node_dict.get(tuple(neighbor_state.tolist()), None)
                     if old_neighbor is None or g < old_neighbor.g:
                         self.update_node_cost_to_come(neighbor_state, g, parent=node.state)
                         if self.plot:
-                            self.ax.plot(neighbor_state[0], neighbor_state[1], 'ko')
-                            plt.pause(.001)
-
-            #         neighbor = find_node.get(neighbor_index, None)
-            #         # If the cost-to-come g is better than previous, update the node cost and parent.
-            #         if neighbor is None or g < neighbor.g:
-            #             update_node_cost_to_come(neighbor_index, g, parent=node.index)
+                            self.neighbor_list.append(neighbor_state[0:2])
+                            # self.ax.plot(neighbor_state[0], neighbor_state[1], 'k.')
+                            # plt.pause(.001)
 
         print()
         print(f"Nodes in queue at finish: {len(self.queue)}")
@@ -215,7 +216,16 @@ class GraphSearch:
         ax.add_artist(circle)
         positions = path[:, :self.num_dims]
         ax.plot(positions[:, 0], positions[:, 1], 'o')
-        plt.show()
+
+    def plot_all_nodes(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(start_state[0], start_state[1], 'og')
+        ax.plot(goal_state[0], goal_state[1], 'or')
+        n = np.array(self.neighbor_list)
+        plt.plot(n[:, 0], n[:, 1], 'k.')
+        m = np.array(self.expanded_nodes_list)
+        plt.plot(m[:, 0], m[:, 1], 'b.')
 
 
 if __name__ == "__main__":
@@ -225,13 +235,19 @@ if __name__ == "__main__":
 
     start_state = np.zeros((mp.n))
     goal_state = np.ones_like(start_state)
+    goal_state[0] = .5
+    goal_state[1] = .5
     goal_tolerance = np.ones_like(start_state)*.1
-    map_size = [-1, -1, 1, 1]
+    map_size = [-2, -2, 2, 2]
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
-    gs.heuristic = gs.heuristic_type.EUCLIDEAN
-    gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
+    gs.heuristic = gs.heuristic_type.ZERO
+    gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
 
-    path = gs.run_graph_search()
+    with PyCallGraph(output=GraphvizOutput()):
+        path = gs.run_graph_search()
     plt.ioff()
-    gs.plot_path(path)
+    if path is not None:
+        gs.plot_path(path)
+    gs.plot_all_nodes()
+    plt.show()
