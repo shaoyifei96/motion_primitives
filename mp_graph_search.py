@@ -57,9 +57,6 @@ class GraphSearch:
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
                                               [np.repeat(i, self.num_dims) for i in self.motion_primitive.max_state_derivs[:self.control_space_q-1]])
 
-        self.node_dict = {}  # A dict where key is an state and the value is a node in the queue.
-        self.queue = []      # A priority queue of nodes as a heapq.
-
         self.rho = .1
 
         class HeuristicType(Enum):
@@ -87,8 +84,8 @@ class GraphSearch:
             # self.ax.plot(goal_state[0], goal_state[1], 'or')
             # circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
             # self.ax.add_artist(circle)
-            plt.ion()
-            plt.show()
+            # plt.ion()
+            # plt.show()
 
     def is_valid_state(self, state):
         if (state < self.min_state_comparator).any() or (state > self.max_state_comparator).any():
@@ -148,6 +145,9 @@ class GraphSearch:
         return neighbors
 
     def run_graph_search(self, neighbor_method="min_dispersion"):
+        self.node_dict = {}  # A dict where key is an state and the value is a node in the queue.
+        self.queue = []      # A priority queue of nodes as a heapq.
+
         # # Initialize priority queue with start index.
         self.update_node_cost_to_come(self.start_state, 0, None)
 
@@ -173,7 +173,7 @@ class GraphSearch:
             # Otherwise, expand node and for each neighbor...
             nodes_expanded += 1
 
-            #JUST FOR TESTING
+            # JUST FOR TESTING
             # if (nodes_expanded) > 100:
             #     break
 
@@ -204,7 +204,8 @@ class GraphSearch:
 
     def plot_path(self, path):
         fig = plt.figure()
-        ax = fig.add_subplot(111)
+        plt.title((self.get_neighbors.__name__, self.heuristic.__name__))
+        ax = fig.add_subplot(121)
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
@@ -213,8 +214,8 @@ class GraphSearch:
         ax.plot(positions[:, 0], positions[:, 1], 'o--')
 
     def plot_all_nodes(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        fig = plt.gcf()
+        ax = fig.add_subplot(122)
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
@@ -230,12 +231,12 @@ if __name__ == "__main__":
     control_space_q = 2
     num_dims = 2
     file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
-                        str(control_space_q) + '/MotionPrimitive.pkl')
+                     str(control_space_q) + '/MotionPrimitive.pkl')
     with file_path.open('rb') as input:
         mp = pickle.load(input)
         mp.quad_dynamics_polynomial = mp.quad_dynamics_polynomial_symbolic()
 
-    start_state = np.zeros((mp.n))
+    start_state = -np.ones((mp.n))*.2
     goal_state = np.ones_like(start_state)
     goal_state[0] = .5
     goal_state[1] = 1.9
@@ -243,14 +244,22 @@ if __name__ == "__main__":
     map_size = [-2, -2, 2, 2]
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
-    gs.heuristic = gs.heuristic_type.MIN_TIME
-    gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
+    gs.heuristic = gs.heuristic_type.EUCLIDEAN
 
+    # with PyCallGraph(output=GraphvizOutput()):
     # path = gs.run_graph_search()
-    with PyCallGraph(output=GraphvizOutput()):
-        path = gs.run_graph_search()
-    plt.ioff()
+
+    gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
+    path = gs.run_graph_search()
     if path is not None:
         gs.plot_path(path)
     gs.plot_all_nodes()
+
+    gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
+    path = gs.run_graph_search()
+    if path is not None:
+        gs.plot_path(path)
+    gs.plot_all_nodes()
+
     plt.show()
+    # plt.ioff()
