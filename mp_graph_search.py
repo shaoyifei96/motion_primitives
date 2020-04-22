@@ -141,12 +141,11 @@ class GraphSearch:
         start_pt = np.array(node.state)
         closest_start_pt_index = self.mp_start_pts_tree.query(start_pt)[1]
         motion_primitives_list = self.motion_primitive.motion_primitives_list[closest_start_pt_index]
-        neighbors = []
-        for column in motion_primitives_list.T:  # TODO Vectorize!!! Precompute integration
-            neighbors.append(np.concatenate(
-                (self.motion_primitive.quad_dynamics(start_pt, column[1:], column[0]), column)))
-
-        return np.array(neighbors)
+        dt_set = motion_primitives_list[0, :]
+        u_set = motion_primitives_list[1:, :]
+        neighbors = np.array(self.motion_primitive.quad_dynamics_polynomial(start_pt, u_set, dt_set)).T
+        neighbors = np.hstack((neighbors, motion_primitives_list.T))
+        return neighbors
 
     def evenly_spaced_neighbors(self, node):
         dt = .5
@@ -232,6 +231,7 @@ if __name__ == "__main__":
 
     with open('pickle/MotionPrimitive.pkl', 'rb') as input:
         mp = pickle.load(input)
+        mp.quad_dynamics_polynomial = mp.quad_dynamics_polynomial_symbolic()
 
     start_state = np.zeros((mp.n))
     goal_state = np.ones_like(start_state)
@@ -242,8 +242,9 @@ if __name__ == "__main__":
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
     gs.heuristic = gs.heuristic_type.ZERO
-    gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
+    gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
 
+    # path = gs.run_graph_search()
     with PyCallGraph(output=GraphvizOutput()):
         path = gs.run_graph_search()
     plt.ioff()
