@@ -112,10 +112,10 @@ class MotionPrimitive():
         z = np.reshape(y, (y.shape[0]*y.shape[1], y.shape[2]))
         start_pts_grid = np.meshgrid(*z)
         start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
-        start_pts_set = np.vstack((np.zeros_like(start_pts_set[:num_dims, :]), start_pts_set))
+        start_pts_set = np.vstack((np.zeros_like(start_pts_set[:self.num_dims, :]), start_pts_set))
         prim_list = []
         for start_pt in start_pts_set.T:
-            prim_list.append(mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
+            prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
             if self.plot:
                 plt.show()
 
@@ -166,16 +166,28 @@ class MotionPrimitive():
         return sym.lambdify([start_pt, u, dt], x)
 
 
-if __name__ == "__main__":
-    control_space_q = 2
-    num_dims = 2
+def create_many_state_space_lookup_tables(max_control_space):
     num_u_per_dimension = 5
-    max_state_derivs = [1, 1, 1, 1]
-    num_state_deriv_pts = 5
+    max_state_derivs = [2, 2, 1, 1, 1]
+    num_state_deriv_pts = 11
     plot = False
-    mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
-                         num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
-    start_pt = np.ones((mp.n))*0.1
+    moprim_list = [MotionPrimitive(control_space_q, num_dims, num_u_per_dimension,
+                                   max_state_derivs, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 4)]
+    for moprim in moprim_list:
+        print(moprim.control_space_q, moprim.num_dims)
+        moprim.create_state_space_MP_lookup_table()
+
+
+if __name__ == "__main__":
+    # control_space_q = 2
+    # num_dims = 2
+    # num_u_per_dimension = 5
+    # max_state_derivs = [1, 1, 1, 1]
+    # num_state_deriv_pts = 5
+    # plot = False
+    # mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
+    #                      num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+    # start_pt = np.ones((mp.n))*0.1
     # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput()):
@@ -183,9 +195,8 @@ if __name__ == "__main__":
     # mp.compute_min_dispersion_set(start_pt)
     # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
-    mp.create_state_space_MP_lookup_table()
+    # mp.create_state_space_MP_lookup_table()
 
-    # print(mp.quad_dynamics_polynomial(start_pt,[1,1],1.5))
-    # print(mp.quad_dynamics(start_pt,[1,1],1.5))
+    create_many_state_space_lookup_tables(5)
 
     plt.show()
