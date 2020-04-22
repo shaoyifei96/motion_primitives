@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from enum import Enum
 from pycallgraph import PyCallGraph
 from pycallgraph.output import GraphvizOutput
+from pathlib import Path
 
 
 class Node:
@@ -41,8 +42,6 @@ class GraphSearch:
         self.motion_primitive = motion_primitive
         self.start_state = np.array(start_state)
         self.goal_state = np.array(goal_state)
-        # print(self.start_state.T)
-        # print(self.goal_state.T)
         self.goal_tolerance = np.array(goal_tolerance)
         self.map_size = np.array(map_size)
         self.plot = plot
@@ -61,11 +60,7 @@ class GraphSearch:
         self.node_dict = {}  # A dict where key is an state and the value is a node in the queue.
         self.queue = []      # A priority queue of nodes as a heapq.
 
-        # Choose a heuristic function based on input arguments.
-        # self.heuristic = self.zero_heuristic
         self.rho = .1
-        # self.heuristic = self.min_time_heuristic
-        # self.heuristic = self.euclidean_distance_heuristic
 
         class HeuristicType(Enum):
             ZERO = self.zero_heuristic
@@ -129,7 +124,6 @@ class GraphSearch:
         """
         Build path from start point to goal point using the goal node's parents.
         """
-        # Build list of node centers.
         path = [node.state]
         while node.parent:
             path.append(node.parent)
@@ -178,7 +172,9 @@ class GraphSearch:
 
             # Otherwise, expand node and for each neighbor...
             nodes_expanded += 1
-            # if (nodes_expanded) > 10:
+
+            #JUST FOR TESTING
+            # if (nodes_expanded) > 100:
             #     break
 
             neighbors = self.get_neighbors(node)
@@ -214,13 +210,15 @@ class GraphSearch:
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
         ax.add_artist(circle)
         positions = path[:, :self.num_dims]
-        ax.plot(positions[:, 0], positions[:, 1], 'o')
+        ax.plot(positions[:, 0], positions[:, 1], 'o--')
 
     def plot_all_nodes(self):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
+        circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
+        ax.add_artist(circle)
         n = np.array(self.neighbor_list)
         plt.plot(n[:, 0], n[:, 1], 'k.')
         m = np.array(self.expanded_nodes_list)
@@ -229,20 +227,24 @@ class GraphSearch:
 
 if __name__ == "__main__":
 
-    with open('pickle/MotionPrimitive.pkl', 'rb') as input:
+    control_space_q = 2
+    num_dims = 2
+    file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
+                        str(control_space_q) + '/MotionPrimitive.pkl')
+    with file_path.open('rb') as input:
         mp = pickle.load(input)
         mp.quad_dynamics_polynomial = mp.quad_dynamics_polynomial_symbolic()
 
     start_state = np.zeros((mp.n))
     goal_state = np.ones_like(start_state)
     goal_state[0] = .5
-    goal_state[1] = .5
+    goal_state[1] = 1.9
     goal_tolerance = np.ones_like(start_state)*.1
     map_size = [-2, -2, 2, 2]
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
-    gs.heuristic = gs.heuristic_type.ZERO
-    gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
+    gs.heuristic = gs.heuristic_type.MIN_TIME
+    gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
 
     # path = gs.run_graph_search()
     with PyCallGraph(output=GraphvizOutput()):

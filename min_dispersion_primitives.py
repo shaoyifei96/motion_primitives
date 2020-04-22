@@ -10,6 +10,7 @@ from pycallgraph.output import GraphvizOutput
 import time
 import pickle
 import sympy as sym
+from pathlib import Path
 
 
 class MotionPrimitive():
@@ -40,7 +41,7 @@ class MotionPrimitive():
         dt_set = np.linspace(self.min_dt, self.max_dt, self.num_dts)
         u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
-        sample_pts = np.array(self.quad_dynamics_polynomial(start_pt, u_set[:,:,np.newaxis], dt_set[np.newaxis,:]))
+        sample_pts = np.array(self.quad_dynamics_polynomial(start_pt, u_set[:, :, np.newaxis], dt_set[np.newaxis, :]))
         sample_pts = np.transpose(sample_pts, (2, 1, 0))
 
         if self.plot:
@@ -72,7 +73,7 @@ class MotionPrimitive():
         actual_sample_pts = actual_sample_pts.reshape((1, self.n))
         actual_sample_indices = np.array(closest_pt)
         actual_sample_indices = actual_sample_indices.reshape((1, 2))
-        for mp_num in range(self.num_output_mps):  # num_output_mps
+        for mp_num in range(self.num_output_mps-1):  # num_output_mps
             score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1], actual_sample_pts.shape[0]))
             for i in range(actual_sample_pts.shape[0]):  # TODO vectorize
                 score[:, :, i] = np.linalg.norm(potential_sample_pts - actual_sample_pts[i, :], axis=2)
@@ -112,7 +113,6 @@ class MotionPrimitive():
         start_pts_grid = np.meshgrid(*z)
         start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
         start_pts_set = np.vstack((np.zeros_like(start_pts_set[:num_dims, :]), start_pts_set))
-
         prim_list = []
         for start_pt in start_pts_set.T:
             prim_list.append(mp.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
@@ -121,9 +121,12 @@ class MotionPrimitive():
 
         self.start_pts = start_pts_set
         self.motion_primitives_list = prim_list
-        with open('pickle/MotionPrimitive.pkl', 'wb') as output:  # TODO add timestamp of something back
+        file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
+                         str(self.control_space_q) + '/MotionPrimitive.pkl')
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with file_path.open('wb') as output:  # TODO add timestamp of something back
             self.plot = False
-            self.quad_dynamics_polynomial = None # pickle has trouble with lambda function
+            self.quad_dynamics_polynomial = None  # pickle has trouble with lambda function
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def A_and_B_matrices_quadrotor(self):
@@ -161,6 +164,7 @@ class MotionPrimitive():
             x = np.vstack((x, d))
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
+
 
 if __name__ == "__main__":
     control_space_q = 2
