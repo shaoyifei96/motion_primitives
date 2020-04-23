@@ -5,7 +5,7 @@ import scipy.integrate as integrate
 from scipy.special import factorial
 import matplotlib.pyplot as plt
 import cProfile
-from pycallgraph import PyCallGraph
+from pycallgraph import PyCallGraph, Config
 from pycallgraph.output import GraphvizOutput
 import time
 import pickle
@@ -24,13 +24,14 @@ class MotionPrimitive():
         self.plot = plot
 
         self.n = (self.control_space_q)*self.num_dims
-        self.num_output_mps = num_u_per_dimension**num_dims
+        self.num_output_mps = self.num_u_per_dimension**self.num_dims
 
-        self.max_u = 1  # max control input #TODO should be a vector b/c different in Z
-        self.num_u_set = 20  # Number of MPs to consider at a given time
+        # max control input #TODO should be a vector b/c different in Z
+        self.max_u = self.max_state_derivs[self.control_space_q-1]
+        self.num_u_set = 10  # Number of MPs to consider at a given time
         self.min_dt = 0
         self.max_dt = .5  # Max time horizon of MP
-        self.num_dts = 30  # Number of time horizons to consider between 0 and max_dt
+        self.num_dts = 10  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
@@ -73,10 +74,8 @@ class MotionPrimitive():
         actual_sample_pts = actual_sample_pts.reshape((1, self.n))
         actual_sample_indices = np.array(closest_pt)
         actual_sample_indices = actual_sample_indices.reshape((1, 2))
-        for mp_num in range(self.num_output_mps-1):  # num_output_mps
-            score = np.zeros((potential_sample_pts.shape[0], potential_sample_pts.shape[1], actual_sample_pts.shape[0]))
-            for i in range(actual_sample_pts.shape[0]):  # TODO vectorize
-                score[:, :, i] = np.linalg.norm(potential_sample_pts - actual_sample_pts[i, :], axis=2)
+        for mp_num in range(self.num_output_mps-1):
+            score = np.linalg.norm(potential_sample_pts[:, :, :, np.newaxis] - actual_sample_pts.T, axis=2)
             score = np.amin(score, axis=2)
             score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
             dt_index, du_index = np.where(score == np.amax(score))
@@ -116,6 +115,7 @@ class MotionPrimitive():
         prim_list = []
         for start_pt in start_pts_set.T:
             prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
+            # print(len(prim_list))
             if self.plot:
                 plt.show()
 
@@ -180,7 +180,7 @@ def create_many_state_space_lookup_tables(max_control_space):
 
 if __name__ == "__main__":
     # control_space_q = 2
-    # num_dims = 2
+    # num_dims = 3
     # num_u_per_dimension = 5
     # max_state_derivs = [1, 1, 1, 1]
     # num_state_deriv_pts = 5
@@ -190,9 +190,8 @@ if __name__ == "__main__":
     # start_pt = np.ones((mp.n))*0.1
     # mp.compute_all_possible_mps(start_pt)
 
-    # with PyCallGraph(output=GraphvizOutput()):
-
-    # mp.compute_min_dispersion_set(start_pt)
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
+    #     mp.compute_min_dispersion_set(start_pt)
     # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
     # mp.create_state_space_MP_lookup_table()
