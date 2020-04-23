@@ -27,10 +27,10 @@ class MotionPrimitive():
         self.num_output_mps = num_u_per_dimension**num_dims
 
         self.max_u = 1  # max control input #TODO should be a vector b/c different in Z
-        self.num_u_set = 30  # Number of MPs to consider at a given time
+        self.num_u_set = 20  # Number of MPs to consider at a given time
         self.min_dt = 0
         self.max_dt = .5  # Max time horizon of MP
-        self.num_dts = 60  # Number of time horizons to consider between 0 and max_dt
+        self.num_dts = 30  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
