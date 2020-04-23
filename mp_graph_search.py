@@ -73,17 +73,8 @@ class GraphSearch:
 
         self.mp_start_pts_tree = spatial.KDTree(self.motion_primitive.start_pts.T)
 
-        if self.plot:
-            self.neighbor_list = []
-            self.expanded_nodes_list = []
-            # fig = plt.figure()
-            # self.ax = fig.add_subplot(111)
-            # self.ax.plot(start_state[0], start_state[1], 'og')
-            # self.ax.plot(goal_state[0], goal_state[1], 'or')
-            # circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
-            # self.ax.add_artist(circle)
-            # plt.ion()
-            # plt.show()
+        self.neighbor_list = []
+        self.expanded_nodes_list = []
 
     def is_valid_state(self, state):
         if (state < self.min_state_comparator).any() or (state > self.max_state_comparator).any():
@@ -142,20 +133,25 @@ class GraphSearch:
         return neighbors
 
     def evenly_spaced_neighbors(self, node):
-        dt = .5
+        dt = 1.2
         s = np.reshape(np.array(node.state), (self.n, 1))
         neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt)
         return neighbors
 
-    def run_graph_search(self, neighbor_method="min_dispersion"):
+    def reset_graph_search(self):
         self.node_dict = {}  # A dict where key is an state and the value is a node in the queue.
         self.queue = []      # A priority queue of nodes as a heapq.
+        self.neighbor_list = []
+        self.expanded_nodes_list = []
 
+    def run_graph_search(self, neighbor_method="min_dispersion"):
+        self.reset_graph_search()
         # # Initialize priority queue with start index.
         self.update_node_cost_to_come(self.start_state, 0, None, None, None)
 
         # # While queue is not empty, pop the next smallest total cost f node.
         path = None
+        poly = None
         nodes_expanded = 0
         while self.queue:
             node = heappop(self.queue)
@@ -170,7 +166,7 @@ class GraphSearch:
             # If node is the goal node, return path.
             # TODO separately compare derivative for goal tolerance
             if np.linalg.norm(node.state[:self.num_dims] - self.goal_state[:self.num_dims]) < self.goal_tolerance[0]:
-                path = self.build_path(node)
+                path, poly = self.build_path(node)
                 break
 
             # Otherwise, expand node and for each neighbor...
@@ -203,16 +199,18 @@ class GraphSearch:
         print()
         print(f"Nodes expanded: {nodes_expanded}")
 
-        return path
+        if path is None:
+            print("No path found")
+        return path, poly
 
-    def plot_path(self, path, poly, fig=None):
+    def plot_path(self, path, poly, fig=None, axs=None):
         if fig is None:
-            fig = plt.figure()
-            ax = fig.add_subplot(221)
+            fig, axs = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+            ax = axs[0][0]
         else:
-            ax = fig.add_subplot(223)
-        ax.set_aspect('equal')
-        plt.title((self.get_neighbors.__name__, self.heuristic.__name__))
+            ax = axs[1][0]
+        ax.set_aspect('equal', 'box')
+        ax.set_title((self.get_neighbors.__name__, self.heuristic.__name__))
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
@@ -221,27 +219,31 @@ class GraphSearch:
         poly_positions = poly[:, :self.num_dims]
         ax.plot(positions[:, 0], positions[:, 1], 'o')
         ax.plot(poly_positions[:, 0], poly_positions[:, 1], '-')
+        ax.tick_params(reset=True)
+        return fig, axs
 
-    def plot_all_nodes(self, fig=None):
+    def plot_all_nodes(self, fig=None, axs=None):
         if fig is None:
             fig = plt.gcf()
-            ax = fig.add_subplot(222)
+            ax = axs[0][1]
         else:
-            ax = fig.add_subplot(224)
-        ax.set_aspect('equal')
+            ax = axs[1][1]
+        ax.set_aspect('equal', 'box')
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
         ax.add_artist(circle)
         n = np.array(self.neighbor_list)
-        plt.plot(n[:, 0], n[:, 1], 'k.')
+        ax.plot(n[:, 0], n[:, 1], 'k.')
         m = np.array(self.expanded_nodes_list)
-        plt.plot(m[:, 0], m[:, 1], 'c.')
+        ax.plot(m[:, 0], m[:, 1], 'c.')
+        ax.tick_params(reset=True)
+
 
 
 if __name__ == "__main__":
 
-    control_space_q = 4
+    control_space_q = 3
     num_dims = 2
     file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
                      str(control_space_q) + '/MotionPrimitive.pkl')
@@ -249,12 +251,15 @@ if __name__ == "__main__":
         mp = pickle.load(input)
         mp.quad_dynamics_polynomial = mp.quad_dynamics_polynomial_symbolic()
 
-    start_state = -np.ones((mp.n))*.2
+    map_size = [-2, -2, 2, 2]
+    start_state = -np.ones((mp.n))*.1
     goal_state = np.ones_like(start_state)
+    # start_state = np.array(np.random.rand(mp.n) * [map_size[-1], *mp.max_state_derivs]/5)
+    # goal_state = np.random.rand(mp.n) * [map_size[-1], *mp.max_state_derivs]
     goal_state[0] = .7
     goal_state[1] = 1.8
+
     goal_tolerance = np.ones_like(start_state)*.2
-    map_size = [-2, -2, 2, 2]
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
     gs.heuristic = gs.heuristic_type.EUCLIDEAN
@@ -266,16 +271,15 @@ if __name__ == "__main__":
     gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
     path, poly = gs.run_graph_search()
     if path is not None:
-        gs.plot_path(path, poly)
-    gs.plot_all_nodes()
+        fig, axs = gs.plot_path(path, poly)
+    gs.plot_all_nodes(axs=axs)
 
     print("Evenly Spaced:")
-    fig = plt.gcf()
     gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
     path, poly = gs.run_graph_search()
     if path is not None:
-        gs.plot_path(path, poly, fig)
-    gs.plot_all_nodes(fig)
+        gs.plot_path(path, poly, fig,axs)
+    gs.plot_all_nodes(fig,axs)
 
     plt.show()
     # plt.ioff()
