@@ -75,7 +75,8 @@ class MotionPrimitive():
         actual_sample_indices = np.array(closest_pt)
         actual_sample_indices = actual_sample_indices.reshape((1, 2))
         for mp_num in range(self.num_output_mps-1):
-            score = np.linalg.norm(potential_sample_pts[:, :, :, np.newaxis] - actual_sample_pts.T, axis=2)
+            score = np.linalg.norm((potential_sample_pts[:, :, :, np.newaxis] - actual_sample_pts.T), axis=2)
+            # score = np.linalg.norm((potential_sample_pts[:, :, :, np.newaxis] - actual_sample_pts.T)[:,:,:2], axis=2)
             score = np.amin(score, axis=2)
             score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
             dt_index, du_index = np.where(score == np.amax(score))
@@ -84,10 +85,10 @@ class MotionPrimitive():
             actual_sample_indices = np.vstack((actual_sample_indices, np.array((dt_index[0], du_index[0]))))
         if self.plot:
             if self.num_dims > 1:
-                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'ob')
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], '.c')
                 self.create_evenly_spaced_mps(start_pt, self.max_dt/2.0)
             else:
-                plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'ob')
+                plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), '.c')
 
         dts = dt_set[actual_sample_indices[:, 0]]
         us = u_set[:, actual_sample_indices[:, 1]]
@@ -169,7 +170,7 @@ class MotionPrimitive():
 def create_many_state_space_lookup_tables(max_control_space):
     num_u_per_dimension = 3
     max_state_derivs = [2, 2, 1, 1, 1]
-    num_state_deriv_pts = 11
+    num_state_deriv_pts = 5
     plot = False
     moprim_list = [MotionPrimitive(control_space_q, num_dims, num_u_per_dimension,
                                    max_state_derivs, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 4)]
@@ -184,7 +185,7 @@ if __name__ == "__main__":
     # num_u_per_dimension = 3
     # max_state_derivs = [1, 1, 1, 1]
     # num_state_deriv_pts = 11
-    # plot = False
+    # plot = True
     # mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
     #                      num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     # start_pt = np.ones((mp.n))*0.1
