@@ -115,7 +115,7 @@ class MotionPrimitive():
         prim_list = []
         for start_pt in start_pts_set.T:
             prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
-            # print(len(prim_list))
+            print(str(len(prim_list)) + '/' + str(start_pts_set.shape[1]))
             if self.plot:
                 plt.show()
 
@@ -167,7 +167,7 @@ class MotionPrimitive():
 
 
 def create_many_state_space_lookup_tables(max_control_space):
-    num_u_per_dimension = 5
+    num_u_per_dimension = 3
     max_state_derivs = [2, 2, 1, 1, 1]
     num_state_deriv_pts = 11
     plot = False
@@ -181,20 +181,20 @@ def create_many_state_space_lookup_tables(max_control_space):
 if __name__ == "__main__":
     # control_space_q = 2
     # num_dims = 3
-    # num_u_per_dimension = 5
+    # num_u_per_dimension = 3
     # max_state_derivs = [1, 1, 1, 1]
-    # num_state_deriv_pts = 5
+    # num_state_deriv_pts = 11
     # plot = False
     # mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
     #                      num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     # start_pt = np.ones((mp.n))*0.1
-    # mp.compute_all_possible_mps(start_pt)
+    # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
-    #     mp.compute_min_dispersion_set(start_pt)
-    # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
+    #     # mp.compute_min_dispersion_set(start_pt)
+    #     mp.create_state_space_MP_lookup_table()
 
-    # mp.create_state_space_MP_lookup_table()
+    # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
     create_many_state_space_lookup_tables(5)
 
