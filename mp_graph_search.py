@@ -1,7 +1,3 @@
-"""
-Implements Octile heuristic and priority queue based on lexicographical sort of (f, -g).
-"""
-
 from heapq import heappush, heappop, heapify  # Recommended.
 import numpy as np
 import itertools
@@ -21,10 +17,12 @@ class Node:
     Container for node data. Nodes are sortable by the value of (f, -g).
     """
 
-    def __init__(self, g, h, state, parent):
+    def __init__(self, g, h, u, dt, state, parent):
         self.f = g + h          # total-cost
         self.g = g              # cost-to-come
         self.h = h              # heuristic
+        self.u = u
+        self.dt = dt
         self.state = state      # (i,j,k)
         self.parent = parent    # (i,j,k)
         self.is_closed = False  # True if node has been closed.
@@ -57,7 +55,7 @@ class GraphSearch:
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
                                               [np.repeat(i, self.num_dims) for i in self.motion_primitive.max_state_derivs[:self.control_space_q-1]])
 
-        self.rho = .1
+        self.rho = 0.0
 
         class HeuristicType(Enum):
             ZERO = self.zero_heuristic
@@ -102,7 +100,7 @@ class GraphSearch:
     def euclidean_distance_heuristic(self, state):
         return np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims])
 
-    def update_node_cost_to_come(self, state, g, parent):
+    def update_node_cost_to_come(self, state, g, u=None, dt=None, parent=None):
         """
         Update a node with new cost-to-come g and parent.
         """
@@ -110,10 +108,10 @@ class GraphSearch:
         old = self.node_dict.get(state, None)
         if old is not None:
             old.is_closed = True
-            new = Node(g, old.h, state, parent)
+            new = Node(g, old.h, u, dt, state, parent)
         else:
             h = self.heuristic(state)
-            new = Node(g, h, state, parent)
+            new = Node(g, h, u, dt, state, parent)
         self.node_dict[state] = new
         heappush(self.queue, new)
 
@@ -122,11 +120,16 @@ class GraphSearch:
         Build path from start point to goal point using the goal node's parents.
         """
         path = [node.state]
+        polynomial_for_plotting = []
         while node.parent:
+            for dt in np.flip(np.arange(0, node.dt, .02)):
+                polynomial_for_plotting.append(
+                    (self.motion_primitive.quad_dynamics_polynomial(node.parent, node.u, dt)))
             path.append(node.parent)
             node = self.node_dict[node.parent]
         path.reverse()
-        return np.array(path)
+        polynomial_for_plotting.reverse()
+        return np.array(path), np.array(polynomial_for_plotting)
 
     def min_dipsersion_neighbors(self, node):
         start_pt = np.array(node.state)
@@ -149,7 +152,7 @@ class GraphSearch:
         self.queue = []      # A priority queue of nodes as a heapq.
 
         # # Initialize priority queue with start index.
-        self.update_node_cost_to_come(self.start_state, 0, None)
+        self.update_node_cost_to_come(self.start_state, 0, None, None, None)
 
         # # While queue is not empty, pop the next smallest total cost f node.
         path = None
@@ -184,11 +187,11 @@ class GraphSearch:
                 if self.is_valid_state(neighbor_state):
                     dt = neighbor[self.n]
                     u = neighbor[-self.num_dims:]
-                    g = node.g + dt*(self.rho)  # + (np.linalg.norm(u)))
+                    g = node.g + dt*(self.rho)  # + (np.linalg.norm(u))*.1
 
                     old_neighbor = self.node_dict.get(tuple(neighbor_state.tolist()), None)
                     if old_neighbor is None or g < old_neighbor.g:
-                        self.update_node_cost_to_come(neighbor_state, g, parent=node.state)
+                        self.update_node_cost_to_come(neighbor_state, g, u, dt, parent=node.state)
                         if self.plot:
                             self.neighbor_list.append(neighbor_state[0:2])
                             # self.ax.plot(neighbor_state[0], neighbor_state[1], 'k.')
@@ -202,20 +205,30 @@ class GraphSearch:
 
         return path
 
-    def plot_path(self, path):
-        fig = plt.figure()
+    def plot_path(self, path, poly, fig=None):
+        if fig is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(221)
+        else:
+            ax = fig.add_subplot(223)
+        ax.set_aspect('equal')
         plt.title((self.get_neighbors.__name__, self.heuristic.__name__))
-        ax = fig.add_subplot(121)
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
         ax.add_artist(circle)
         positions = path[:, :self.num_dims]
-        ax.plot(positions[:, 0], positions[:, 1], 'o--')
+        poly_positions = poly[:, :self.num_dims]
+        ax.plot(positions[:, 0], positions[:, 1], 'o')
+        ax.plot(poly_positions[:, 0], poly_positions[:, 1], '-')
 
-    def plot_all_nodes(self):
-        fig = plt.gcf()
-        ax = fig.add_subplot(122)
+    def plot_all_nodes(self, fig=None):
+        if fig is None:
+            fig = plt.gcf()
+            ax = fig.add_subplot(222)
+        else:
+            ax = fig.add_subplot(224)
+        ax.set_aspect('equal')
         ax.plot(start_state[0], start_state[1], 'og')
         ax.plot(goal_state[0], goal_state[1], 'or')
         circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
@@ -223,12 +236,12 @@ class GraphSearch:
         n = np.array(self.neighbor_list)
         plt.plot(n[:, 0], n[:, 1], 'k.')
         m = np.array(self.expanded_nodes_list)
-        plt.plot(m[:, 0], m[:, 1], 'b.')
+        plt.plot(m[:, 0], m[:, 1], 'c.')
 
 
 if __name__ == "__main__":
 
-    control_space_q = 2
+    control_space_q = 4
     num_dims = 2
     file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
                      str(control_space_q) + '/MotionPrimitive.pkl')
@@ -238,9 +251,9 @@ if __name__ == "__main__":
 
     start_state = -np.ones((mp.n))*.2
     goal_state = np.ones_like(start_state)
-    goal_state[0] = .5
-    goal_state[1] = 1.9
-    goal_tolerance = np.ones_like(start_state)*.1
+    goal_state[0] = .7
+    goal_state[1] = 1.8
+    goal_tolerance = np.ones_like(start_state)*.2
     map_size = [-2, -2, 2, 2]
     plot = True
     gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
@@ -249,17 +262,20 @@ if __name__ == "__main__":
     # with PyCallGraph(output=GraphvizOutput()):
     # path = gs.run_graph_search()
 
+    print("Min dispersion:")
     gs.get_neighbors = gs.neighbor_type.MIN_DISPERSION
-    path = gs.run_graph_search()
+    path, poly = gs.run_graph_search()
     if path is not None:
-        gs.plot_path(path)
+        gs.plot_path(path, poly)
     gs.plot_all_nodes()
 
+    print("Evenly Spaced:")
+    fig = plt.gcf()
     gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
-    path = gs.run_graph_search()
+    path, poly = gs.run_graph_search()
     if path is not None:
-        gs.plot_path(path)
-    gs.plot_all_nodes()
+        gs.plot_path(path, poly, fig)
+    gs.plot_all_nodes(fig)
 
     plt.show()
     # plt.ioff()
