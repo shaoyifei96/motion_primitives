@@ -90,10 +90,10 @@ class MotionPrimitive():
 
         if self.plot:
             if self.num_dims > 1:
-                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], '.c')
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
                 self.create_evenly_spaced_mps(start_pt, self.max_dt/2.0)
             else:
-                plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), '.c')
+                plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'om')
 
         dts = dt_set[actual_sample_indices[:, 0]]
         us = u_set[:, actual_sample_indices[:, 1]]
@@ -106,7 +106,7 @@ class MotionPrimitive():
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
         sample_pts = np.array(self.quad_dynamics_polynomial(start_pt, u_set, dt))
         if self.plot:
-            plt.plot(sample_pts[0, :], sample_pts[1, :], '.y')
+            plt.plot(sample_pts[0, :], sample_pts[1, :], '*c')
 
         return np.vstack((sample_pts, np.ones((1, self.num_output_mps))*dt, u_set)).T
 
@@ -190,15 +190,15 @@ if __name__ == "__main__":
     num_u_per_dimension = 5
     max_state_derivs = [1, 1, 1, 1]
     num_state_deriv_pts = 3
-    plot = False
+    plot = True
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))*0.1
     # # mp.compute_all_possible_mps(start_pt)
 
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
-        # mp.compute_min_dispersion_set(start_pt)
-        mp.create_state_space_MP_lookup_table()
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
+    mp.compute_min_dispersion_set(start_pt)
+    # mp.create_state_space_MP_lookup_table()
 
     # # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
