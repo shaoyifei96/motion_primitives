@@ -68,22 +68,26 @@ class MotionPrimitive():
 
         # comparison_pts = np.vstack((border, start_pt.T))
         # TODO add stopping policy?
-        a = np.linalg.norm(potential_sample_pts-start_pt.T, axis=2)
-        closest_pt = np.unravel_index(np.argmin(a, axis=None), a.shape)
-        actual_sample_pts = potential_sample_pts[closest_pt]
-        actual_sample_pts = actual_sample_pts.reshape((1, self.n))
-        actual_sample_indices = np.array(closest_pt)
-        actual_sample_indices = actual_sample_indices.reshape((1, 2))
+
+        actual_sample_pts = np.zeros((self.num_output_mps, self.n))
+        actual_sample_indices = np.zeros((self.num_output_mps, 2))
+        actual_sample_indices = actual_sample_indices.astype(int)
+        score = np.ones((self.num_dts, self.num_u_set**self.num_dims, self.num_output_mps))*10**10
+
+        first_score = np.linalg.norm(potential_sample_pts-start_pt.T, axis=2)
+        closest_pt = np.unravel_index(np.argmin(first_score, axis=None), first_score.shape)
+        actual_sample_pts[0, :] = potential_sample_pts[closest_pt]
+        actual_sample_indices[0, :] = np.array(closest_pt)
+        score[:, :, 0] = first_score
         for mp_num in range(self.num_output_mps-1):
-            score = np.linalg.norm((potential_sample_pts[:, :, :, np.newaxis] - actual_sample_pts.T), axis=2)
-            # score = np.linalg.norm((potential_sample_pts[:, :, :, np.newaxis] -
-            #                         actual_sample_pts.T)[:, :, :self.num_dims], axis=2)
-            score = np.amin(score, axis=2)
-            score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
-            dt_index, du_index = np.where(score == np.amax(score))
+            min_score = np.amin(score, axis=2)
+            min_score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = -10**10
+            dt_index, du_index = np.where(min_score == np.amax(min_score))
             result_pt = potential_sample_pts[dt_index[0], du_index[0], :].T
-            actual_sample_pts = np.vstack((actual_sample_pts, result_pt))
-            actual_sample_indices = np.vstack((actual_sample_indices, np.array((dt_index[0], du_index[0]))))
+            actual_sample_pts[mp_num+1, :] = result_pt
+            actual_sample_indices[mp_num+1, :] = np.array((dt_index[0], du_index[0]))
+            score[:, :, mp_num+1] = np.linalg.norm((potential_sample_pts - result_pt.T), axis=2)
+
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], '.c')
@@ -117,7 +121,7 @@ class MotionPrimitive():
         prim_list = []
         for start_pt in start_pts_set.T:
             prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
-            print(str(len(prim_list)) + '/' + str(start_pts_set.shape[1]))
+            # print(str(len(prim_list)) + '/' + str(start_pts_set.shape[1]))
             if self.plot:
                 plt.show()
 
@@ -154,8 +158,8 @@ class MotionPrimitive():
         return expm(self.A*dt)@start_pt + integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]@u
 
     def quad_dynamics_polynomial_symbolic(self):
-        start_pt = sym.Matrix([sym.symbols('start_pt%d' % i) for i in range(self.n)])
-        u = sym.Matrix([sym.symbols('u%d' % i) for i in range(self.num_dims)])
+        start_pt = sym.Matrix([sym.symbols(f'start_pt{i}') for i in range(self.n)])
+        u = sym.Matrix([sym.symbols(f'u{i}') for i in range(self.num_dims)])
         dt = sym.symbols('dt')
         pos = u*dt**self.control_space_q/factorial(self.control_space_q)
         for i in range(self.control_space_q):
@@ -169,7 +173,7 @@ class MotionPrimitive():
 
 
 def create_many_state_space_lookup_tables(max_control_space):
-    num_u_per_dimension = 5
+    num_u_per_dimension = 3
     max_state_derivs = [2, 2, 1, 1, 1]
     num_state_deriv_pts = 7
     plot = False
@@ -181,23 +185,23 @@ def create_many_state_space_lookup_tables(max_control_space):
 
 
 if __name__ == "__main__":
-    # control_space_q = 3
-    # num_dims = 2
-    # num_u_per_dimension = 5
-    # max_state_derivs = [1, 1, 1, 1]
-    # num_state_deriv_pts = 11
-    # plot = False
-    # mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
-    #                      num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
-    # start_pt = np.ones((mp.n))*0.1
+    control_space_q = 3
+    num_dims = 2
+    num_u_per_dimension = 5
+    max_state_derivs = [1, 1, 1, 1]
+    num_state_deriv_pts = 3
+    plot = False
+    mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
+                         num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+    start_pt = np.ones((mp.n))*0.1
     # # mp.compute_all_possible_mps(start_pt)
 
-    # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
-    # # mp.compute_min_dispersion_set(start_pt)
-    # mp.create_state_space_MP_lookup_table()
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
+        # mp.compute_min_dispersion_set(start_pt)
+        mp.create_state_space_MP_lookup_table()
 
     # # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
-    create_many_state_space_lookup_tables(5)
+    # create_many_state_space_lookup_tables(5)
 
     plt.show()
