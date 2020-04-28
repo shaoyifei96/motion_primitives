@@ -11,7 +11,8 @@ import time
 import pickle
 import sympy as sym
 from pathlib import Path
-
+from sklearn.neighbors import NearestNeighbors
+from scipy.integrate import solve_bvp
 
 class MotionPrimitive():
     """
@@ -48,6 +49,15 @@ class MotionPrimitive():
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
+
+    def pickle_self(self):
+        file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
+                         str(self.control_space_q) + '/MotionPrimitive.pkl')
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with file_path.open('wb') as output:  # TODO add timestamp of something back
+            self.plot = False
+            self.quad_dynamics_polynomial = None  # pickle has trouble with lambda function
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def compute_all_possible_mps(self, start_pt):
         """
@@ -92,9 +102,7 @@ class MotionPrimitive():
         return pts
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
-        actual_sample_pts = np.zeros((num_output_pts, self.n))
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
-        actual_sample_pts[0, :] = potential_sample_pts[starting_output_sample_index]
         actual_sample_indices[0] = starting_output_sample_index
 
         # distances of potential sample points to closest chosen output MP node # bottleneck
@@ -106,11 +114,11 @@ class MotionPrimitive():
             # take the new point with the maximum distance to its closest node
             index = np.argmax(min_score[:, 0])
             result_pt = potential_sample_pts[index, :]
-            actual_sample_pts[mp_num, :] = result_pt
             actual_sample_indices[mp_num] = np.array((index))
             min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
             min_score[:, 1] = np.linalg.norm((potential_sample_pts - result_pt), axis=1)  # new point's score
 
+        actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
 
     def compute_min_dispersion_set(self, start_pt):
@@ -155,9 +163,7 @@ class MotionPrimitive():
         """
         # Generate all points
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        potential_sample_pts = self.uniform_state_set(bounds, resolution)
-        # potential_sample_pts = potential_sample_pts[:, np.newaxis, :]
-        # print(potential_sample_pts.shape)
+        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
 
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
@@ -165,6 +171,8 @@ class MotionPrimitive():
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
+
+        return actual_sample_pts
 
     def create_evenly_spaced_mps(self, start_pt, dt):
         """
@@ -181,19 +189,21 @@ class MotionPrimitive():
 
         return np.vstack((sample_pts, np.ones((1, self.num_output_mps))*dt, u_set)).T
 
-    def create_state_space_MP_lookup_table(self):
+    def create_state_space_MP_lookup_table_tree(self):
         """
         Uniformly sample the state space, and for each sample independently
         calculate a minimum dispersion set of motion primitives.
         """
 
         # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
+        # TODO replace with Jimmy's cleaner uniform_sample function
         y = np.array([np.tile(np.linspace(-i, i, self.num_state_deriv_pts), (self.num_dims, 1))
                       for i in self.max_state[1:self.control_space_q]])  # start at 1 to skip position
         z = np.reshape(y, (y.shape[0]*y.shape[1], y.shape[2]))
         start_pts_grid = np.meshgrid(*z)
         start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
         start_pts_set = np.vstack((np.zeros_like(start_pts_set[:self.num_dims, :]), start_pts_set))
+
         prim_list = []
         for start_pt in start_pts_set.T:
             prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
@@ -203,13 +213,19 @@ class MotionPrimitive():
 
         self.start_pts = start_pts_set
         self.motion_primitives_list = prim_list
-        file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
-                         str(self.control_space_q) + '/MotionPrimitive.pkl')
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with file_path.open('wb') as output:  # TODO add timestamp of something back
-            self.plot = False
-            self.quad_dynamics_polynomial = None  # pickle has trouble with lambda function
-            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+        self.pickle_self()
+
+    def create_state_space_MP_lookup_table_lattice(self, resolution=[.1, .1, .1]):
+        lattice_pts = self.compute_min_dispersion_space()
+        bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
+        start_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q]) # TODO make sure lattice points are included in start pts
+        nbrs = NearestNeighbors(n_neighbors=self.num_output_mps, algorithm='ball_tree').fit(
+            lattice_pts)  # check into other metrics and algorithm types (kdtree)
+        indices = nbrs.kneighbors(start_pts, return_distance=False)
+        knn_pts = lattice_pts[indices].shape
+        # self.compute_mps_from_BCs(knn_pts)
+
+        # self.pickle_self()
 
     def A_and_B_matrices_quadrotor(self):
         """
@@ -263,6 +279,16 @@ class MotionPrimitive():
             x = np.vstack((x, d))
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
+        
+    # def compute_mps_from_BCs(self,pt):
+    #     def fn(t,x,u):
+    #         return self.A@x +self.B@u
+    #     def bc(x1,x2,u):
+    #         return 
+    #     dt = np.linspace(0, 1, 5)
+
+    #     u=0
+    #     solve_bvp(fun,bc,dt,)
 
 
 def create_many_state_space_lookup_tables(max_control_space):
@@ -281,21 +307,22 @@ def create_many_state_space_lookup_tables(max_control_space):
 
 
 if __name__ == "__main__":
-    control_space_q = 3
+    control_space_q = 2
     num_dims = 2
     num_u_per_dimension = 5
     max_state = [1, .5, 1, 1]
     num_state_deriv_pts = 7
-    plot = True
+    plot = False
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))*0.01
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
-    mp.compute_min_dispersion_set(start_pt)
+    # mp.compute_min_dispersion_set(start_pt)
     # mp.compute_min_dispersion_space()
-    # mp.create_state_space_MP_lookup_table()
+    # mp.create_state_space_MP_lookup_table_tree()
+    mp.create_state_space_MP_lookup_table_lattice()
 
     # # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
