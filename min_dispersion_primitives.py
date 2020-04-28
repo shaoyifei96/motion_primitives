@@ -96,16 +96,21 @@ class MotionPrimitive():
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_pts[0, :] = potential_sample_pts[starting_output_sample_index]
         actual_sample_indices[0] = starting_output_sample_index
+
+        # distances of potential sample points to closest chosen output MP node # bottleneck
+        min_score = np.ones((score.shape[0], 2))*np.inf
         for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
-            min_score = np.amin(score, axis=1)  # distances of potential sample points to closest chosen output MP node # bottleneck
+            # distances of potential sample points to closest chosen output MP node
+            min_score[:, 0] = np.amin(min_score, axis=1)
             # take the new point with the maximum distance to its closest node
-            # dt_index, du_index = np.unravel_index(np.argmax(min_score, axis=None), min_score.shape)
-            index = np.argmax(min_score)
+            index = np.argmax(min_score[:, 0])
             result_pt = potential_sample_pts[index, :]
             actual_sample_pts[mp_num, :] = result_pt
             actual_sample_indices[mp_num] = np.array((index))
             score[:, mp_num] = np.linalg.norm((potential_sample_pts - result_pt), axis=1)
             score[index, :] = - np.inf  # give nodes we have already chosen low score
+            min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
+            min_score[:, 1] = score[:, mp_num]
 
         return actual_sample_pts, actual_sample_indices
 
@@ -143,7 +148,7 @@ class MotionPrimitive():
 
         return np.vstack((dts, us))
 
-    def compute_min_dispersion_space(self, num_output_pts=25, resolution=[0.2, 0.2, 0.2]):
+    def compute_min_dispersion_space(self, num_output_pts=250, resolution=[0.2, 0.2, 0.2]):
         """
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
