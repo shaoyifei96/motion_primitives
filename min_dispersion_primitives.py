@@ -91,14 +91,15 @@ class MotionPrimitive():
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
 
-    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, score, starting_output_sample_index):
+    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
         actual_sample_pts = np.zeros((num_output_pts, self.n))
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_pts[0, :] = potential_sample_pts[starting_output_sample_index]
         actual_sample_indices[0] = starting_output_sample_index
 
         # distances of potential sample points to closest chosen output MP node # bottleneck
-        min_score = np.ones((score.shape[0], 2))*np.inf
+        min_score = np.ones((starting_score.shape[0], 2))*np.inf
+        min_score[:, 0] = np.amin(starting_score, axis=1)
         for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
             # distances of potential sample points to closest chosen output MP node
             min_score[:, 0] = np.amin(min_score, axis=1)
@@ -107,10 +108,8 @@ class MotionPrimitive():
             result_pt = potential_sample_pts[index, :]
             actual_sample_pts[mp_num, :] = result_pt
             actual_sample_indices[mp_num] = np.array((index))
-            score[:, mp_num] = np.linalg.norm((potential_sample_pts - result_pt), axis=1)
-            score[index, :] = - np.inf  # give nodes we have already chosen low score
             min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
-            min_score[:, 1] = score[:, mp_num]
+            min_score[:, 1] = np.linalg.norm((potential_sample_pts - result_pt), axis=1)  # new point's score
 
         return actual_sample_pts, actual_sample_indices
 
