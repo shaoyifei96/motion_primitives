@@ -93,19 +93,19 @@ class MotionPrimitive():
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, score, starting_output_sample_index):
         actual_sample_pts = np.zeros((num_output_pts, self.n))
-        actual_sample_indices = np.zeros((num_output_pts, 2)).astype(int)
+        actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_pts[0, :] = potential_sample_pts[starting_output_sample_index]
-        actual_sample_indices[0, :] = np.array(starting_output_sample_index)
-
+        actual_sample_indices[0] = starting_output_sample_index
         for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
-            min_score = np.amin(score, axis=2)  # distances of potential sample points to closest chosen output MP node
-            min_score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = - np.inf  # give nodes we have already chosen low score
+            min_score = np.amin(score, axis=1)  # distances of potential sample points to closest chosen output MP node # bottleneck
             # take the new point with the maximum distance to its closest node
-            dt_index, du_index = np.unravel_index(np.argmax(min_score, axis=None), min_score.shape)
-            result_pt = potential_sample_pts[dt_index, du_index, :].T
+            # dt_index, du_index = np.unravel_index(np.argmax(min_score, axis=None), min_score.shape)
+            index = np.argmax(min_score)
+            result_pt = potential_sample_pts[index, :]
             actual_sample_pts[mp_num, :] = result_pt
-            actual_sample_indices[mp_num, :] = np.array((dt_index, du_index))
-            score[:, :, mp_num] = np.linalg.norm((potential_sample_pts - result_pt.T), axis=2)
+            actual_sample_indices[mp_num] = np.array((index))
+            score[:, mp_num] = np.linalg.norm((potential_sample_pts - result_pt), axis=1)
+            score[index, :] = - np.inf  # give nodes we have already chosen low score
 
         return actual_sample_pts, actual_sample_indices
 
@@ -117,20 +117,22 @@ class MotionPrimitive():
         """
         # TODO add stopping policy?
 
-        score = np.ones((self.num_dts, self.num_u_set**self.num_dims, self.num_output_mps))*np.inf
+        score = np.ones((self.num_dts*self.num_u_set**self.num_dims, self.num_output_mps))*np.inf
         potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
-
+        potential_sample_pts = potential_sample_pts.reshape(
+            potential_sample_pts.shape[0]*potential_sample_pts.shape[1], potential_sample_pts.shape[2])
         # Take the closest motion primitive as the first choice (may want to change later)
-        first_score = np.linalg.norm(potential_sample_pts-start_pt.T, axis=2)
-        closest_pt = np.unravel_index(np.argmin(first_score, axis=None), first_score.shape)
-        score[:, :, 0] = first_score
+        first_score = np.linalg.norm(potential_sample_pts-start_pt.T, axis=1)
+        closest_pt = np.argmin(first_score)
+        score[:, 0] = first_score
 
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(
             self.num_output_mps, potential_sample_pts, score, closest_pt)
 
+        actual_sample_indices = np.unravel_index(actual_sample_indices, (self.num_dts, self.num_u_set**self.num_dims))
         # Else compute minimum dispersion points over the whole state space (can be quite slow) (very similar to original Dispertio)
-        dts = dt_set[actual_sample_indices[:, 0]]
-        us = u_set[:, actual_sample_indices[:, 1]]
+        dts = dt_set[actual_sample_indices[0]]
+        us = u_set[:, actual_sample_indices[1]]
 
         if self.plot:
             if self.num_dims > 1:
@@ -141,21 +143,21 @@ class MotionPrimitive():
 
         return np.vstack((dts, us))
 
-    def compute_min_dispersion_space(self, num_output_pts=250):
+    def compute_min_dispersion_space(self, num_output_pts=25, resolution=[0.2, 0.2, 0.2]):
         """
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
+        Can easily make too big of an array with small resolution :(
         """
         # Generate all points
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        resolution = [0.2, 0.2, 0.2]  # easy to overrun memory :(
         potential_sample_pts = self.uniform_state_set(bounds, resolution)
-        potential_sample_pts = potential_sample_pts[:, np.newaxis, :]
-        print(potential_sample_pts.shape)
-        score = np.ones((potential_sample_pts.shape[0], 1, num_output_pts))*np.inf
+        # potential_sample_pts = potential_sample_pts[:, np.newaxis, :]
+        # print(potential_sample_pts.shape)
+        score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
 
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
-                                                                                      potential_sample_pts, score, (0, 0))
+                                                                                      potential_sample_pts, score, 0)
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
@@ -287,8 +289,8 @@ if __name__ == "__main__":
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
-    # mp.compute_min_dispersion_set(start_pt)
-    mp.compute_min_dispersion_space()
+    mp.compute_min_dispersion_set(start_pt)
+    # mp.compute_min_dispersion_space()
     # mp.create_state_space_MP_lookup_table()
 
     # # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
