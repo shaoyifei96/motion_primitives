@@ -14,6 +14,7 @@ from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 from scipy.integrate import solve_bvp
 
+
 class MotionPrimitive():
     """
     Compute motion primitives for quadrotors over different size state spaces
@@ -160,6 +161,7 @@ class MotionPrimitive():
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
         Can easily make too big of an array with small resolution :(
+        #TODO not actually dispertio yet because not using steer function/reachable sets
         """
         # Generate all points
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
@@ -218,7 +220,8 @@ class MotionPrimitive():
     def create_state_space_MP_lookup_table_lattice(self, resolution=[.1, .1, .1]):
         lattice_pts = self.compute_min_dispersion_space()
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        start_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q]) # TODO make sure lattice points are included in start pts
+        # TODO make sure lattice points are included in start pts
+        start_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
         nbrs = NearestNeighbors(n_neighbors=self.num_output_mps, algorithm='ball_tree').fit(
             lattice_pts)  # check into other metrics and algorithm types (kdtree)
         indices = nbrs.kneighbors(start_pts, return_distance=False)
@@ -279,17 +282,6 @@ class MotionPrimitive():
             x = np.vstack((x, d))
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
-        
-    # def compute_mps_from_BCs(self,pt):
-    #     def fn(t,x,u):
-    #         return self.A@x +self.B@u
-    #     def bc(x1,x2,u):
-    #         return 
-    #     dt = np.linspace(0, 1, 5)
-
-    #     u=0
-    #     solve_bvp(fun,bc,dt,)
-
 
 def create_many_state_space_lookup_tables(max_control_space):
     """
@@ -322,7 +314,7 @@ if __name__ == "__main__":
     # mp.compute_min_dispersion_set(start_pt)
     # mp.compute_min_dispersion_space()
     # mp.create_state_space_MP_lookup_table_tree()
-    mp.create_state_space_MP_lookup_table_lattice()
+    # mp.create_state_space_MP_lookup_table_lattice()
 
     # # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
