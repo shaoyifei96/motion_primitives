@@ -18,13 +18,13 @@ class MotionPrimitive():
     Compute motion primitives for quadrotors over different size state spaces
     """
 
-    def __init__(self, control_space_q=3, num_dims=2, num_u_per_dimension=5, max_state_derivs=[1, 1, 1, 1], num_state_deriv_pts=10, plot=False):
+    def __init__(self, control_space_q=3, num_dims=2, num_u_per_dimension=5, max_state=[1, 1, 1, 1], num_state_deriv_pts=10, plot=False):
         """
         Input:
             control_space_q, derivative of configuration which is the control input.
             num_dims,        dimension of configuration space
             num_u_per_dimension, how many motion primitives per dimension 
-            max_state_derivs, list of max values of configuration space and its derivatives
+            max_state, list of max values of configuration space and its derivatives
             num_state_deriv_pts, if creating a lookup table, how many samples per state per dimension
             plot, boolean of whether to create/show plots
         """
@@ -32,7 +32,7 @@ class MotionPrimitive():
         self.control_space_q = control_space_q  # which derivative of position is the control space
         self.num_dims = num_dims  # Dimension of the configuration space
         self.num_u_per_dimension = num_u_per_dimension
-        self.max_state_derivs = max_state_derivs
+        self.max_state = np.array(max_state)
         self.num_state_deriv_pts = num_state_deriv_pts
         self.plot = plot
 
@@ -40,7 +40,7 @@ class MotionPrimitive():
         self.num_output_mps = self.num_u_per_dimension**self.num_dims  # number of total motion primitives
 
         # max control input #TODO should be a vector b/c perhaps different in Z
-        self.max_u = self.max_state_derivs[self.control_space_q]
+        self.max_u = self.max_state[self.control_space_q]
         self.num_u_set = 20  # Number of MPs to consider at a given time
         self.min_dt = 0
         self.max_dt = .5  # Max time horizon of MP
@@ -51,7 +51,7 @@ class MotionPrimitive():
 
     def compute_all_possible_mps(self, start_pt):
         """
-        Compute a sampled reachable set from a start point
+        Compute a sampled reachable set from a start point, up to a max dt
         """
         single_u_set = np.linspace(-self.max_u, self.max_u, self.num_u_set)
         dt_set = np.linspace(self.min_dt, self.max_dt, self.num_dts)
@@ -72,37 +72,32 @@ class MotionPrimitive():
 
         return sample_pts, dt_set, u_set
 
-    def compute_min_dispersion_set(self, start_pt):
+    def uniform_state_set(self, bounds, resolution):
         """
-        Compute a set of num_output_mps primitives (u, dt) which generate a
-        minimum state dispersion within the reachable state space after one
-        step.
+        Return a uniform Cartesian sampling over vector bounds with vector resolution.
+        Input:
+            bounds, (N, 2) bounds over N dimensions
+            resolution, (N,) resolution over N dimensions
+        Output:
+            pts, (M,N) set of M points sampled in N dimensions
         """
-        potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
-        # TODO maybe dont make a rectangle in state space; do another polygon?
-        # border = np.array((np.amin(potential_sample_pts, axis=(0, 1)), np.amax(potential_sample_pts, axis=(0, 1))))
-        # print(border.shape)
-        # border = np.vstack((border, np.array((border[0], border[1])), np.array((border[1], border[0]))))
-        # print(border.shape)
-        # plt.plot(border[:, 0], border[:, 1], 'ro')
+        assert len(bounds) == len(resolution)
+        independent = []
+        bounds = np.asarray(bounds)
+        for (a, b, r) in zip(bounds[:, 0], bounds[:, 1], resolution):
+            for _ in range(self.num_dims):
+                independent.append(np.arange(a, b, r))
+        joint = np.meshgrid(*independent)
+        pts = np.stack([j.ravel() for j in joint], axis=-1)
+        return pts
 
-        # comparison_pts = np.vstack((border, start_pt.T))
-        # TODO add stopping policy?
+    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, score, starting_output_sample_index):
+        actual_sample_pts = np.zeros((num_output_pts, self.n))
+        actual_sample_indices = np.zeros((num_output_pts, 2)).astype(int)
+        actual_sample_pts[0, :] = potential_sample_pts[starting_output_sample_index]
+        actual_sample_indices[0, :] = np.array(starting_output_sample_index)
 
-        actual_sample_pts = np.zeros((self.num_output_mps, self.n))
-        actual_sample_indices = np.zeros((self.num_output_mps, 2))
-        actual_sample_indices = actual_sample_indices.astype(int)
-        # Score is similar to the dispersion tensor in Dispertio
-        score = np.ones((self.num_dts, self.num_u_set**self.num_dims, self.num_output_mps))*np.inf
-
-        # Take the closest motion primitive as the first choice (may want to change later)
-        first_score = np.linalg.norm(potential_sample_pts-start_pt.T, axis=2)
-        closest_pt = np.unravel_index(np.argmin(first_score, axis=None), first_score.shape)
-        actual_sample_pts[0, :] = potential_sample_pts[closest_pt]
-        actual_sample_indices[0, :] = np.array(closest_pt)
-        score[:, :, 0] = first_score
-        # TODO see if can use scipy.spatial.distance.cdist as Jimmy suggests
-        for mp_num in range(1, self.num_output_mps):  # start at 1 because we already chose the closest point as a motion primitive
+        for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
             min_score = np.amin(score, axis=2)  # distances of potential sample points to closest chosen output MP node
             min_score[actual_sample_indices[:, 0], actual_sample_indices[:, 1]] = - np.inf  # give nodes we have already chosen low score
             # take the new point with the maximum distance to its closest node
@@ -112,6 +107,31 @@ class MotionPrimitive():
             actual_sample_indices[mp_num, :] = np.array((dt_index, du_index))
             score[:, :, mp_num] = np.linalg.norm((potential_sample_pts - result_pt.T), axis=2)
 
+        return actual_sample_pts, actual_sample_indices
+
+    def compute_min_dispersion_set(self, start_pt):
+        """
+        Compute a set of num_output_mps primitives (u, dt) which generate a
+        minimum state dispersion within the reachable state space after one
+        step.
+        """
+        # TODO add stopping policy?
+
+        score = np.ones((self.num_dts, self.num_u_set**self.num_dims, self.num_output_mps))*np.inf
+        potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
+
+        # Take the closest motion primitive as the first choice (may want to change later)
+        first_score = np.linalg.norm(potential_sample_pts-start_pt.T, axis=2)
+        closest_pt = np.unravel_index(np.argmin(first_score, axis=None), first_score.shape)
+        score[:, :, 0] = first_score
+
+        actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(
+            self.num_output_mps, potential_sample_pts, score, closest_pt)
+
+        # Else compute minimum dispersion points over the whole state space (can be quite slow) (very similar to original Dispertio)
+        dts = dt_set[actual_sample_indices[:, 0]]
+        us = u_set[:, actual_sample_indices[:, 1]]
+
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
@@ -119,9 +139,26 @@ class MotionPrimitive():
             else:
                 plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'om')
 
-        dts = dt_set[actual_sample_indices[:, 0]]
-        us = u_set[:, actual_sample_indices[:, 1]]
         return np.vstack((dts, us))
+
+    def compute_min_dispersion_space(self, num_output_pts=250):
+        """
+        Using the bounds on the state space, compute a set of minimum dispersion points
+        (Similar to original Dispertio paper)
+        """
+        # Generate all points
+        bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
+        resolution = [0.2, 0.2, 0.2]  # easy to overrun memory :(
+        potential_sample_pts = self.uniform_state_set(bounds, resolution)
+        potential_sample_pts = potential_sample_pts[:, np.newaxis, :]
+        print(potential_sample_pts.shape)
+        score = np.ones((potential_sample_pts.shape[0], 1, num_output_pts))*np.inf
+
+        actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
+                                                                                      potential_sample_pts, score, (0, 0))
+        if self.plot:
+            if self.num_dims > 1:
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
 
     def create_evenly_spaced_mps(self, start_pt, dt):
         """
@@ -146,7 +183,7 @@ class MotionPrimitive():
 
         # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
         y = np.array([np.tile(np.linspace(-i, i, self.num_state_deriv_pts), (self.num_dims, 1))
-                      for i in self.max_state_derivs[1:self.control_space_q]])  # start at 1 to skip position
+                      for i in self.max_state[1:self.control_space_q]])  # start at 1 to skip position
         z = np.reshape(y, (y.shape[0]*y.shape[1], y.shape[2]))
         start_pts_grid = np.meshgrid(*z)
         start_pts_set = np.dstack(([x.flatten() for x in start_pts_grid]))[0].T
@@ -227,11 +264,11 @@ def create_many_state_space_lookup_tables(max_control_space):
     Make motion primitive lookup tables for different state/input spaces
     """
     num_u_per_dimension = 3
-    max_state_derivs = [2, 2, 1, 1, 1]
+    max_state = [2, 2, 1, 1, 1]
     num_state_deriv_pts = 7
     plot = False
     moprim_list = [MotionPrimitive(control_space_q, num_dims, num_u_per_dimension,
-                                   max_state_derivs, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
+                                   max_state, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
     for moprim in moprim_list:
         print(moprim.control_space_q, moprim.num_dims)
         moprim.create_state_space_MP_lookup_table()
@@ -241,17 +278,18 @@ if __name__ == "__main__":
     control_space_q = 3
     num_dims = 2
     num_u_per_dimension = 5
-    max_state_derivs = [1, 1, 1, 1]
+    max_state = [1, .5, 1, 1]
     num_state_deriv_pts = 7
-    plot = False
+    plot = True
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
-                         num_u_per_dimension=num_u_per_dimension, max_state_derivs=max_state_derivs, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+                         num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))*0.01
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
     # mp.compute_min_dispersion_set(start_pt)
-    mp.create_state_space_MP_lookup_table()
+    mp.compute_min_dispersion_space()
+    # mp.create_state_space_MP_lookup_table()
 
     # # mp.create_evenly_spaced_mps(start_pt, mp.max_dt/2.0)
 
