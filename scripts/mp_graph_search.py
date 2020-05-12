@@ -133,7 +133,7 @@ class GraphSearch:
         return neighbors
 
     def evenly_spaced_neighbors(self, node):
-        dt = 1.2
+        dt = .5
         s = np.reshape(np.array(node.state), (self.n, 1))
         neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt)
         return neighbors
@@ -240,10 +240,9 @@ class GraphSearch:
         ax.tick_params(reset=True)
 
 
-
 if __name__ == "__main__":
 
-    control_space_q = 3
+    control_space_q = 2
     num_dims = 2
     file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
                      str(control_space_q) + '/MotionPrimitive.pkl')
@@ -278,8 +277,8 @@ if __name__ == "__main__":
     gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
     path, poly = gs.run_graph_search()
     if path is not None:
-        gs.plot_path(path, poly, fig,axs)
-    gs.plot_all_nodes(fig,axs)
+        gs.plot_path(path, poly, fig, axs)
+    gs.plot_all_nodes(fig, axs)
 
     plt.show()
     # plt.ioff()
