@@ -9,8 +9,8 @@ import pickle
 from scipy import spatial
 import matplotlib.pyplot as plt
 from enum import Enum
-from pycallgraph import PyCallGraph
-from pycallgraph.output import GraphvizOutput
+# from pycallgraph import PyCallGraph
+# from pycallgraph.output import GraphvizOutput
 from pathlib import Path
 
 
