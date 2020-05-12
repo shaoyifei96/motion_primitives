@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 from heapq import heappush, heappop, heapify  # Recommended.
 import numpy as np
 import itertools
