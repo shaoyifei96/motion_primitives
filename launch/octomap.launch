@@ -1,4 +1,4 @@
 <launch>
-    <node pkg="octomap_server" type="octomap_server_node" name="octomap_builder" output="screen" args="/home/laura/tepco_ws/src/planning/reactor_world/reactor_replica/octomap/reactor_downsample.bt"></node>
-    <node pkg="tf" type="static_transform_publisher" name="map_to_yaml" args="-9.034312 -9.034312 -4.049864 0 0 0 1 map yaml 100" />
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_builder" output="screen" args="$(find motion_primitives_py)/data/fr_078_tidyup.bt"></node>
+    <!-- <node pkg="tf" type="static_transform_publisher" name="map_to_yaml" args="-9.034312 -9.034312 -4.049864 0 0 0 1 map yaml 100" /> -->
 </launch>
