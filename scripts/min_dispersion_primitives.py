@@ -51,6 +51,7 @@ class MotionPrimitive():
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
+        self.setup_bvp_meam_620_style()
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
@@ -109,11 +110,15 @@ class MotionPrimitive():
     def dispersion_distance_fn_path_length(self, potential_sample_pts, result_pt):
         score = np.zeros(potential_sample_pts.shape[0])
         dt = .5
+        max_t = 1
         for i in range(potential_sample_pts.shape[0]):
             t = 0
             u = np.ones(self.num_dims)*np.inf
             while abs(max(u)) > self.max_state[self.control_space_q]:
                 t += dt
+                if t > max_t:
+                    score[i] = np.inf
+                    break
                 u = self.solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :], t)
             score[i] = t + np.linalg.norm(u)*.0001
         return score
@@ -183,9 +188,10 @@ class MotionPrimitive():
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
+        print(potential_sample_pts.shape)
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
         starting_output_sample_index = 0
-        score[:,0] = self.dispersion_distance_fn_simple_norm(potential_sample_pts,potential_sample_pts[starting_output_sample_index,:])
+        score[:, 0] = self.dispersion_distance_fn_simple_norm(potential_sample_pts, potential_sample_pts[starting_output_sample_index, :])
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
                                                                                       potential_sample_pts, score, starting_output_sample_index)
         print(actual_sample_pts)
@@ -302,34 +308,42 @@ class MotionPrimitive():
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
 
+    def setup_bvp_meam_620_style(self):
+        t = sym.symbols('t')
+        self.poly_order = (self.control_space_q-1)*2+1
+        x = sym.Matrix(np.zeros((self.poly_order+1)))
+        for i in range(self.poly_order+1):
+            x[i] = t**(self.poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
+
+        self.x_derivs = sym.Matrix(np.zeros((self.control_space_q,self.poly_order+1)))
+        self.x_derivs[0,:] = x.T
+        for i in range(1,self.control_space_q):
+            self.x_derivs[i, :] = sym.diff(x.T)  # iterate through all the derivatives
+
     def solve_bvp_meam_620_style(self, xi, xf, T):
         """
         Return u from xi ((n,) array) to xf ((n,) array) in time interval [0,T] corresponding to a constant input solution
         """
 
-        # TODO precompute some of this for speed
         t = sym.symbols('t')
-        poly_order = (self.control_space_q-1)*2+1
-        x = sym.Matrix(np.zeros((poly_order+1)))
-        for i in range(poly_order+1):
-            x[i] = t**(poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
 
-        A = np.zeros((poly_order+1, poly_order+1))
+        A = np.zeros((self.poly_order+1, self.poly_order+1))
         for i in range(self.control_space_q):
+            x = self.x_derivs[i, :]  # iterate through all the derivatives
             A[2*i, :] = np.squeeze(x.subs(t, 0))  # x(ti) = xi
             A[2*i+1, :] = np.squeeze(x.subs(t, T))  # x(tf) = xf
-            x = sym.diff(x)  # iterate through all the derivatives
         u = np.zeros(self.num_dims)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
             b = np.ravel(np.column_stack((xi[i::self.num_dims], xf[i::self.num_dims])))  # vector of the form [xi,xf,xi_dot,xf_dot,...]
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
             u[i] = poly[0]*factorial(control_space_q)
+            
         #     if self.plot:
         #         try:
         #             polys[i, :] = poly
         #         except:
-        #             polys = np.zeros((self.num_dims, poly_order+1))
+        #             polys = np.zeros((self.num_dims, self.poly_order+1))
         #             polys[i, :] = poly
         # if self.plot:
         #     t = np.linspace(0, T, 10000)
@@ -367,10 +381,10 @@ if __name__ == "__main__":
                          num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))
     # start_pt = np.array([-1., -2., 0, 0.5])
-    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
+    print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
 
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=4)):
-        mp.compute_min_dispersion_space(num_output_pts=20,resolution=[.5,.5,.5])
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
+        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, 1])
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
