@@ -319,25 +319,26 @@ class MotionPrimitive():
         for i in range(self.control_space_q):
             self.x_derivs.append(sym.lambdify([t], x))
             x = sym.diff(x)  # iterate through all the derivatives
+        self.q_factorial = factorial(self.control_space_q)
 
     def solve_bvp_meam_620_style(self, xi, xf, T):
         """
         Return u from xi ((n,) array) to xf ((n,) array) in time interval [0,T] corresponding to a constant input solution
         """
 
-        t = sym.symbols('t')
-
         A = np.zeros((self.poly_order+1, self.poly_order+1))
         for i in range(self.control_space_q):
             x = self.x_derivs[i]  # iterate through all the derivatives
-            A[2*i, :] = x(0)  # x(ti) = xi
-            A[2*i+1, :] = x(T)  # x(tf) = xf
+            A[i, :] = x(0)  # x(ti) = xi
+            A[self.control_space_q+i, :] = x(T)  # x(tf) = xf
         u = np.zeros(self.num_dims)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
-            b = np.ravel(np.column_stack((xi[i::self.num_dims], xf[i::self.num_dims])))  # vector of the form [xi,xf,xi_dot,xf_dot,...]
+
+            # vector of the form [xi,xf,xi_dot,xf_dot,...]
+            b = np.hstack((xi[i::self.num_dims], xf[i::self.num_dims]))  # TODO this line kind of slow
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
-            u[i] = poly[0]*factorial(control_space_q)
+            u[i] = poly[0]*self.q_factorial
 
         #     if self.plot:
         #         try:
@@ -384,7 +385,7 @@ if __name__ == "__main__":
     # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
-        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, 1])
+        mp.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, .5, .5])
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
