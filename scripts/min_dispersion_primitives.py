@@ -12,7 +12,7 @@ import pickle
 import sympy as sym
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
-from scipy.integrate import solve_bvp
+# from scipy.integrate import solve_bvp
 
 
 class MotionPrimitive():
@@ -283,6 +283,33 @@ class MotionPrimitive():
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
 
+    def solve_bvp_meam_620_style(self, xi, xf, T):
+        """
+        Return u from xi ((n,) array) to xf ((n,) array) in time interval [0,T] corresponding to a constant input solution
+        """
+
+        t = sym.symbols('t')
+        poly_order = (self.control_space_q-1)*2+1
+        x = sym.Matrix(np.zeros((poly_order+1)))
+        for i in range(poly_order+1):
+            x[i] = t**(poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
+
+        A = np.zeros((poly_order+1, poly_order+1))
+        for i in range(self.control_space_q):
+            A[2*i, :] = np.squeeze(x.subs(t, 0))  # x(ti) = xi
+            A[2*i+1, :] = np.squeeze(x.subs(t, T))  # x(tf) = xf
+            x = sym.diff(x)  # iterate through all the derivatives
+
+        u = np.zeros(self.num_dims)
+        for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
+            b = np.ravel(np.column_stack((xi, xf)))[i*(poly_order+1):(i+1)*(poly_order+1)]  # vector of the form [xi,xf,xi_dot,xf_dot,...]
+            poly = np.linalg.solve(A, b)
+            # only care about the first coefficient, which encodes the constant u
+            u[i] = poly[0]*factorial(control_space_q)
+        print(u)
+        return u
+
+
 def create_many_state_space_lookup_tables(max_control_space):
     """
     Make motion primitive lookup tables for different state/input spaces
@@ -299,7 +326,7 @@ def create_many_state_space_lookup_tables(max_control_space):
 
 
 if __name__ == "__main__":
-    control_space_q = 2
+    control_space_q = 3
     num_dims = 2
     num_u_per_dimension = 5
     max_state = [1, .5, 1, 1]
@@ -308,6 +335,7 @@ if __name__ == "__main__":
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))*0.01
+    mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1)
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
