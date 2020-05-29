@@ -5,8 +5,8 @@ import scipy.integrate as integrate
 from scipy.special import factorial
 import matplotlib.pyplot as plt
 import cProfile
-# from pycallgraph import PyCallGraph, Config
-# from pycallgraph.output import GraphvizOutput
+from pycallgraph import PyCallGraph, Config
+from pycallgraph.output import GraphvizOutput
 import time
 import pickle
 import sympy as sym
@@ -37,8 +37,7 @@ class MotionPrimitive():
         self.max_state = np.array(max_state)
         self.num_state_deriv_pts = num_state_deriv_pts
         self.plot = plot
-        self.dispersion_distance_fn = self.dispersion_distance_fn_path_length  # TODO pass as param/input
-        # self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm # TODO pass as param/input
+        self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input
 
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
         self.num_output_mps = self.num_u_per_dimension**self.num_dims  # number of total motion primitives
@@ -99,7 +98,7 @@ class MotionPrimitive():
         bounds = np.asarray(bounds)
         for (a, b, r) in zip(bounds[:, 0], bounds[:, 1], resolution):
             for _ in range(self.num_dims):
-                independent.append(np.arange(a, b, r))
+                independent.append(np.arange(a, b+.00001, r))
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
@@ -108,10 +107,16 @@ class MotionPrimitive():
         return np.linalg.norm((potential_sample_pts - result_pt), axis=1)
 
     def dispersion_distance_fn_path_length(self, potential_sample_pts, result_pt):
-        print(result_pt)
-        print(potential_sample_pts[0, :])
-        self.solve_bvp_meam_620_style(result_pt, 5*potential_sample_pts[0, :], 1)
-        # plt.show()
+        score = np.zeros(potential_sample_pts.shape[0])
+        dt = .5
+        for i in range(potential_sample_pts.shape[0]):
+            t = 0
+            u = np.ones(self.num_dims)*np.inf
+            while abs(max(u)) > self.max_state[self.control_space_q]:
+                t += dt
+                u = self.solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :], t)
+            score[i] = t + np.linalg.norm(u)*.0001
+        return score
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
@@ -129,7 +134,6 @@ class MotionPrimitive():
             actual_sample_indices[mp_num] = np.array((index))
             min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
             min_score[:, 1] = self.dispersion_distance_fn(potential_sample_pts, result_pt)  # new point's score
-
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
 
@@ -140,7 +144,7 @@ class MotionPrimitive():
         step.
         """
         # TODO add stopping policy?
-
+        self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm
         score = np.ones((self.num_dts*self.num_u_set**self.num_dims, self.num_output_mps))*np.inf
         potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
         potential_sample_pts = potential_sample_pts.reshape(
@@ -175,11 +179,16 @@ class MotionPrimitive():
         #TODO not actually dispertio yet because not using steer function/reachable sets
         """
         # Generate all points
+        self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
+
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
+        starting_output_sample_index = 0
+        score[:,0] = self.dispersion_distance_fn_simple_norm(potential_sample_pts,potential_sample_pts[starting_output_sample_index,:])
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
-                                                                                      potential_sample_pts, score, 0)
+                                                                                      potential_sample_pts, score, starting_output_sample_index)
+        print(actual_sample_pts)
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
@@ -298,6 +307,7 @@ class MotionPrimitive():
         Return u from xi ((n,) array) to xf ((n,) array) in time interval [0,T] corresponding to a constant input solution
         """
 
+        # TODO precompute some of this for speed
         t = sym.symbols('t')
         poly_order = (self.control_space_q-1)*2+1
         x = sym.Matrix(np.zeros((poly_order+1)))
@@ -315,20 +325,19 @@ class MotionPrimitive():
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
             u[i] = poly[0]*factorial(control_space_q)
-            if self.plot:
-                try:
-                    polys[i, :] = poly
-                except:
-                    polys = np.zeros((self.num_dims, poly_order+1))
-                    polys[i, :] = poly
-        if self.plot:
-            print(polys)
-            t = np.linspace(0, T, 10000)
-            x = [np.polyval(polys[0, :], i) for i in t]
-            y = [np.polyval(polys[1, :], i) for i in t]
-            plt.plot(xi[0], xi[1], 'og')
-            plt.plot(xf[0], xf[1], 'or')
-            plt.plot(x, y)
+        #     if self.plot:
+        #         try:
+        #             polys[i, :] = poly
+        #         except:
+        #             polys = np.zeros((self.num_dims, poly_order+1))
+        #             polys[i, :] = poly
+        # if self.plot:
+        #     t = np.linspace(0, T, 10000)
+        #     x = [np.polyval(polys[0, :], i) for i in t]
+        #     y = [np.polyval(polys[1, :], i) for i in t]
+        #     plt.plot(xi[0], xi[1], 'og')
+        #     plt.plot(xf[0], xf[1], 'or')
+        #     plt.plot(x, y)
         return u
 
 
@@ -360,7 +369,8 @@ if __name__ == "__main__":
     # start_pt = np.array([-1., -2., 0, 0.5])
     # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
 
-    mp.compute_min_dispersion_space()
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=4)):
+        mp.compute_min_dispersion_space(num_output_pts=20,resolution=[.5,.5,.5])
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
