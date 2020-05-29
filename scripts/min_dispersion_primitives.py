@@ -25,7 +25,7 @@ class MotionPrimitive():
         Input:
             control_space_q, derivative of configuration which is the control input.
             num_dims,        dimension of configuration space
-            num_u_per_dimension, how many motion primitives per dimension 
+            num_u_per_dimension, how many motion primitives per dimension
             max_state, list of max values of position space and its derivatives
             num_state_deriv_pts, if creating a lookup table, how many samples per state per dimension
             plot, boolean of whether to create/show plots
@@ -181,7 +181,7 @@ class MotionPrimitive():
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
         Can easily make too big of an array with small resolution :(
-        #TODO not actually dispertio yet because not using steer function/reachable sets
+        # TODO not actually dispertio yet because not using steer function/reachable sets
         """
         # Generate all points
         self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
@@ -203,7 +203,7 @@ class MotionPrimitive():
 
     def create_evenly_spaced_mps(self, start_pt, dt):
         """
-        Create motion primitives for a start point by taking an even sampling over the 
+        Create motion primitives for a start point by taking an even sampling over the
         input space at a given dt
         i.e. old sikang method
         """
@@ -258,7 +258,7 @@ class MotionPrimitive():
     def A_and_B_matrices_quadrotor(self):
         """
         Generate constant A, B matrices for integrator of order control_space_q
-        in configuration dimension num_dims. Linear approximation of quadrotor dynamics 
+        in configuration dimension num_dims. Linear approximation of quadrotor dynamics
         that work (because differential flatness or something)
         """
 
@@ -285,7 +285,7 @@ class MotionPrimitive():
 
     def quad_dynamics(self, start_pt, u, dt):
         """
-        Computes the state transition map given a starting state, control u, and 
+        Computes the state transition map given a starting state, control u, and
         time dt. Slow because of integration and exponentiation
         """
         return expm(self.A*dt)@start_pt + integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]@u
@@ -311,14 +311,14 @@ class MotionPrimitive():
     def setup_bvp_meam_620_style(self):
         t = sym.symbols('t')
         self.poly_order = (self.control_space_q-1)*2+1
-        x = sym.Matrix(np.zeros((self.poly_order+1)))
+        x = np.squeeze(sym.Matrix(np.zeros((self.poly_order+1))))
         for i in range(self.poly_order+1):
             x[i] = t**(self.poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
 
-        self.x_derivs = sym.Matrix(np.zeros((self.control_space_q,self.poly_order+1)))
-        self.x_derivs[0,:] = x.T
-        for i in range(1,self.control_space_q):
-            self.x_derivs[i, :] = sym.diff(x.T)  # iterate through all the derivatives
+        self.x_derivs = []
+        for i in range(self.control_space_q):
+            self.x_derivs.append(sym.lambdify([t], x))
+            x = sym.diff(x)  # iterate through all the derivatives
 
     def solve_bvp_meam_620_style(self, xi, xf, T):
         """
@@ -329,16 +329,16 @@ class MotionPrimitive():
 
         A = np.zeros((self.poly_order+1, self.poly_order+1))
         for i in range(self.control_space_q):
-            x = self.x_derivs[i, :]  # iterate through all the derivatives
-            A[2*i, :] = np.squeeze(x.subs(t, 0))  # x(ti) = xi
-            A[2*i+1, :] = np.squeeze(x.subs(t, T))  # x(tf) = xf
+            x = self.x_derivs[i]  # iterate through all the derivatives
+            A[2*i, :] = x(0)  # x(ti) = xi
+            A[2*i+1, :] = x(T)  # x(tf) = xf
         u = np.zeros(self.num_dims)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
             b = np.ravel(np.column_stack((xi[i::self.num_dims], xf[i::self.num_dims])))  # vector of the form [xi,xf,xi_dot,xf_dot,...]
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
             u[i] = poly[0]*factorial(control_space_q)
-            
+
         #     if self.plot:
         #         try:
         #             polys[i, :] = poly
@@ -381,7 +381,7 @@ if __name__ == "__main__":
                          num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))
     # start_pt = np.array([-1., -2., 0, 0.5])
-    print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
+    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
         mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, 1])
