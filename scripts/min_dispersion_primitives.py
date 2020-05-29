@@ -26,7 +26,7 @@ class MotionPrimitive():
             control_space_q, derivative of configuration which is the control input.
             num_dims,        dimension of configuration space
             num_u_per_dimension, how many motion primitives per dimension 
-            max_state, list of max values of configuration space and its derivatives
+            max_state, list of max values of position space and its derivatives
             num_state_deriv_pts, if creating a lookup table, how many samples per state per dimension
             plot, boolean of whether to create/show plots
         """
@@ -37,6 +37,8 @@ class MotionPrimitive():
         self.max_state = np.array(max_state)
         self.num_state_deriv_pts = num_state_deriv_pts
         self.plot = plot
+        self.dispersion_distance_fn = self.dispersion_distance_fn_path_length  # TODO pass as param/input
+        # self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm # TODO pass as param/input
 
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
         self.num_output_mps = self.num_u_per_dimension**self.num_dims  # number of total motion primitives
@@ -102,6 +104,15 @@ class MotionPrimitive():
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
 
+    def dispersion_distance_fn_simple_norm(self, potential_sample_pts, result_pt):
+        return np.linalg.norm((potential_sample_pts - result_pt), axis=1)
+
+    def dispersion_distance_fn_path_length(self, potential_sample_pts, result_pt):
+        print(result_pt)
+        print(potential_sample_pts[0, :])
+        self.solve_bvp_meam_620_style(result_pt, 5*potential_sample_pts[0, :], 1)
+        # plt.show()
+
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_indices[0] = starting_output_sample_index
@@ -117,7 +128,7 @@ class MotionPrimitive():
             result_pt = potential_sample_pts[index, :]
             actual_sample_indices[mp_num] = np.array((index))
             min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
-            min_score[:, 1] = np.linalg.norm((potential_sample_pts - result_pt), axis=1)  # new point's score
+            min_score[:, 1] = self.dispersion_distance_fn(potential_sample_pts, result_pt)  # new point's score
 
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
@@ -167,7 +178,6 @@ class MotionPrimitive():
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
-
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
                                                                                       potential_sample_pts, score, 0)
         if self.plot:
@@ -217,18 +227,18 @@ class MotionPrimitive():
         self.motion_primitives_list = prim_list
         self.pickle_self()
 
-    def create_state_space_MP_lookup_table_lattice(self, resolution=[.1, .1, .1]):
-        lattice_pts = self.compute_min_dispersion_space()
-        bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        # TODO make sure lattice points are included in start pts
-        start_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
-        nbrs = NearestNeighbors(n_neighbors=self.num_output_mps, algorithm='ball_tree').fit(
-            lattice_pts)  # check into other metrics and algorithm types (kdtree)
-        indices = nbrs.kneighbors(start_pts, return_distance=False)
-        knn_pts = lattice_pts[indices].shape
-        # self.compute_mps_from_BCs(knn_pts)
+    # def create_state_space_MP_lookup_table_lattice(self, resolution=[.1, .1, .1]):
+    #     lattice_pts = self.compute_min_dispersion_space()
+    #     bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
+    #     # TODO make sure lattice points are included in start pts
+    #     start_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
+    #     nbrs = NearestNeighbors(n_neighbors=self.num_output_mps, algorithm='ball_tree').fit(
+    #         lattice_pts)  # check into other metrics and algorithm types (kdtree)
+    #     indices = nbrs.kneighbors(start_pts, return_distance=False)
+    #     knn_pts = lattice_pts[indices].shape
+    #     # self.compute_mps_from_BCs(knn_pts)
 
-        # self.pickle_self()
+    #     # self.pickle_self()
 
     def A_and_B_matrices_quadrotor(self):
         """
@@ -299,14 +309,26 @@ class MotionPrimitive():
             A[2*i, :] = np.squeeze(x.subs(t, 0))  # x(ti) = xi
             A[2*i+1, :] = np.squeeze(x.subs(t, T))  # x(tf) = xf
             x = sym.diff(x)  # iterate through all the derivatives
-
         u = np.zeros(self.num_dims)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
-            b = np.ravel(np.column_stack((xi, xf)))[i*(poly_order+1):(i+1)*(poly_order+1)]  # vector of the form [xi,xf,xi_dot,xf_dot,...]
+            b = np.ravel(np.column_stack((xi[i::self.num_dims], xf[i::self.num_dims])))  # vector of the form [xi,xf,xi_dot,xf_dot,...]
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
             u[i] = poly[0]*factorial(control_space_q)
-        print(u)
+            if self.plot:
+                try:
+                    polys[i, :] = poly
+                except:
+                    polys = np.zeros((self.num_dims, poly_order+1))
+                    polys[i, :] = poly
+        if self.plot:
+            print(polys)
+            t = np.linspace(0, T, 10000)
+            x = [np.polyval(polys[0, :], i) for i in t]
+            y = [np.polyval(polys[1, :], i) for i in t]
+            plt.plot(xi[0], xi[1], 'og')
+            plt.plot(xf[0], xf[1], 'or')
+            plt.plot(x, y)
         return u
 
 
@@ -326,16 +348,19 @@ def create_many_state_space_lookup_tables(max_control_space):
 
 
 if __name__ == "__main__":
-    control_space_q = 3
+    control_space_q = 2
     num_dims = 2
     num_u_per_dimension = 5
-    max_state = [1, .5, 1, 1]
+    max_state = [1, .5, 1, 1, 1, 1]
     num_state_deriv_pts = 7
-    plot = False
+    plot = True
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
-    start_pt = np.ones((mp.n))*0.01
-    mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1)
+    start_pt = np.ones((mp.n))
+    # start_pt = np.array([-1., -2., 0, 0.5])
+    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
+
+    mp.compute_min_dispersion_space()
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
