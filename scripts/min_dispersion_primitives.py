@@ -109,18 +109,9 @@ class MotionPrimitive():
 
     def dispersion_distance_fn_path_length(self, potential_sample_pts, result_pt):
         score = np.zeros(potential_sample_pts.shape[0])
-        dt = .5
-        max_t = 1
         for i in range(potential_sample_pts.shape[0]):
-            t = 0
-            u = np.ones(self.num_dims)*np.inf
-            while abs(max(u)) > self.max_state[self.control_space_q]:
-                t += dt
-                if t > max_t:
-                    score[i] = np.inf
-                    break
-                u = self.solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :], t)
-            score[i] = t + np.linalg.norm(u)*.0001
+            polys, t = self.iteratively_solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :])
+            score[i] = t #+ np.linalg.norm(u)*.0001  # tie break w/ u?
         return score
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
@@ -131,6 +122,7 @@ class MotionPrimitive():
         min_score = np.ones((starting_score.shape[0], 2))*np.inf
         min_score[:, 0] = np.amin(starting_score, axis=1)
         for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
+            print(mp_num)
             # distances of potential sample points to closest chosen output MP node
             min_score[:, 0] = np.amin(min_score, axis=1)
             # take the new point with the maximum distance to its closest node
@@ -183,7 +175,6 @@ class MotionPrimitive():
         Can easily make too big of an array with small resolution :(
         # TODO not actually dispertio yet because not using steer function/reachable sets
         """
-        # Generate all points
         self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
@@ -195,12 +186,29 @@ class MotionPrimitive():
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
                                                                                       potential_sample_pts, score, starting_output_sample_index)
         print(actual_sample_pts)
+        self.reconnect_lattice(actual_sample_pts)
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
 
         return actual_sample_pts
 
+    def reconnect_lattice(self, sample_pts):
+        print("reconnect lattice")
+        for start_pt in sample_pts:
+            for end_pt in sample_pts:
+                if (start_pt == end_pt).all():
+                    continue
+                polys, T = self.iteratively_solve_bvp_meam_620_style(start_pt, end_pt)
+                #TODO enforce a max number of connections
+                #TODO save and output to pickle
+                if self.plot:
+                    if ~np.isinf(T):
+                        t_list = np.linspace(0, T, 10)
+                        x = [np.polyval(polys[0, :], i) for i in t_list]
+                        y = [np.polyval(polys[1, :], i) for i in t_list]
+                        plt.plot(x, y)
+                        
     def create_evenly_spaced_mps(self, start_pt, dt):
         """
         Create motion primitives for a start point by taking an even sampling over the
@@ -316,14 +324,14 @@ class MotionPrimitive():
             x[i] = t**(self.poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
 
         self.x_derivs = []
-        for i in range(self.control_space_q):
+        for i in range(self.control_space_q+1):
             self.x_derivs.append(sym.lambdify([t], x))
             x = sym.diff(x)  # iterate through all the derivatives
         self.q_factorial = factorial(self.control_space_q)
 
     def solve_bvp_meam_620_style(self, xi, xf, T):
         """
-        Return u from xi ((n,) array) to xf ((n,) array) in time interval [0,T] corresponding to a constant input solution
+        Return polynomial coefficients from xi ((n,) array) to xf ((n,) array) in time interval [0,T]
         """
 
         A = np.zeros((self.poly_order+1, self.poly_order+1))
@@ -331,29 +339,50 @@ class MotionPrimitive():
             x = self.x_derivs[i]  # iterate through all the derivatives
             A[i, :] = x(0)  # x(ti) = xi
             A[self.control_space_q+i, :] = x(T)  # x(tf) = xf
-        u = np.zeros(self.num_dims)
+        # u = np.zeros(self.num_dims)
+        polys = np.zeros((self.num_dims, self.poly_order+1))
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
 
             # vector of the form [xi,xf,xi_dot,xf_dot,...]
             b = np.hstack((xi[i::self.num_dims], xf[i::self.num_dims]))  # TODO this line kind of slow
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
-            u[i] = poly[0]*self.q_factorial
+            # u[i] = poly[0]*self.q_factorial
 
-        #     if self.plot:
-        #         try:
-        #             polys[i, :] = poly
-        #         except:
-        #             polys = np.zeros((self.num_dims, self.poly_order+1))
-        #             polys[i, :] = poly
+            polys[i, :] = poly
         # if self.plot:
-        #     t = np.linspace(0, T, 10000)
-        #     x = [np.polyval(polys[0, :], i) for i in t]
-        #     y = [np.polyval(polys[1, :], i) for i in t]
+        #     t_list = np.linspace(0, T, 100)
+        #     x = [np.polyval(polys[0, :], i) for i in t_list]
+        #     y = [np.polyval(polys[1, :], i) for i in t_list]
         #     plt.plot(xi[0], xi[1], 'og')
         #     plt.plot(xf[0], xf[1], 'or')
         #     plt.plot(x, y)
-        return u
+        #     x = np.zeros((100, self.n))
+
+            # for i, t in enumerate(t_list):
+            #     x[i, :] = self.quad_dynamics_polynomial(xi, u, t)
+            # plt.plot(x[:, 0], x[:, 1], 'y')
+        return polys
+
+    def iteratively_solve_bvp_meam_620_style(self, start_pt, goal_pt):
+        # TODO make parameters
+        dt = .2
+        max_t = 1
+        t = 0
+        u_max = np.inf
+        polys = None
+        while u_max > self.max_state[self.control_space_q]:
+            t += dt
+            if t > max_t:
+                # u = np.ones(self.num_dims)*np.inf
+                polys = None
+                t = np.inf
+                break
+            polys = self.solve_bvp_meam_620_style(start_pt, goal_pt, t)
+            u_max = max(abs(np.sum(polys*self.x_derivs[-1](t),axis=1))) # TODO this is only u(t), not necessarily max(u) from 0 to t which we would want, use critical points maybe?
+            u_max = max(u_max,max(abs(np.sum(polys*self.x_derivs[-1](0),axis=1))))
+        # print(u_max,polys,t)
+        return polys, t
 
 
 def create_many_state_space_lookup_tables(max_control_space):
@@ -375,17 +404,18 @@ if __name__ == "__main__":
     control_space_q = 2
     num_dims = 2
     num_u_per_dimension = 5
-    max_state = [1, .5, 1, 1, 1, 1]
+    max_state = [1, 1, 10, 100, 1, 1]
     num_state_deriv_pts = 7
     plot = True
     mp = MotionPrimitive(control_space_q=control_space_q, num_dims=num_dims,
                          num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))
     # start_pt = np.array([-1., -2., 0, 0.5])
-    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*5, 1))
+    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*2, 1))
+    # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
-        mp.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, .5, .5])
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
+        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[.5,.5,.75])
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
