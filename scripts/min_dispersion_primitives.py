@@ -111,7 +111,7 @@ class MotionPrimitive():
         score = np.zeros(potential_sample_pts.shape[0])
         for i in range(potential_sample_pts.shape[0]):
             polys, t = self.iteratively_solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :])
-            score[i] = t #+ np.linalg.norm(u)*.0001  # tie break w/ u?
+            score[i] = t  # + np.linalg.norm(u)*.0001  # tie break w/ u?
         return score
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
@@ -200,15 +200,15 @@ class MotionPrimitive():
                 if (start_pt == end_pt).all():
                     continue
                 polys, T = self.iteratively_solve_bvp_meam_620_style(start_pt, end_pt)
-                #TODO enforce a max number of connections
-                #TODO save and output to pickle
+                # TODO enforce a max number of connections
+                # TODO save and output to pickle
                 if self.plot:
                     if ~np.isinf(T):
-                        t_list = np.linspace(0, T, 10)
+                        t_list = np.linspace(0, T, 30)
                         x = [np.polyval(polys[0, :], i) for i in t_list]
                         y = [np.polyval(polys[1, :], i) for i in t_list]
                         plt.plot(x, y)
-                        
+
     def create_evenly_spaced_mps(self, start_pt, dt):
         """
         Create motion primitives for a start point by taking an even sampling over the
@@ -318,7 +318,7 @@ class MotionPrimitive():
 
     def setup_bvp_meam_620_style(self):
         t = sym.symbols('t')
-        self.poly_order = (self.control_space_q-1)*2+1
+        self.poly_order = (self.control_space_q-1)*2+1  # why?
         x = np.squeeze(sym.Matrix(np.zeros((self.poly_order+1))))
         for i in range(self.poly_order+1):
             x[i] = t**(self.poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
@@ -341,10 +341,12 @@ class MotionPrimitive():
             A[self.control_space_q+i, :] = x(T)  # x(tf) = xf
         # u = np.zeros(self.num_dims)
         polys = np.zeros((self.num_dims, self.poly_order+1))
+        b = np.zeros(self.control_space_q*2)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
 
             # vector of the form [xi,xf,xi_dot,xf_dot,...]
-            b = np.hstack((xi[i::self.num_dims], xf[i::self.num_dims]))  # TODO this line kind of slow
+            b[:self.control_space_q] = xi[i::self.num_dims]
+            b[self.control_space_q:] = xf[i::self.num_dims]
             poly = np.linalg.solve(A, b)
             # only care about the first coefficient, which encodes the constant u
             # u[i] = poly[0]*self.q_factorial
@@ -366,8 +368,8 @@ class MotionPrimitive():
 
     def iteratively_solve_bvp_meam_620_style(self, start_pt, goal_pt):
         # TODO make parameters
-        dt = .2
-        max_t = 1
+        dt = .1
+        max_t = .2
         t = 0
         u_max = np.inf
         polys = None
@@ -379,8 +381,9 @@ class MotionPrimitive():
                 t = np.inf
                 break
             polys = self.solve_bvp_meam_620_style(start_pt, goal_pt, t)
-            u_max = max(abs(np.sum(polys*self.x_derivs[-1](t),axis=1))) # TODO this is only u(t), not necessarily max(u) from 0 to t which we would want, use critical points maybe?
-            u_max = max(u_max,max(abs(np.sum(polys*self.x_derivs[-1](0),axis=1))))
+            # TODO this is only u(t), not necessarily max(u) from 0 to t which we would want, use critical points maybe?
+            u_max = max(abs(np.sum(polys*self.x_derivs[-1](t), axis=1)))
+            u_max = max(u_max, max(abs(np.sum(polys*self.x_derivs[-1](0), axis=1))))
         # print(u_max,polys,t)
         return polys, t
 
@@ -415,7 +418,7 @@ if __name__ == "__main__":
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[.5,.5,.75])
+        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[.5, .5, .75])
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):
