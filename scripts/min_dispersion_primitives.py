@@ -11,7 +11,9 @@ import time
 import pickle
 import sympy as sym
 from pathlib import Path
-from sklearn.neighbors import NearestNeighbors
+# from sklearn.neighbors import NearestNeighbors
+from mpl_toolkits.mplot3d import Axes3D
+
 # from scipy.integrate import solve_bvp
 
 
@@ -52,6 +54,10 @@ class MotionPrimitive():
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
         self.setup_bvp_meam_620_style()
+        self.fig = plt.figure()
+        if self.num_dims==3:
+            ax = self.fig.add_subplot(111, projection='3d')
+
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
@@ -188,8 +194,10 @@ class MotionPrimitive():
         print(actual_sample_pts)
         self.reconnect_lattice(actual_sample_pts)
         if self.plot:
-            if self.num_dims > 1:
+            if self.num_dims == 2:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
+            if self.num_dims==3:
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
 
         return actual_sample_pts
 
@@ -207,7 +215,12 @@ class MotionPrimitive():
                         t_list = np.linspace(0, T, 30)
                         x = [np.polyval(polys[0, :], i) for i in t_list]
                         y = [np.polyval(polys[1, :], i) for i in t_list]
-                        plt.plot(x, y)
+                        z = [np.polyval(polys[2, :], i) for i in t_list]
+                        if self.num_dims==2:
+                            plt.plot(x, y)
+                        if self.num_dims==3:
+                            plt.plot(x, y,z)
+
 
     def create_evenly_spaced_mps(self, start_pt, dt):
         """
@@ -333,7 +346,7 @@ class MotionPrimitive():
         """
         Return polynomial coefficients from xi ((n,) array) to xf ((n,) array) in time interval [0,T]
         """
-
+        # TODO might want to do quadratic program instead to actually enforce constraints. Then probably don't need iteratively solve BVP function
         A = np.zeros((self.poly_order+1, self.poly_order+1))
         for i in range(self.control_space_q):
             x = self.x_derivs[i]  # iterate through all the derivatives
@@ -368,8 +381,8 @@ class MotionPrimitive():
 
     def iteratively_solve_bvp_meam_620_style(self, start_pt, goal_pt):
         # TODO make parameters
-        dt = .1
-        max_t = .2
+        dt = .2
+        max_t = 1
         t = 0
         u_max = np.inf
         polys = None
@@ -405,7 +418,7 @@ def create_many_state_space_lookup_tables(max_control_space):
 
 if __name__ == "__main__":
     control_space_q = 2
-    num_dims = 2
+    num_dims = 3
     num_u_per_dimension = 5
     max_state = [1, 1, 10, 100, 1, 1]
     num_state_deriv_pts = 7
@@ -418,7 +431,7 @@ if __name__ == "__main__":
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[.5, .5, .75])
+        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, .75])
     # # mp.compute_all_possible_mps(start_pt)
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=3)):

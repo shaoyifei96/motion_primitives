@@ -1,0 +1,137 @@
+from motion_primitive import *
+
+class MotionPrimitiveLattice(MotionPrimitive):
+    """
+    """
+
+    def dispersion_distance_fn_path_length(self, potential_sample_pts, result_pt):
+        score = np.zeros(potential_sample_pts.shape[0])
+        for i in range(potential_sample_pts.shape[0]):
+            polys, t = self.iteratively_solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :])
+            score[i] = t  # + np.linalg.norm(u)*.0001  # tie break w/ u?
+        return score
+    
+
+    def compute_min_dispersion_space(self, num_output_pts=250, resolution=[0.2, 0.2, 0.2]):
+        """
+        Using the bounds on the state space, compute a set of minimum dispersion points
+        (Similar to original Dispertio paper)
+        Can easily make too big of an array with small resolution :(
+        # TODO not actually dispertio yet because not using steer function/reachable sets
+        """
+        self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
+
+        bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
+        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
+        print(potential_sample_pts.shape)
+        score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
+        starting_output_sample_index = 0
+        score[:, 0] = self.dispersion_distance_fn_simple_norm(potential_sample_pts, potential_sample_pts[starting_output_sample_index, :])
+        actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
+                                                                                      potential_sample_pts, score, starting_output_sample_index)
+        print(actual_sample_pts)
+        self.reconnect_lattice(actual_sample_pts)
+        if self.plot:
+            if self.num_dims == 2:
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
+            if self.num_dims == 3:
+                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
+
+        return actual_sample_pts
+
+    def reconnect_lattice(self, sample_pts):
+        print("reconnect lattice")
+        for start_pt in sample_pts:
+            for end_pt in sample_pts:
+                if (start_pt == end_pt).all():
+                    continue
+                polys, T = self.iteratively_solve_bvp_meam_620_style(start_pt, end_pt)
+                # TODO enforce a max number of connections
+                # TODO save and output to pickle
+                if self.plot:
+                    if ~np.isinf(T):
+                        t_list = np.linspace(0, T, 30)
+                        x = [np.polyval(polys[0, :], i) for i in t_list]
+                        y = [np.polyval(polys[1, :], i) for i in t_list]
+                        z = [np.polyval(polys[2, :], i) for i in t_list]
+                        if self.num_dims == 2:
+                            plt.plot(x, y)
+                        if self.num_dims == 3:
+                            plt.plot(x, y, z)
+
+    def solve_bvp_meam_620_style(self, xi, xf, T):
+        """
+        Return polynomial coefficients from xi ((n,) array) to xf ((n,) array) in time interval [0,T]
+        """
+        # TODO might want to do quadratic program instead to actually enforce constraints. Then probably don't need iteratively solve BVP function
+        A = np.zeros((self.poly_order+1, self.poly_order+1))
+        for i in range(self.control_space_q):
+            x = self.x_derivs[i]  # iterate through all the derivatives
+            A[i, :] = x(0)  # x(ti) = xi
+            A[self.control_space_q+i, :] = x(T)  # x(tf) = xf
+        # u = np.zeros(self.num_dims)
+        polys = np.zeros((self.num_dims, self.poly_order+1))
+        b = np.zeros(self.control_space_q*2)
+        for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
+
+            # vector of the form [xi,xf,xi_dot,xf_dot,...]
+            b[:self.control_space_q] = xi[i::self.num_dims]
+            b[self.control_space_q:] = xf[i::self.num_dims]
+            poly = np.linalg.solve(A, b)
+            # only care about the first coefficient, which encodes the constant u
+            # u[i] = poly[0]*self.q_factorial
+
+            polys[i, :] = poly
+        # if self.plot:
+        #     t_list = np.linspace(0, T, 100)
+        #     x = [np.polyval(polys[0, :], i) for i in t_list]
+        #     y = [np.polyval(polys[1, :], i) for i in t_list]
+        #     plt.plot(xi[0], xi[1], 'og')
+        #     plt.plot(xf[0], xf[1], 'or')
+        #     plt.plot(x, y)
+        #     x = np.zeros((100, self.n))
+
+            # for i, t in enumerate(t_list):
+            #     x[i, :] = self.quad_dynamics_polynomial(xi, u, t)
+            # plt.plot(x[:, 0], x[:, 1], 'y')
+        return polys
+
+    def iteratively_solve_bvp_meam_620_style(self, start_pt, goal_pt):
+        # TODO make parameters
+        dt = .2
+        max_t = 1
+        t = 0
+        u_max = np.inf
+        polys = None
+        while u_max > self.max_state[self.control_space_q]:
+            t += dt
+            if t > max_t:
+                # u = np.ones(self.num_dims)*np.inf
+                polys = None
+                t = np.inf
+                break
+            polys = self.solve_bvp_meam_620_style(start_pt, goal_pt, t)
+            # TODO this is only u(t), not necessarily max(u) from 0 to t which we would want, use critical points maybe?
+            u_max = max(abs(np.sum(polys*self.x_derivs[-1](t), axis=1)))
+            u_max = max(u_max, max(abs(np.sum(polys*self.x_derivs[-1](0), axis=1))))
+        # print(u_max,polys,t)
+        return polys, t
+
+if __name__ == "__main__":
+    control_space_q = 2
+    num_dims = 3
+    num_u_per_dimension = 5
+    max_state = [1, 1, 10, 100, 1, 1]
+    num_state_deriv_pts = 7
+    plot = True
+    mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims,
+                         num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+    start_pt = np.ones((mp.n))
+    # start_pt = np.array([-1., -2., 0, 0.5])
+    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*2, 1))
+    # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
+
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
+        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, .75])
+
+    plt.show()
