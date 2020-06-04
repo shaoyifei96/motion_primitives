@@ -38,7 +38,9 @@ class Node:
 
 
 class GraphSearch:
-
+    """
+    Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
+    """
     def __init__(self, motion_primitive, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False, heuristic_type=1, neighbor_type=1):
         self.motion_primitive = motion_primitive
         self.start_state = np.array(start_state)
@@ -54,9 +56,9 @@ class GraphSearch:
         self.n = self.motion_primitive.n
 
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
-                                              [np.repeat(-i, self.num_dims) for i in self.motion_primitive.max_state_derivs[:self.control_space_q-1]])
+                                              [np.repeat(-i, self.num_dims) for i in self.motion_primitive.max_state[:self.control_space_q-1]])
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
-                                              [np.repeat(i, self.num_dims) for i in self.motion_primitive.max_state_derivs[:self.control_space_q-1]])
+                                              [np.repeat(i, self.num_dims) for i in self.motion_primitive.max_state[:self.control_space_q-1]])
 
         self.rho = 0.0
 
@@ -274,6 +276,8 @@ if __name__ == "__main__":
     path, poly = gs.run_graph_search()
     if path is not None:
         fig, axs = gs.plot_path(path, poly)
+    else:
+        fig, axs = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
     gs.plot_all_nodes(axs=axs)
 
     print("Evenly Spaced:")

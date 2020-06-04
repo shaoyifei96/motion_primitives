@@ -54,7 +54,8 @@ class MotionPrimitive():
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
         self.setup_bvp_meam_620_style()
-        self.fig = plt.figure()
+        if self.plot:
+            self.fig = plt.figure()
         if self.num_dims == 3:
             ax = self.fig.add_subplot(111, projection='3d')
 

@@ -107,9 +107,9 @@ def create_many_state_space_lookup_tables(max_control_space):
 if __name__ == "__main__":
     control_space_q = 2
     num_dims = 2
-    num_u_per_dimension = 5
-    max_state = [1, 1, 10, 100, 1, 1]
-    num_state_deriv_pts = 7
+    num_u_per_dimension = 9
+    max_state = [1, 1, 1, 100, 1, 1]
+    num_state_deriv_pts = 11
     plot = False
     mp = MotionPrimitiveTree(control_space_q=control_space_q, num_dims=num_dims,
                              num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
