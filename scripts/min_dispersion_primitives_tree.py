@@ -86,8 +86,6 @@ class MotionPrimitiveTree(MotionPrimitive):
 
         self.start_pts = start_pts_set
         self.motion_primitives_list = prim_list
-        print(self.start_pts.shape)
-        print(self.motion_primitives_list[0].shape)
         self.pickle_self()
 
 

@@ -100,7 +100,7 @@ class MotionPrimitive():
         min_score = np.ones((starting_score.shape[0], 2))*np.inf
         min_score[:, 0] = np.amin(starting_score, axis=1)
         for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
-            print(mp_num)
+            # print(mp_num)
             # distances of potential sample points to closest chosen output MP node
             min_score[:, 0] = np.amin(min_score, axis=1)
             # take the new point with the maximum distance to its closest node
