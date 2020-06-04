@@ -4,7 +4,8 @@ from heapq import heappush, heappop, heapify  # Recommended.
 import numpy as np
 import itertools
 import copy
-from min_dispersion_primitives import MotionPrimitive
+from min_dispersion_primitives_tree import MotionPrimitiveTree
+from min_dispersion_primitives_lattice import MotionPrimitiveLattice
 import pickle
 from scipy import spatial
 import matplotlib.pyplot as plt

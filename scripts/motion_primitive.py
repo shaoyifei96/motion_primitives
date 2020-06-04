@@ -65,6 +65,7 @@ class MotionPrimitive():
         with file_path.open('wb') as output:  # TODO add timestamp of something back
             self.plot = False
             self.quad_dynamics_polynomial = None  # pickle has trouble with lambda function
+            self.x_derivs = None
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
 

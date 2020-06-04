@@ -1,5 +1,6 @@
 from motion_primitive import *
 
+
 class MotionPrimitiveLattice(MotionPrimitive):
     """
     """
@@ -10,14 +11,11 @@ class MotionPrimitiveLattice(MotionPrimitive):
             polys, t = self.iteratively_solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :])
             score[i] = t  # + np.linalg.norm(u)*.0001  # tie break w/ u?
         return score
-    
 
     def compute_min_dispersion_space(self, num_output_pts=250, resolution=[0.2, 0.2, 0.2]):
         """
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
-        Can easily make too big of an array with small resolution :(
-        # TODO not actually dispertio yet because not using steer function/reachable sets
         """
         self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
 
@@ -41,11 +39,14 @@ class MotionPrimitiveLattice(MotionPrimitive):
 
     def reconnect_lattice(self, sample_pts):
         print("reconnect lattice")
+        self.start_pts_set = sample_pts
+        self.motion_primitives_list = []
         for start_pt in sample_pts:
             for end_pt in sample_pts:
                 if (start_pt == end_pt).all():
                     continue
                 polys, T = self.iteratively_solve_bvp_meam_620_style(start_pt, end_pt)
+                # self.motion_primitives_list.append()
                 # TODO enforce a max number of connections
                 # TODO save and output to pickle
                 if self.plot:
@@ -53,10 +54,10 @@ class MotionPrimitiveLattice(MotionPrimitive):
                         t_list = np.linspace(0, T, 30)
                         x = [np.polyval(polys[0, :], i) for i in t_list]
                         y = [np.polyval(polys[1, :], i) for i in t_list]
-                        z = [np.polyval(polys[2, :], i) for i in t_list]
                         if self.num_dims == 2:
                             plt.plot(x, y)
                         if self.num_dims == 3:
+                            z = [np.polyval(polys[2, :], i) for i in t_list]
                             plt.plot(x, y, z)
 
     def solve_bvp_meam_620_style(self, xi, xf, T):
@@ -117,21 +118,23 @@ class MotionPrimitiveLattice(MotionPrimitive):
         # print(u_max,polys,t)
         return polys, t
 
+
 if __name__ == "__main__":
     control_space_q = 2
-    num_dims = 3
+    num_dims = 2
     num_u_per_dimension = 5
-    max_state = [1, 1, 10, 100, 1, 1]
+    max_state = [1, 1, 10, 1, 1, 1]
     num_state_deriv_pts = 7
     plot = True
     mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims,
-                         num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+                                num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))
     # start_pt = np.array([-1., -2., 0, 0.5])
     # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*2, 1))
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, .75])
+        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, 1, 1, 1, 1])
 
-    plt.show()
+    if mp.plot:
+        plt.show()

@@ -86,7 +86,10 @@ class MotionPrimitiveTree(MotionPrimitive):
 
         self.start_pts = start_pts_set
         self.motion_primitives_list = prim_list
+        print(self.start_pts.shape)
+        print(self.motion_primitives_list[0].shape)
         self.pickle_self()
+
 
 def create_many_state_space_lookup_tables(max_control_space):
     """
@@ -97,11 +100,10 @@ def create_many_state_space_lookup_tables(max_control_space):
     num_state_deriv_pts = 7
     plot = False
     moprim_list = [MotionPrimitiveTree(control_space_q, num_dims, num_u_per_dimension,
-                                   max_state, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
+                                       max_state, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
     for moprim in moprim_list:
         print(moprim.control_space_q, moprim.num_dims)
         moprim.create_state_space_MP_lookup_table()
-
 
 
 if __name__ == "__main__":
@@ -110,16 +112,16 @@ if __name__ == "__main__":
     num_u_per_dimension = 5
     max_state = [1, 1, 10, 100, 1, 1]
     num_state_deriv_pts = 7
-    plot = True
+    plot = False
     mp = MotionPrimitiveTree(control_space_q=control_space_q, num_dims=num_dims,
-                         num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+                             num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
     start_pt = np.ones((mp.n))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
         # mp.compute_all_possible_mps(start_pt)
-        mp.compute_min_dispersion_set(start_pt)
-        # mp.create_state_space_MP_lookup_table_tree()
+        # mp.compute_min_dispersion_set(start_pt)
+        mp.create_state_space_MP_lookup_table_tree()
 
     # create_many_state_space_lookup_tables(5)
-
-    plt.show()
+    if mp.plot:
+        plt.show()
