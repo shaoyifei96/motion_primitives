@@ -3,12 +3,16 @@ from motion_primitive import *
 
 class MotionPrimitiveLattice(MotionPrimitive):
     """
+    A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
     """
 
-    def dispersion_distance_fn_path_length(self, potential_sample_pts, result_pt):
+    def dispersion_distance_fn_path_length(self, potential_sample_pts, start_pt):
+        """
+        A function that evaluates the cost of a path from start_pt to an array of potential_sample_pts. For the moment the cost is the time of the optimal path.
+        """
         score = np.zeros(potential_sample_pts.shape[0])
         for i in range(potential_sample_pts.shape[0]):
-            polys, t = self.iteratively_solve_bvp_meam_620_style(result_pt, potential_sample_pts[i, :])
+            polys, t = self.iteratively_solve_bvp_meam_620_style(start_pt, potential_sample_pts[i, :])
             score[i] = t  # + np.linalg.norm(u)*.0001  # tie break w/ u?
         return score
 
@@ -38,6 +42,9 @@ class MotionPrimitiveLattice(MotionPrimitive):
         return actual_sample_pts
 
     def reconnect_lattice(self, sample_pts):
+        """
+        Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
+        """
         print("reconnect lattice")
         self.start_pts_set = sample_pts
         self.motion_primitives_list = []
@@ -62,7 +69,7 @@ class MotionPrimitiveLattice(MotionPrimitive):
 
     def solve_bvp_meam_620_style(self, xi, xf, T):
         """
-        Return polynomial coefficients from xi ((n,) array) to xf ((n,) array) in time interval [0,T]
+        Return polynomial coefficients for a trajectory from xi ((n,) array) to xf ((n,) array) in time interval [0,T]
         """
         # TODO might want to do quadratic program instead to actually enforce constraints. Then probably don't need iteratively solve BVP function
         A = np.zeros((self.poly_order+1, self.poly_order+1))
@@ -70,7 +77,7 @@ class MotionPrimitiveLattice(MotionPrimitive):
             x = self.x_derivs[i]  # iterate through all the derivatives
             A[i, :] = x(0)  # x(ti) = xi
             A[self.control_space_q+i, :] = x(T)  # x(tf) = xf
-        # u = np.zeros(self.num_dims)
+
         polys = np.zeros((self.num_dims, self.poly_order+1))
         b = np.zeros(self.control_space_q*2)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
@@ -79,10 +86,10 @@ class MotionPrimitiveLattice(MotionPrimitive):
             b[:self.control_space_q] = xi[i::self.num_dims]
             b[self.control_space_q:] = xf[i::self.num_dims]
             poly = np.linalg.solve(A, b)
-            # only care about the first coefficient, which encodes the constant u
-            # u[i] = poly[0]*self.q_factorial
 
             polys[i, :] = poly
+
+            # just for debugging
         # if self.plot:
         #     t_list = np.linspace(0, T, 100)
         #     x = [np.polyval(polys[0, :], i) for i in t_list]
@@ -98,6 +105,9 @@ class MotionPrimitiveLattice(MotionPrimitive):
         return polys
 
     def iteratively_solve_bvp_meam_620_style(self, start_pt, goal_pt):
+        """
+        Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied. TODO: only checking input constraint at start and end at the moment
+        """
         # TODO make parameters
         dt = .2
         max_t = 1
