@@ -28,7 +28,7 @@ class MotionPrimitiveLattice(MotionPrimitive):
         print(potential_sample_pts.shape)
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
         starting_output_sample_index = 0
-        score[:, 0] = self.dispersion_distance_fn_simple_norm(potential_sample_pts, potential_sample_pts[starting_output_sample_index, :])
+        score[:, 0] = self.dispersion_distance_fn(potential_sample_pts, potential_sample_pts[starting_output_sample_index, :])
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
                                                                                       potential_sample_pts, score, starting_output_sample_index)
         print(actual_sample_pts)
@@ -143,8 +143,8 @@ if __name__ == "__main__":
     # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*2, 1))
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-        mp.compute_min_dispersion_space(num_output_pts=10, resolution=[1, 1, 1, 1, 1, 1])
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
+    mp.compute_min_dispersion_space(num_output_pts=30, resolution=[.2, .2, .2, 1, 1, 1])
 
     if mp.plot:
         plt.show()
