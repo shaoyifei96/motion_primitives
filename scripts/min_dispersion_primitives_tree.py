@@ -5,12 +5,21 @@ class MotionPrimitiveTree(MotionPrimitive):
     """
     """
 
-    def compute_all_possible_mps(self, start_pt):
+    def compute_all_possible_mps(self, start_pt, num_u_set, num_dts, min_dt, max_dt):
         """
         Compute a sampled reachable set from a start point, up to a max dt
+
+        num_u_set  Number of MPs to consider at a given time
+        num_dts Number of time horizons to consider between 0 and max_dt
+        min_dt  Min time horizon of MP
+        max_dt Max time horizon of MP
+
         """
-        single_u_set = np.linspace(-self.max_u, self.max_u, self.num_u_set)
-        dt_set = np.linspace(self.min_dt, self.max_dt, self.num_dts)
+        # max control input #TODO should be a vector b/c perhaps different in Z
+        max_u = self.max_state[self.control_space_q]
+
+        single_u_set = np.linspace(-max_u, max_u, num_u_set)
+        dt_set = np.linspace(min_dt, max_dt, num_dts)
         u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
         sample_pts = np.array(self.quad_dynamics_polynomial(start_pt, u_set[:, :, np.newaxis], dt_set[np.newaxis, :]))
@@ -28,16 +37,18 @@ class MotionPrimitiveTree(MotionPrimitive):
 
         return sample_pts, dt_set, u_set
 
-    def compute_min_dispersion_set(self, start_pt):
+    def compute_min_dispersion_set(self, start_pt, num_u_per_dimension, num_u_set, num_dts, min_dt, max_dt):
         """
         Compute a set of num_output_mps primitives (u, dt) which generate a
         minimum state dispersion within the reachable state space after one
         step.
         """
         # TODO add stopping policy?
+        num_output_mps = num_u_per_dimension**self.num_dims  # number of total motion primitives
+
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm
-        score = np.ones((self.num_dts*self.num_u_set**self.num_dims, self.num_output_mps))*np.inf
-        potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt)
+        score = np.ones((num_dts*num_u_set**self.num_dims, num_output_mps))*np.inf
+        potential_sample_pts, dt_set, u_set = self.compute_all_possible_mps(start_pt, num_u_set, num_dts, min_dt, max_dt)
         potential_sample_pts = potential_sample_pts.reshape(
             potential_sample_pts.shape[0]*potential_sample_pts.shape[1], potential_sample_pts.shape[2])
         # Take the closest motion primitive as the first choice (may want to change later)
@@ -46,9 +57,9 @@ class MotionPrimitiveTree(MotionPrimitive):
         score[:, 0] = first_score
 
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(
-            self.num_output_mps, potential_sample_pts, score, closest_pt)
+            num_output_mps, potential_sample_pts, score, closest_pt)
 
-        actual_sample_indices = np.unravel_index(actual_sample_indices, (self.num_dts, self.num_u_set**self.num_dims))
+        actual_sample_indices = np.unravel_index(actual_sample_indices, (num_dts, num_u_set**self.num_dims))
         # Else compute minimum dispersion points over the whole state space (can be quite slow) (very similar to original Dispertio)
         dts = dt_set[actual_sample_indices[0]]
         us = u_set[:, actual_sample_indices[1]]
@@ -56,13 +67,13 @@ class MotionPrimitiveTree(MotionPrimitive):
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
-                self.create_evenly_spaced_mps(start_pt, self.max_dt/2.0)
+                self.create_evenly_spaced_mps(start_pt, max_dt/2.0)
             else:
                 plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'om')
 
         return np.vstack((dts, us))
 
-    def create_state_space_MP_lookup_table_tree(self):
+    def create_state_space_MP_lookup_table_tree(self, num_u_per_dimension, num_state_deriv_pts, num_u_set, num_dts, min_dt, max_dt):
         """
         Uniformly sample the state space, and for each sample independently
         calculate a minimum dispersion set of motion primitives.
@@ -70,7 +81,7 @@ class MotionPrimitiveTree(MotionPrimitive):
 
         # Numpy nonsense that could be cleaner. Generate start pts at lots of initial conditions of the derivatives.
         # TODO replace with Jimmy's cleaner uniform_sample function
-        y = np.array([np.tile(np.linspace(-i, i, self.num_state_deriv_pts), (self.num_dims, 1))
+        y = np.array([np.tile(np.linspace(-i, i, num_state_deriv_pts), (self.num_dims, 1))
                       for i in self.max_state[1:self.control_space_q]])  # start at 1 to skip position
         z = np.reshape(y, (y.shape[0]*y.shape[1], y.shape[2]))
         start_pts_grid = np.meshgrid(*z)
@@ -79,7 +90,8 @@ class MotionPrimitiveTree(MotionPrimitive):
 
         prim_list = []
         for start_pt in start_pts_set.T:
-            prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1))))
+            prim_list.append(self.compute_min_dispersion_set(np.reshape(start_pt, (self.n, 1)),
+                                                             num_u_per_dimension, num_u_set, num_dts, min_dt, max_dt))
             print(str(len(prim_list)) + '/' + str(start_pts_set.shape[1]))
             if self.plot:
                 plt.show()
@@ -93,15 +105,13 @@ def create_many_state_space_lookup_tables(max_control_space):
     """
     Make motion primitive lookup tables for different state/input spaces
     """
-    num_u_per_dimension = 3
     max_state = [2, 2, 1, 1, 1]
-    num_state_deriv_pts = 7
     plot = False
-    moprim_list = [MotionPrimitiveTree(control_space_q, num_dims, num_u_per_dimension,
-                                       max_state, num_state_deriv_pts, plot) for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
+    moprim_list = [MotionPrimitiveTree(control_space_q, num_dims, max_state, plot)
+                   for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
     for moprim in moprim_list:
         print(moprim.control_space_q, moprim.num_dims)
-        moprim.create_state_space_MP_lookup_table()
+        moprim.create_state_space_MP_lookup_table(num_u_per_dimension=3, num_state_deriv_pts=7,num_u_set=20, num_dts=10, min_dt=0, max_dt=.5)
 
 
 if __name__ == "__main__":
@@ -111,14 +121,14 @@ if __name__ == "__main__":
     max_state = [1, 1, 1, 100, 1, 1]
     num_state_deriv_pts = 11
     plot = False
-    mp = MotionPrimitiveTree(control_space_q=control_space_q, num_dims=num_dims,
-                             num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+    mp = MotionPrimitiveTree(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     start_pt = np.ones((mp.n))
 
     with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
         # mp.compute_all_possible_mps(start_pt)
         # mp.compute_min_dispersion_set(start_pt)
-        mp.create_state_space_MP_lookup_table_tree()
+        mp.create_state_space_MP_lookup_table_tree(num_u_per_dimension=5, num_state_deriv_pts=11,
+                                                   num_u_set=20, num_dts=10, min_dt=0, max_dt=.5)
 
     # create_many_state_space_lookup_tables(5)
     if mp.plot:

@@ -22,34 +22,23 @@ class MotionPrimitive():
     Compute motion primitives for quadrotors over different size state spaces
     """
 
-    def __init__(self, control_space_q=3, num_dims=2, num_u_per_dimension=5, max_state=[1, 1, 1, 1], num_state_deriv_pts=10, plot=False):
+    def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], plot=False):
         """
         Input:
             control_space_q, derivative of configuration which is the control input.
             num_dims,        dimension of configuration space
-            num_u_per_dimension, how many motion primitives per dimension
             max_state, list of max values of position space and its derivatives
-            num_state_deriv_pts, if creating a lookup table, how many samples per state per dimension
             plot, boolean of whether to create/show plots
         """
 
         self.control_space_q = control_space_q  # which derivative of position is the control space
         self.num_dims = num_dims  # Dimension of the configuration space
-        self.num_u_per_dimension = num_u_per_dimension
         self.max_state = np.array(max_state)
-        self.num_state_deriv_pts = num_state_deriv_pts
         self.plot = plot
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
 
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
-        self.num_output_mps = self.num_u_per_dimension**self.num_dims  # number of total motion primitives
 
-        # max control input #TODO should be a vector b/c perhaps different in Z
-        self.max_u = self.max_state[self.control_space_q]
-        self.num_u_set = 20  # Number of MPs to consider at a given time
-        self.min_dt = 0
-        self.max_dt = .5  # Max time horizon of MP
-        self.num_dts = 10  # Number of time horizons to consider between 0 and max_dt
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()

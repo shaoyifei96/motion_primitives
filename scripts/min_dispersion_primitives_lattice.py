@@ -21,7 +21,7 @@ class MotionPrimitiveLattice(MotionPrimitive):
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
         """
-        self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
+        # self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])
@@ -46,8 +46,8 @@ class MotionPrimitiveLattice(MotionPrimitive):
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
         print("reconnect lattice")
-        self.start_pts_set = sample_pts
-        self.motion_primitives_list = []
+        # self.start_pts_set = sample_pts
+        # self.motion_primitives_list = []
         for start_pt in sample_pts:
             for end_pt in sample_pts:
                 if (start_pt == end_pt).all():
@@ -124,6 +124,7 @@ class MotionPrimitiveLattice(MotionPrimitive):
             polys = self.solve_bvp_meam_620_style(start_pt, goal_pt, t)
             # TODO this is only u(t), not necessarily max(u) from 0 to t which we would want, use critical points maybe?
             u_max = max(abs(np.sum(polys*self.x_derivs[-1](t), axis=1)))
+            u_max = max(abs(np.sum(polys*self.x_derivs[-1](t/2), axis=1)))
             u_max = max(u_max, max(abs(np.sum(polys*self.x_derivs[-1](0), axis=1))))
         # print(u_max,polys,t)
         return polys, t
@@ -131,20 +132,18 @@ class MotionPrimitiveLattice(MotionPrimitive):
 
 if __name__ == "__main__":
     control_space_q = 2
-    num_dims = 2
+    num_dims = 3
     num_u_per_dimension = 5
-    max_state = [1, 1, 10, 1, 1, 1]
-    num_state_deriv_pts = 7
+    max_state = [1, 1, 100, 100, 1, 1]
     plot = True
-    mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims,
-                                num_u_per_dimension=num_u_per_dimension, max_state=max_state, num_state_deriv_pts=num_state_deriv_pts, plot=plot)
+    mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     start_pt = np.ones((mp.n))
     # start_pt = np.array([-1., -2., 0, 0.5])
     # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*2, 1))
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-    mp.compute_min_dispersion_space(num_output_pts=30, resolution=[.2, .2, .2, 1, 1, 1])
+    mp.compute_min_dispersion_space(num_output_pts=100, resolution=[.2, .2, .2, 1, 1, 1])
 
     if mp.plot:
         plt.show()
