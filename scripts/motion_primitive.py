@@ -8,7 +8,9 @@ import numpy as np
 class MotionPrimitive():
     """
     # WIP
-    A motion primitive that defines a trajectory from a over a time T. Put functions that all MPs should have in here
+    A motion primitive that defines a trajectory from a over a time T. 
+    Put functions that all MPs should have in this base class. 
+    If the implementation is specific to the subclass, raise a NotImplementedError
     """
 
     def __init__(self, start_state, end_state, num_dims, max_state):
@@ -27,6 +29,9 @@ class MotionPrimitive():
         raise NotImplementedError
 
     def plot_from_sampled_states(self, st, sp, sv, sa, sj):
+        """
+        Plot time vs. position, velocity, acceleration, and jerk (input is already sampled)
+        """
         # Plot the state over time.
         fig, axes = plt.subplots(4, 1, sharex=True)
         for i in range(sp.shape[0]):
@@ -44,7 +49,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     """
 
     def __init__(self, start_state, end_state, num_dims, max_state, x_derivs=None):
-        super().__init__(start_state, end_state, num_dims, max_state)
+        super().__init__(start_state, end_state, num_dims, max_state)  # Run MotionPrimitive's instantiation first
         self.polynomial_constructor(x_derivs)
 
     def get_state(self, t):
@@ -52,14 +57,27 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
     def polynomial_constructor(self, x_derivs=None):
         """
+        Create the polynomial representation of the motion primitive. 
+        Optional input x_derivs is the list of lambda functions evaluating polynomial derivative of state (see setup_bvp_meam_620_style).
+        It can be passed in to save on repeated computation.
         """
         if x_derivs is None:
             self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
         self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
-            self.start_state, self.end_state, self.num_dims, self.max_state,self.x_derivs)
+            self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
 
     @staticmethod
     def setup_bvp_meam_620_style(control_space_q):
+        """
+        Create an array of lambda functions that evaluate the derivatives of the monic polynmial with all 1 coefficient of order (control_space_q)*2-1
+        Example for control_space_q = 3 (polynomials of order 5 minimizing jerk)
+        x_derivs[0] = lambda t: [t**5, t**4, t**3, t**,2 t, 1]
+        x_derivs[1] = lambda t: [5*t**4, 4*t**3, 3*t**2, 2*t, 1, 0]
+        x_derivs[2] = lambda t: [20*t**3, 12*t**2, 6*t, 2, 0, 0]
+        x_derivs[3] = lambda t: [60*t**2, 24*t, 6, 0, 0, 0]
+        Only needs to be computed once for any control_space_q
+        These derivatives are used to construct the constraint matrix to solve the 2-point BVP in solve_bvp_meam_620_style
+        """
         t = sym.symbols('t')
         poly_order = (control_space_q)*2-1  # why?
         x = np.squeeze(sym.Matrix(np.zeros(poly_order+1)))
@@ -76,6 +94,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def solve_bvp_meam_620_style(start_state, end_state, num_dims, x_derivs, T):
         """
         Return polynomial coefficients for a trajectory from start_state ((n,) array) to end_state ((n,) array) in time interval [0,T]
+        The array of lambda functions created in setup_bvp_meam_620_style and the dimension of the configuration space are also required.
         """
         control_space_q = int(start_state.shape[0]/num_dims)
         poly_order = (control_space_q)*2-1
@@ -99,11 +118,10 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return polys
 
     @staticmethod
-    def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state , x_derivs):
+    def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state, x_derivs):
         """
-        Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied. TODO: only checking input constraint at start and end at the moment
+        Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish. TODO: only checking input constraint at start, middle, and end at the moment
         """
-        # TODO maybe static method?
         # TODO make parameters
         dt = .2
         max_t = 1
@@ -126,10 +144,18 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return polys, t
 
     def evaluate_polynomial_at_derivative(self, deriv_num, st):
+        """
+        Use the derivative helper function from setup_bvp_meam_620_style to evaluate all the derivatives of the self.polys polynomial (represented as polynomial coefficients)
+        at the st sample times
+        Returns a numpy array of size (num_dims x len(st))
+        """
         # TODO reuse this into get_state
         return np.vstack([np.array([np.polyval(np.pad(self.x_derivs[deriv_num](1), ((deriv_num), (0)), mode='constant')[:-deriv_num] * self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
 
     def plot(self):
+        """
+        Generate the sampled state and input trajectories and plot them
+        """
         st = np.linspace(0, self.traj_time, 100)
         if not np.isinf(self.traj_time):
             sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
@@ -159,7 +185,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
     def jerks_constructor(self):
         """
-        jerks_data = ([switch times],[jerk values])
+        When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
         self.switch_times, self.jerks = self.solve_bvp_min_time(self.start_state, self.end_state, self.num_dims, self.max_state)
 
@@ -184,6 +210,9 @@ class JerksMotionPrimitive(MotionPrimitive):
         return t, j
 
     def plot(self):
+        """
+        Generate the sampled state and input trajectories and plot them
+        """
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
         st, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
         self.plot_from_sampled_states(st, sp, sv, sa, sj)
