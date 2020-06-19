@@ -1,6 +1,4 @@
 from motion_primitive_graph import *
-from py_opt_control import min_time_bvp
-from motion_primitive import *
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
