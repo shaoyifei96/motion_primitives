@@ -41,6 +41,7 @@ class GraphSearch:
     """
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
+
     def __init__(self, motion_primitive, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False, heuristic_type=1, neighbor_type=1):
         self.motion_primitive = motion_primitive
         self.start_state = np.array(start_state)
@@ -139,8 +140,9 @@ class GraphSearch:
 
     def evenly_spaced_neighbors(self, node):
         dt = .5
+        num_u_per_dimension = self.motion_primitive.motion_primitives_list[0].shape[1]
         s = np.reshape(np.array(node.state), (self.n, 1))
-        neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt)
+        neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt, num_u_per_dimension)
         return neighbors
 
     def reset_graph_search(self):

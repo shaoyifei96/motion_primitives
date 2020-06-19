@@ -67,7 +67,7 @@ class MotionPrimitiveTree(MotionPrimitive):
         if self.plot:
             if self.num_dims > 1:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
-                self.create_evenly_spaced_mps(start_pt, max_dt/2.0)
+                self.create_evenly_spaced_mps(start_pt, max_dt/2.0, num_u_per_dimension)
             else:
                 plt.plot(actual_sample_pts[:, 0], np.zeros(actual_sample_pts.shape), 'om')
 
@@ -111,7 +111,8 @@ def create_many_state_space_lookup_tables(max_control_space):
                    for control_space_q in range(2, max_control_space) for num_dims in range(2, 3)]
     for moprim in moprim_list:
         print(moprim.control_space_q, moprim.num_dims)
-        moprim.create_state_space_MP_lookup_table(num_u_per_dimension=3, num_state_deriv_pts=7,num_u_set=20, num_dts=10, min_dt=0, max_dt=.5)
+        moprim.create_state_space_MP_lookup_table(num_u_per_dimension=3, num_state_deriv_pts=7,
+                                                  num_u_set=20, num_dts=10, min_dt=0, max_dt=.5)
 
 
 if __name__ == "__main__":

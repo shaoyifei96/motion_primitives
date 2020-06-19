@@ -36,9 +36,7 @@ class MotionPrimitive():
         self.max_state = np.array(max_state)
         self.plot = plot
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
-
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
-
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
@@ -80,6 +78,7 @@ class MotionPrimitive():
 
     def dispersion_distance_fn_simple_norm(self, potential_sample_pts, result_pt):
         return np.linalg.norm((potential_sample_pts - result_pt), axis=1)
+        # return np.linalg.norm((potential_sample_pts - result_pt)[:,:self.num_dims], axis=1) # position only
 
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
@@ -102,20 +101,20 @@ class MotionPrimitive():
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
 
-    def create_evenly_spaced_mps(self, start_pt, dt):
+    def create_evenly_spaced_mps(self, start_pt, dt,num_u_per_dimension):
         """
         Create motion primitives for a start point by taking an even sampling over the
         input space at a given dt
         i.e. old sikang method
         """
-        single_u_set = np.linspace(-self.max_u, self.max_u, self.num_u_per_dimension)
+        max_u = self.max_state[self.control_space_q]
+        single_u_set = np.linspace(-max_u, max_u, num_u_per_dimension)
         u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0].T
         sample_pts = np.array(self.quad_dynamics_polynomial(start_pt, u_set, dt))
         if self.plot:
             plt.plot(sample_pts[0, :], sample_pts[1, :], '*c')
-
-        return np.vstack((sample_pts, np.ones((1, self.num_output_mps))*dt, u_set)).T
+        return np.vstack((sample_pts, np.ones_like(sample_pts[0])*dt, u_set)).T
 
 
     def A_and_B_matrices_quadrotor(self):
