@@ -7,7 +7,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
     """
 
-    def dispersion_distance_fn_path_length(self, potential_sample_pts, start_pt):
+    def dispersion_distance_fn_time(self, potential_sample_pts, start_pt):
         """
         A function that evaluates the cost of a path from start_pt to an array of potential_sample_pts. For the moment the cost is the time of the optimal path.
         """
@@ -22,7 +22,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Using the bounds on the state space, compute a set of minimum dispersion points
         (Similar to original Dispertio paper)
         """
-        # self.dispersion_distance_fn = self.dispersion_distance_fn_path_length
+        # self.dispersion_distance_fn = self.dispersion_distance_fn_time
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q])

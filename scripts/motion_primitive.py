@@ -4,46 +4,51 @@ from enum import Enum
 class MotionPrimitive():
     """
     #WIP
-    A motion primitive that defines a trajectory from a over a time T
+    A motion primitive that defines a trajectory from a over a time T. Put functions that all MPs should have in here
     """
 
-    def __init__(self, constructor_type, constructor_data):
+    def __init__(self):
         """
-        Input:
-            constructor_type,      How the motion primitive will be constructed (e.g. from a polynomial, from a series of constant jerks), of type MotionPrimitiveConstructorType
-            constructor_data,      The data corresponding to the input_type (e.g. a list of polynomial coefficients, a list of jerks with switching times)
-        Usage example:
-            MotionPrimitive(MotionPrimitiveConstructorType.POLYNOMIAL,[1,2,3,4,5])
-        """
-
-        self.constructor = constructor_type
-        self.constructor(constructor_data)
-
-    @staticmethod
-    def polynomial_constructor(constructor_data):
-        """
-        constructor_data = polynomial coefficients
-        """
-        pass
-
-    @staticmethod
-    def jerks_constructor(constructor_data):
-        """
-        constructor_data = ([switch times],[jerk values]) 
         """
         pass
 
     def get_state(self, t):
         """
-        Given a time t, return the state of the motion primitive at that time
+        Given a time t, return the state of the motion primitive at that time. Hopefully agnostic to subclass(or have a function named this in both subclasses)
         """
         pass
 
 
-class MotionPrimitiveConstructorType(Enum):
-    POLYNOMIAL = MotionPrimitive.polynomial_constructor
-    JERKS = MotionPrimitive.jerks_constructor
+class PolynomialMotionPrimitive(MotionPrimitive):
+    """
+    A motion primitive constructed from polynomial coefficients
+    """
+
+    def __init__(self, polynomial_coeffs):
+        """
+        """
+        self.polynomial_constructor(polynomial_coeffs)
+
+    def polynomial_constructor(self, polynomial_coeffs):
+        """
+        """
+        pass
+
+
+class JerksMotionPrimitive(MotionPrimitive):
+    """
+    A motion primitive constructed from a sequence of constant jerks
+    """
+
+    def __init__(self, jerks_data):
+        self.jerks_constructor(jerks_data)
+
+    def jerks_constructor(self, jerks_data):
+        """
+        jerks_data = ([switch times],[jerk values]) 
+        """
+        pass
 
 
 if __name__ == "__main__":
-    mp = MotionPrimitive(MotionPrimitiveConstructorType.POLYNOMIAL, [1, 2, 3, 4, 5])
+    mp = PolynomialMotionPrimitive([1, 2, 3, 4, 5])
