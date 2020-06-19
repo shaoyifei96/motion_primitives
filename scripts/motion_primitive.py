@@ -24,7 +24,15 @@ class MotionPrimitive():
 
     def get_state(self, t):
         """
-        Given a time t, return the state of the motion primitive at that time. Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        Given a time t, return the state of the motion primitive at that time. 
+        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        """
+        raise NotImplementedError
+    
+    def get_sampled_states(self):
+        """
+        Return a sampling of the trajectory for plotting 
+        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
         raise NotImplementedError
 
@@ -41,6 +49,17 @@ class MotionPrimitive():
                 ax.set_ylabel(l)
         axes[3].set_xlabel('time')
         fig.suptitle('Full State over Time')
+
+    def plot(self):
+        """
+        Generate the sampled state and input trajectories and plot them
+        """
+        st, sp, sv, sa, sj = self.get_sampled_states()
+        if st is not None:
+            self.plot_from_sampled_states(st, sp, sv, sa, sj)
+        else:
+            print("Trajectory was not found")
+
 
 
 class PolynomialMotionPrimitive(MotionPrimitive):
@@ -151,14 +170,12 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         # TODO reuse this into get_state
         # TODO: clean up/document this better
-        return np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1)* self.polys[0, :]),((deriv_num),(0)))[:-1], i) for i in st]) for j in range(self.num_dims)])
+        return np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[0, :]), ((deriv_num), (0)))[:-1], i) for i in st]) for j in range(self.num_dims)])
 
-    def plot(self):
-        """
-        Generate the sampled state and input trajectories and plot them
-        """
-        st = np.linspace(0, self.traj_time, 100)
+    def get_sampled_states(self):
+        #TODO connect w/ get_state
         if not np.isinf(self.traj_time):
+            st = np.linspace(0, self.traj_time, 100)
             sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
@@ -166,9 +183,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                 sj = self.evaluate_polynomial_at_derivative(3, st)
             else:
                 sj = None
-            self.plot_from_sampled_states(st, sp, sv, sa, sj)
+            return st, sp, sv, sa, sj
         else:
-            print("Trajectory was not found")
+            return None, None, None, None, None
 
 
 class JerksMotionPrimitive(MotionPrimitive):
@@ -210,13 +227,11 @@ class JerksMotionPrimitive(MotionPrimitive):
 
         return t, j
 
-    def plot(self):
-        """
-        Generate the sampled state and input trajectories and plot them
-        """
+    def get_sampled_states(self):
+        #TODO connect w/ get_state
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
         st, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
-        self.plot_from_sampled_states(st, sp, sv, sa, sj)
+        return st, sp, sv, sa, sj
 
 
 if __name__ == "__main__":
