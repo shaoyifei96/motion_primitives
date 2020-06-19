@@ -19,7 +19,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 class MotionPrimitiveGraph():
     """
-    Compute motion primitives for quadrotors over different size state spaces
+    Compute motion primitive graphs for quadrotors over different size state spaces
     """
 
     def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], plot=False):
