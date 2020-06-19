@@ -1,7 +1,7 @@
-from motion_primitive import *
+from motion_primitive_graph import *
 
 
-class MotionPrimitiveLattice(MotionPrimitive):
+class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
     A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
     """
@@ -132,7 +132,7 @@ class MotionPrimitiveLattice(MotionPrimitive):
 
 if __name__ == "__main__":
     control_space_q = 2
-    num_dims = 3
+    num_dims = 2
     num_u_per_dimension = 5
     max_state = [1, 1, 100, 100, 1, 1]
     plot = True

@@ -17,7 +17,7 @@ from mpl_toolkits.mplot3d import Axes3D
 # from scipy.integrate import solve_bvp
 
 
-class MotionPrimitive():
+class MotionPrimitiveGraph():
     """
     Compute motion primitives for quadrotors over different size state spaces
     """
@@ -56,7 +56,6 @@ class MotionPrimitive():
             self.x_derivs = None
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
-
     def uniform_state_set(self, bounds, resolution):
         """
         Return a uniform Cartesian sampling over vector bounds with vector resolution.
@@ -80,7 +79,6 @@ class MotionPrimitive():
         return np.linalg.norm((potential_sample_pts - result_pt), axis=1)
         # return np.linalg.norm((potential_sample_pts - result_pt)[:,:self.num_dims], axis=1) # position only
 
-
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_indices[0] = starting_output_sample_index
@@ -101,7 +99,7 @@ class MotionPrimitive():
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
 
-    def create_evenly_spaced_mps(self, start_pt, dt,num_u_per_dimension):
+    def create_evenly_spaced_mps(self, start_pt, dt, num_u_per_dimension):
         """
         Create motion primitives for a start point by taking an even sampling over the
         input space at a given dt
@@ -115,7 +113,6 @@ class MotionPrimitive():
         if self.plot:
             plt.plot(sample_pts[0, :], sample_pts[1, :], '*c')
         return np.vstack((sample_pts, np.ones_like(sample_pts[0])*dt, u_set)).T
-
 
     def A_and_B_matrices_quadrotor(self):
         """
@@ -183,8 +180,4 @@ class MotionPrimitive():
             self.x_derivs.append(sym.lambdify([t], x))
             x = sym.diff(x)  # iterate through all the derivatives
         self.q_factorial = factorial(self.control_space_q)
-
-
-
-
 

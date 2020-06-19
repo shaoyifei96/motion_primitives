@@ -1,7 +1,7 @@
-from motion_primitive import *
+from motion_primitive_graph import *
 
 
-class MotionPrimitiveTree(MotionPrimitive):
+class MotionPrimitiveTree(MotionPrimitiveGraph):
     """
     """
 
