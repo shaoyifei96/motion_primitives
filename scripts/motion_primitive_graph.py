@@ -13,7 +13,7 @@ import sympy as sym
 from pathlib import Path
 # from sklearn.neighbors import NearestNeighbors
 from mpl_toolkits.mplot3d import Axes3D
-
+from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
 # from scipy.integrate import solve_bvp
 
 
@@ -40,7 +40,7 @@ class MotionPrimitiveGraph():
 
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
-        self.setup_bvp_meam_620_style()
+        self.x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
         if self.plot:
             self.fig = plt.figure()
         if self.num_dims == 3:
@@ -166,18 +166,4 @@ class MotionPrimitiveGraph():
             x = np.vstack((x, d))
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
-
-    def setup_bvp_meam_620_style(self):
-        # TODO maybe should move to lattice file, but then have to change the contructor
-        t = sym.symbols('t')
-        self.poly_order = (self.control_space_q-1)*2+1  # why?
-        x = np.squeeze(sym.Matrix(np.zeros((self.poly_order+1))))
-        for i in range(self.poly_order+1):
-            x[i] = t**(self.poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
-
-        self.x_derivs = []
-        for i in range(self.control_space_q+1):
-            self.x_derivs.append(sym.lambdify([t], x))
-            x = sym.diff(x)  # iterate through all the derivatives
-        self.q_factorial = factorial(self.control_space_q)
 

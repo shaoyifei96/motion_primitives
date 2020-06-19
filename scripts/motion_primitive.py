@@ -2,11 +2,12 @@ from py_opt_control import min_time_bvp
 import matplotlib.pyplot as plt
 import sympy as sym
 from scipy.special import factorial
+import numpy as np
 
 
 class MotionPrimitive():
     """
-    #WIP
+    # WIP
     A motion primitive that defines a trajectory from a over a time T. Put functions that all MPs should have in here
     """
 
@@ -30,7 +31,8 @@ class MotionPrimitive():
         fig, axes = plt.subplots(4, 1, sharex=True)
         for i in range(sp.shape[0]):
             for ax, s, l in zip(axes, [sp, sv, sa, sj], ('pos', 'vel', 'acc', 'jerk')):
-                ax.plot(st, s[i, :])
+                if s is not None:
+                    ax.plot(st, s[i, :])
                 ax.set_ylabel(l)
         axes[3].set_xlabel('time')
         fig.suptitle('Full State over Time')
@@ -52,32 +54,35 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         """
         if x_derivs is None:
-            self.setup_bvp_meam_620_style()
+            self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
         self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style()
 
-    def setup_bvp_meam_620_style(self):
+    @staticmethod
+    def setup_bvp_meam_620_style(control_space_q):
         t = sym.symbols('t')
-        self.poly_order = (self.control_space_q)*2-1  # why?
-        x = np.squeeze(sym.Matrix(np.zeros((self.poly_order+1))))
-        for i in range(self.poly_order+1):
-            x[i] = t**(self.poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
+        poly_order = (control_space_q)*2-1  # why?
+        x = np.squeeze(sym.Matrix(np.zeros(poly_order+1)))
+        for i in range(poly_order+1):
+            x[i] = t**(poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
 
-        self.x_derivs = []
-        for i in range(self.control_space_q+1):
-            self.x_derivs.append(sym.lambdify([t], x))
+        x_derivs = []
+        for i in range(control_space_q+1):
+            x_derivs.append(sym.lambdify([t], x))
             x = sym.diff(x)  # iterate through all the derivatives
+        return x_derivs
 
     def solve_bvp_meam_620_style(self, start_state, end_state, T):
         """
         Return polynomial coefficients for a trajectory from start_state ((n,) array) to end_state ((n,) array) in time interval [0,T]
         """
-        A = np.zeros((self.poly_order+1, self.poly_order+1))
+        poly_order = (self.control_space_q)*2-1
+        A = np.zeros((poly_order+1, poly_order+1))
         for i in range(self.control_space_q):
             x = self.x_derivs[i]  # iterate through all the derivatives
             A[i, :] = x(0)  # x(ti) = start_state
             A[self.control_space_q+i, :] = x(T)  # x(tf) = end_state
 
-        polys = np.zeros((self.num_dims, self.poly_order+1))
+        polys = np.zeros((self.num_dims, poly_order+1))
         b = np.zeros(self.control_space_q*2)
         for i in range(self.num_dims):  # Construct a separate polynomial for each dimension
 
@@ -121,11 +126,17 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
     def plot(self):
         st = np.linspace(0, self.traj_time, 100)
-        sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
-        sv = self.evaluate_polynomial_at_derivative(1, st)
-        sa = self.evaluate_polynomial_at_derivative(2, st)
-        sj = self.evaluate_polynomial_at_derivative(3, st)
-        self.plot_from_sampled_states(st, sp, sv, sa, sj)
+        if not np.isinf(self.traj_time):
+            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
+            sv = self.evaluate_polynomial_at_derivative(1, st)
+            sa = self.evaluate_polynomial_at_derivative(2, st)
+            if self.control_space_q >= 3:
+                sj = self.evaluate_polynomial_at_derivative(3, st)
+            else:
+                sj = None
+            self.plot_from_sampled_states(st, sp, sv, sa, sj)
+        else:
+            print("Trajectory was not found")
 
 
 class JerksMotionPrimitive(MotionPrimitive):
@@ -135,6 +146,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
     def __init__(self, start_state, end_state, num_dims, max_state):
         super().__init__(start_state, end_state, num_dims, max_state)
+        assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
         self.jerks_constructor()
 
     def get_state(self, t):
@@ -142,13 +154,13 @@ class JerksMotionPrimitive(MotionPrimitive):
 
     def jerks_constructor(self):
         """
-        jerks_data = ([switch times],[jerk values]) 
+        jerks_data = ([switch times],[jerk values])
         """
         self.switch_times, self.jerks = self.solve_bvp_min_time()
 
     def solve_bvp_min_time(self):
         """
-        Solve the BVP for time optimal jerk control trajectories as in Beul ICUAS '17 https://github.com/jpaulos/opt_control 
+        Solve the BVP for time optimal jerk control trajectories as in Beul ICUAS '17 https://github.com/jpaulos/opt_control
         """
         # TODO staticmethod?
 
@@ -174,15 +186,14 @@ class JerksMotionPrimitive(MotionPrimitive):
 
 if __name__ == "__main__":
     # mp = PolynomialMotionPrimitive([1, 2, 3, 4, 5])
-    import numpy as np
-    start_state = np.ones((6,))*.1
-    end_state = np.zeros((6,))
-    num_dims = 2
-    max_state = np.ones((4,))*100
-    mp = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
+    _start_state = np.ones((6,))*.1
+    _end_state = np.zeros((6,))
+    _num_dims = 2
+    _max_state = np.ones((6,))*100
+    mp = JerksMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
     mp.plot()
 
-    mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
+    mp = PolynomialMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
     mp.plot()
 
     plt.show()

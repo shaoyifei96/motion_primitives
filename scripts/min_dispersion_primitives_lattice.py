@@ -1,5 +1,6 @@
 from motion_primitive_graph import *
 from py_opt_control import min_time_bvp
+from motion_primitive import *
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
@@ -53,19 +54,19 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             for end_pt in sample_pts:
                 if (start_pt == end_pt).all():
                     continue
-                polys, T = self.iteratively_solve_bvp_meam_620_style(start_pt, end_pt)
+                mp = PolynomialMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
                 # self.motion_primitives_list.append()
                 # TODO enforce a max number of connections
                 # TODO save and output to pickle
                 if self.plot:
-                    if ~np.isinf(T):
-                        t_list = np.linspace(0, T, 30)
-                        x = [np.polyval(polys[0, :], i) for i in t_list]
-                        y = [np.polyval(polys[1, :], i) for i in t_list]
+                    if ~np.isinf(mp.traj_time):
+                        t_list = np.linspace(0, mp.traj_time, 30)
+                        x = [np.polyval(mp.polys[0, :], i) for i in t_list]
+                        y = [np.polyval(mp.polys[1, :], i) for i in t_list]
                         if self.num_dims == 2:
                             plt.plot(x, y)
                         if self.num_dims == 3:
-                            z = [np.polyval(polys[2, :], i) for i in t_list]
+                            z = [np.polyval(mp.polys[2, :], i) for i in t_list]
                             plt.plot(x, y, z)
 
     def solve_bvp_meam_620_style(self, xi, xf, T):
@@ -89,20 +90,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             poly = np.linalg.solve(A, b)
 
             polys[i, :] = poly
-
-        # Plotting #just for debugging
-        # if self.plot:
-        #     t_list = np.linspace(0, T, 100)
-        #     x = [np.polyval(polys[0, :], i) for i in t_list]
-        #     y = [np.polyval(polys[1, :], i) for i in t_list]
-        #     plt.plot(xi[0], xi[1], 'og')
-        #     plt.plot(xf[0], xf[1], 'or')
-        #     plt.plot(x, y)
-        #     x = np.zeros((100, self.n))
-
-            # for i, t in enumerate(t_list):
-            #     x[i, :] = self.quad_dynamics_polynomial(xi, u, t)
-            # plt.plot(x[:, 0], x[:, 1], 'y')
         return polys
 
     def iteratively_solve_bvp_meam_620_style(self, start_pt, goal_pt):
@@ -130,52 +117,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # print(u_max,polys,t)
         return polys, t
 
-    def solve_bvp_min_time(self, start_pt, goal_pt):
-        """
-        Solve the BVP for time optimal jerk control trajectories as in Beul ICUAS '17 https://github.com/jpaulos/opt_control 
-        """
-        assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
-        # start point
-        p0 = start_pt[0:self.num_dims]
-        v0 = start_pt[self.num_dims:2*self.num_dims]
-        a0 = start_pt[2*self.num_dims:3*self.num_dims]
-        # end point
-        p1 = goal_pt[0:self.num_dims]
-        v1 = goal_pt[self.num_dims:2*self.num_dims]
-        a1 = start_pt[2*self.num_dims:3*self.num_dims]
-
-        # state and input limits
-        v_max = self.max_state[1]
-        a_max = self.max_state[2]
-        j_max = self.max_state[3]
-        v_min = -self.max_state[1]
-        a_min = -self.max_state[2]
-        j_min = -self.max_state[3]
-        # call to optimization library
-        (t, j) = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min,
-                                           a_max, j_min, j_max)
-
-        # Plotting #just for debugging
-        # a, v, p = min_time_bvp.switch_states(p0, v0, a0, t, j)
-        # st, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, t, j, dt=0.001)
-
-        # # Plot the state over time.
-        # fig, axes = plt.subplots(4, 1, sharex=True)
-        # for i in range(sp.shape[0]):
-        #     for ax, s, l in zip(axes, [sp, sv, sa, sj], ('pos', 'vel', 'acc', 'jerk')):
-        #         ax.plot(st, s[i, :])
-        #         ax.set_ylabel(l)
-        # axes[3].set_xlabel('time')
-        # fig.suptitle('Full State over Time')
-
-        return j, t
-
 
 if __name__ == "__main__":
     control_space_q = 2
     num_dims = 2
-    num_u_per_dimension = 5
-    max_state = [1, 10, 100, 100, 1, 1]
+    max_state = [1, 1, 10, 100, 1, 1]
     plot = True
     mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     start_pt = np.ones((mp.n))
@@ -184,8 +130,7 @@ if __name__ == "__main__":
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-    # mp.compute_min_dispersion_space(num_output_pts=100, resolution=[.2, .2, .2, 1, 1, 1])
-    mp.solve_bvp_min_time(start_pt*.2, start_pt*.1)
+    mp.compute_min_dispersion_space(num_output_pts=100, resolution=[.2, .2, .2, 1, 1, 1])
 
     if mp.plot:
         plt.show()
