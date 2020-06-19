@@ -69,7 +69,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     @staticmethod
     def setup_bvp_meam_620_style(control_space_q):
         """
-        Create an array of lambda functions that evaluate the derivatives of the monic polynmial with all 1 coefficient of order (control_space_q)*2-1
+        Create an array of lambda functions that evaluate the derivatives of the univariate polynmial with all 1 coefficient of order (control_space_q)*2-1
         Example for control_space_q = 3 (polynomials of order 5 minimizing jerk)
         x_derivs[0] = lambda t: [t**5, t**4, t**3, t**,2 t, 1]
         x_derivs[1] = lambda t: [5*t**4, 4*t**3, 3*t**2, 2*t, 1, 0]
