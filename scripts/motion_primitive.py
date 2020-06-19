@@ -150,7 +150,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Returns a numpy array of size (num_dims x len(st))
         """
         # TODO reuse this into get_state
-        return np.vstack([np.array([np.polyval(np.pad(self.x_derivs[deriv_num](1), ((deriv_num), (0)), mode='constant')[:-deriv_num] * self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
+        # TODO: clean up/document this better
+        return np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1)* self.polys[0, :]),((deriv_num),(0)))[:-1], i) for i in st]) for j in range(self.num_dims)])
 
     def plot(self):
         """
