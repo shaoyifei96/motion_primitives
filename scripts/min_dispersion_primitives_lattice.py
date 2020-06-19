@@ -131,16 +131,20 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return polys, t
 
     def solve_bvp_min_time(self, start_pt, goal_pt):
-        # format start point
+        """
+        Solve the BVP for time optimal jerk control trajectories as in Beul ICUAS '17 https://github.com/jpaulos/opt_control 
+        """
+        assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
+        # start point
         p0 = start_pt[0:self.num_dims]
         v0 = start_pt[self.num_dims:2*self.num_dims]
         a0 = start_pt[2*self.num_dims:3*self.num_dims]
-        # unpack end point
+        # end point
         p1 = goal_pt[0:self.num_dims]
         v1 = goal_pt[self.num_dims:2*self.num_dims]
         a1 = start_pt[2*self.num_dims:3*self.num_dims]
 
-        # unpack max state parameters
+        # state and input limits
         v_max = self.max_state[1]
         a_max = self.max_state[2]
         j_max = self.max_state[3]
@@ -168,7 +172,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 
 if __name__ == "__main__":
-    control_space_q = 3
+    control_space_q = 2
     num_dims = 2
     num_u_per_dimension = 5
     max_state = [1, 10, 100, 100, 1, 1]
