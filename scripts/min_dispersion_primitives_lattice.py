@@ -1,4 +1,5 @@
 from motion_primitive_graph import *
+from py_opt_control import min_time_bvp
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
@@ -89,7 +90,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
             polys[i, :] = poly
 
-            # just for debugging
+        # Plotting #just for debugging
         # if self.plot:
         #     t_list = np.linspace(0, T, 100)
         #     x = [np.polyval(polys[0, :], i) for i in t_list]
@@ -129,12 +130,48 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # print(u_max,polys,t)
         return polys, t
 
+    def solve_bvp_min_time(self, start_pt, goal_pt):
+        # format start point
+        p0 = start_pt[0:self.num_dims]
+        v0 = start_pt[self.num_dims:2*self.num_dims]
+        a0 = start_pt[2*self.num_dims:3*self.num_dims]
+        # unpack end point
+        p1 = goal_pt[0:self.num_dims]
+        v1 = goal_pt[self.num_dims:2*self.num_dims]
+        a1 = start_pt[2*self.num_dims:3*self.num_dims]
+
+        # unpack max state parameters
+        v_max = self.max_state[1]
+        a_max = self.max_state[2]
+        j_max = self.max_state[3]
+        v_min = -self.max_state[1]
+        a_min = -self.max_state[2]
+        j_min = -self.max_state[3]
+        # call to optimization library
+        (t, j) = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min,
+                                           a_max, j_min, j_max)
+
+        # Plotting #just for debugging
+        # a, v, p = min_time_bvp.switch_states(p0, v0, a0, t, j)
+        # st, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, t, j, dt=0.001)
+
+        # # Plot the state over time.
+        # fig, axes = plt.subplots(4, 1, sharex=True)
+        # for i in range(sp.shape[0]):
+        #     for ax, s, l in zip(axes, [sp, sv, sa, sj], ('pos', 'vel', 'acc', 'jerk')):
+        #         ax.plot(st, s[i, :])
+        #         ax.set_ylabel(l)
+        # axes[3].set_xlabel('time')
+        # fig.suptitle('Full State over Time')
+
+        return j, t
+
 
 if __name__ == "__main__":
-    control_space_q = 2
+    control_space_q = 3
     num_dims = 2
     num_u_per_dimension = 5
-    max_state = [1, 1, 100, 100, 1, 1]
+    max_state = [1, 10, 100, 100, 1, 1]
     plot = True
     mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     start_pt = np.ones((mp.n))
@@ -143,7 +180,8 @@ if __name__ == "__main__":
     # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
 
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-    mp.compute_min_dispersion_space(num_output_pts=100, resolution=[.2, .2, .2, 1, 1, 1])
+    # mp.compute_min_dispersion_space(num_output_pts=100, resolution=[.2, .2, .2, 1, 1, 1])
+    mp.solve_bvp_min_time(start_pt*.2, start_pt*.1)
 
     if mp.plot:
         plt.show()
