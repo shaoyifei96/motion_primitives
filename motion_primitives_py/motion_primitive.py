@@ -28,7 +28,7 @@ class MotionPrimitive():
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
         raise NotImplementedError
-    
+
     def get_sampled_states(self):
         """
         Return a sampling of the trajectory for plotting 
@@ -61,7 +61,6 @@ class MotionPrimitive():
             print("Trajectory was not found")
 
 
-
 class PolynomialMotionPrimitive(MotionPrimitive):
     """
     A motion primitive constructed from polynomial coefficients
@@ -70,9 +69,6 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def __init__(self, start_state, end_state, num_dims, max_state, x_derivs=None):
         super().__init__(start_state, end_state, num_dims, max_state)  # Run MotionPrimitive's instantiation first
         self.polynomial_constructor(x_derivs)
-
-    def get_state(self, t):
-        pass
 
     def polynomial_constructor(self, x_derivs=None):
         """
@@ -84,6 +80,32 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
         self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
+
+    def get_state(self, t):
+        """
+        Evaluate full state of a trajectory at a given time
+        Input:
+            t, numpy array of times to sample at
+        Return:
+            state, a numpy array of size (num_dims x control_space_q, len(t))
+        """
+        return np.vstack([self.evaluate_polynomial_at_derivative(i, [t]) for i in range(self.control_space_q)])
+
+    def evaluate_polynomial_at_derivative(self, deriv_num, st):
+        """
+        Sample the specified derivative number of the polynomial trajectory at
+        the specified times
+        Input:
+            deriv_num, order of derivative, scalar
+            st, numpy array of times to sample
+        Output:
+            sampled, array of polynomial derivative evaluated at sample times
+        """
+
+        sampled = np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[j, :]),
+                                                         ((deriv_num), (0)))[:self.polys.shape[1]], i) for i in st]) for j in range(self.num_dims)])
+
+        return sampled
 
     @staticmethod
     def setup_bvp_meam_620_style(control_space_q):
@@ -162,18 +184,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             u_max = max(u_max, max(abs(np.sum(polys*x_derivs[-1](0), axis=1))))
         return polys, t
 
-    def evaluate_polynomial_at_derivative(self, deriv_num, st):
-        """
-        Use the derivative helper function from setup_bvp_meam_620_style to evaluate all the derivatives of the self.polys polynomial (represented as polynomial coefficients)
-        at the st sample times
-        Returns a numpy array of size (num_dims x len(st))
-        """
-        # TODO reuse this into get_state
-        # TODO: clean up/document this better
-        return np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[0, :]), ((deriv_num), (0)))[:-1], i) for i in st]) for j in range(self.num_dims)])
-
     def get_sampled_states(self):
-        #TODO connect w/ get_state
+        # TODO connect w/ get_state
         if not np.isinf(self.traj_time):
             st = np.linspace(0, self.traj_time, 100)
             sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
@@ -198,14 +210,26 @@ class JerksMotionPrimitive(MotionPrimitive):
         assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
         self.jerks_constructor()
 
-    def get_state(self, t):
-        pass
-
     def jerks_constructor(self):
         """
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
         self.switch_times, self.jerks = self.solve_bvp_min_time(self.start_state, self.end_state, self.num_dims, self.max_state)
+
+    def get_state(self, t):
+        """
+        Evaluate full state of a trajectory at a given time
+        Input:
+            t, numpy array of times to sample at
+        Return:
+            state, a numpy array of size (num_dims x 4), ordered (p, v, a, j)
+        """
+        # start point
+        p0, v0, a0 = np.split(self.start_state, self.control_space_q)
+
+        # call to optimization library to evaluate at time t
+        _, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, self.switch_times, self.jerks, 0, t)
+        return np.concatenate([sp, sv, sa, sj])
 
     @staticmethod
     def solve_bvp_min_time(start_state, end_state, num_dims, max_state):
@@ -228,22 +252,24 @@ class JerksMotionPrimitive(MotionPrimitive):
         return t, j
 
     def get_sampled_states(self):
-        #TODO connect w/ get_state
+        # TODO connect w/ get_state
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
         st, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
         return st, sp, sv, sa, sj
 
 
 if __name__ == "__main__":
-    # mp = PolynomialMotionPrimitive([1, 2, 3, 4, 5])
-    _start_state = np.ones((6,))*.1
+    _start_state = np.random.rand(6,)  #
     _end_state = np.zeros((6,))
     _num_dims = 2
     _max_state = np.ones((6,))*100
     mp = JerksMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
+    # print(mp.get_state(np.array([0])))
+
     mp.plot()
 
     mp = PolynomialMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
+    print(mp.get_state(np.array([0])))
     mp.plot()
 
     plt.show()
