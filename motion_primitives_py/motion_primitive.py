@@ -87,9 +87,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Input:
             t, numpy array of times to sample at
         Return:
-            state, a numpy array of size (num_dims x control_space_q + 1, len(t))
+            state, a numpy array of size (num_dims x control_space_q, len(t))
         """
-        return np.vstack([self.evaluate_polynomial_at_derivative(i, t) for i in range(self.control_space_q)])
+        return np.vstack([self.evaluate_polynomial_at_derivative(i, [t]) for i in range(self.control_space_q)])
 
     def evaluate_polynomial_at_derivative(self, deriv_num, st):
         """
@@ -259,8 +259,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
 
 if __name__ == "__main__":
-    # mp = PolynomialMotionPrimitive([1, 2, 3, 4, 5])
-    _start_state = np.ones((6,))*.1  # np.random.rand(6,)  #
+    _start_state = np.random.rand(6,)  #
     _end_state = np.zeros((6,))
     _num_dims = 2
     _max_state = np.ones((6,))*100
