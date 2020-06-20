@@ -89,7 +89,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Return:
             state, a numpy array of size (num_dims x control_space_q + 1, len(t))
         """
-        return np.vstack([self.evaluate_polynomial_at_derivative(i, t) for i in range(self.control_space_q + 1)])
+        return np.vstack([self.evaluate_polynomial_at_derivative(i, t) for i in range(self.control_space_q)])
 
     def evaluate_polynomial_at_derivative(self, deriv_num, st):
         """
@@ -101,12 +101,10 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Output:
             sampled, array of polynomial derivative evaluated at sample times
         """
-        if deriv_num == 0:
-            sampled = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
-        else:
-            sampled = np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[0, :]),
-                                                             ((deriv_num), (0)))[:-1], i) for i in st]) for j in range(self.num_dims)])
-        
+
+        sampled = np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[j, :]),
+                                                         ((deriv_num), (0)))[:self.polys.shape[1]], i) for i in st]) for j in range(self.num_dims)])
+
         return sampled
 
     @staticmethod
@@ -262,7 +260,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
 if __name__ == "__main__":
     # mp = PolynomialMotionPrimitive([1, 2, 3, 4, 5])
-    _start_state = np.ones((6,))*.1
+    _start_state = np.ones((6,))*.1  # np.random.rand(6,)  #
     _end_state = np.zeros((6,))
     _num_dims = 2
     _max_state = np.ones((6,))*100
@@ -272,7 +270,7 @@ if __name__ == "__main__":
     mp.plot()
 
     mp = PolynomialMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
-    # print(mp.get_state(np.array([0])))
+    print(mp.get_state(np.array([0])))
     mp.plot()
 
     plt.show()
