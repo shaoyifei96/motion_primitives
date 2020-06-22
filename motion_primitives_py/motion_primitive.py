@@ -228,8 +228,8 @@ class JerksMotionPrimitive(MotionPrimitive):
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
 
         # call to optimization library to evaluate at time t
-        _, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, self.switch_times, self.jerks, 0, t)
-        return np.concatenate([sp, sv, sa, sj])
+        _, _, sa, sv, sp = min_time_bvp.sample(p0, v0, a0, self.switch_times, self.jerks, t)
+        return np.concatenate([sp, sv, sa])
 
     @staticmethod
     def solve_bvp_min_time(start_state, end_state, num_dims, max_state):
@@ -252,9 +252,8 @@ class JerksMotionPrimitive(MotionPrimitive):
         return t, j
 
     def get_sampled_states(self):
-        # TODO connect w/ get_state
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
-        st, sj, sa, sv, sp = min_time_bvp.sample_min_time_bvp(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
+        st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
         return st, sp, sv, sa, sj
 
 
@@ -264,7 +263,7 @@ if __name__ == "__main__":
     _num_dims = 2
     _max_state = np.ones((6,))*100
     mp = JerksMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
-    # print(mp.get_state(np.array([0])))
+    print(mp.get_state(np.array([0])))
 
     mp.plot()
 
