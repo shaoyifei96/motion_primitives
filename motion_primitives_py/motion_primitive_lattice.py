@@ -49,7 +49,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
         print("reconnect lattice")
-        # self.start_pts_set = sample_pts
+        self.start_pts = sample_pts
         self.motion_primitives_list = []
         for start_pt in sample_pts:
             for end_pt in sample_pts:
@@ -59,7 +59,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 # mp = JerksMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
                 self.motion_primitives_list.append(mp)
                 # TODO enforce a max number of connections
-                # TODO save and output to pickle
                 if self.plot:
                     st, sp, sv, sa, sj = mp.get_sampled_states()
                     if st is not None:
@@ -67,6 +66,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             plt.plot(sp[0, :], sp[1, :])
                         if self.num_dims == 3:
                             plt.plot(sp[0, :], sp[1, :], sp[2, :])
+                mp.x_derivs = None  # TODO hacky thing to help with pickling. Polynomial MPs are carrying around lambda functions which are hard to pickle
         self.pickle_self()
 
 if __name__ == "__main__":
