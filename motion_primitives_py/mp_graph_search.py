@@ -4,8 +4,9 @@ from heapq import heappush, heappop, heapify  # Recommended.
 import numpy as np
 import itertools
 import copy
-from min_dispersion_primitives_tree import MotionPrimitiveTree
-from min_dispersion_primitives_lattice import MotionPrimitiveLattice
+from motion_primitive_tree import MotionPrimitiveTree
+from motion_primitive_lattice import MotionPrimitiveLattice
+from motion_primitive import MotionPrimitive, PolynomialMotionPrimitive, JerksMotionPrimitive
 import pickle
 from scipy import spatial
 import matplotlib.pyplot as plt
@@ -42,8 +43,8 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False, heuristic_type=1, neighbor_type=1):
-        self.motion_primitive = motion_primitive
+    def __init__(self, motion_primitive_graph, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False, heuristic_type=1, neighbor_type=1):
+        self.motion_primitive_graph = motion_primitive_graph
         self.start_state = np.array(start_state)
         self.goal_state = np.array(goal_state)
         self.goal_tolerance = np.array(goal_tolerance)
@@ -52,14 +53,14 @@ class GraphSearch:
         self.heuristic_type = heuristic_type
         self.neighbor_type = neighbor_type
 
-        self.num_dims = self.motion_primitive.num_dims
-        self.control_space_q = self.motion_primitive.control_space_q
-        self.n = self.motion_primitive.n
+        self.num_dims = self.motion_primitive_graph.num_dims
+        self.control_space_q = self.motion_primitive_graph.control_space_q
+        self.n = self.motion_primitive_graph.n
 
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
-                                              [np.repeat(-i, self.num_dims) for i in self.motion_primitive.max_state[:self.control_space_q-1]])
+                                              [np.repeat(-i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
-                                              [np.repeat(i, self.num_dims) for i in self.motion_primitive.max_state[:self.control_space_q-1]])
+                                              [np.repeat(i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
 
         self.rho = 0.0
 
@@ -77,7 +78,7 @@ class GraphSearch:
         self.neighbor_type = NeighborType
         self.get_neighbors = NeighborType.MIN_DISPERSION
 
-        self.mp_start_pts_tree = spatial.KDTree(self.motion_primitive.start_pts.T)
+        self.mp_start_pts_tree = spatial.KDTree(self.motion_primitive_graph.start_pts)
 
         self.neighbor_list = []
         self.expanded_nodes_list = []
@@ -92,7 +93,7 @@ class GraphSearch:
 
     def min_time_heuristic(self, state):
         # sikang heuristic 1
-        return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive.max_state_derivs[0]
+        return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state_derivs[0]
 
     def euclidean_distance_heuristic(self, state):
         return np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims])
@@ -121,7 +122,7 @@ class GraphSearch:
         while node.parent:
             for dt in np.flip(np.arange(0, node.dt, .02)):
                 polynomial_for_plotting.append(
-                    (self.motion_primitive.quad_dynamics_polynomial(node.parent, node.u, dt)))
+                    (self.motion_primitive_graph.quad_dynamics_polynomial(node.parent, node.u, dt)))
             path.append(node.parent)
             node = self.node_dict[node.parent]
         path.reverse()
@@ -131,18 +132,18 @@ class GraphSearch:
     def min_dipsersion_neighbors(self, node):
         start_pt = np.array(node.state)
         closest_start_pt_index = self.mp_start_pts_tree.query(start_pt)[1]
-        motion_primitives_list = self.motion_primitive.motion_primitives_list[closest_start_pt_index]
+        motion_primitives_list = self.motion_primitive_graph.motion_primitives_list[closest_start_pt_index]
         dt_set = motion_primitives_list[0, :]
         u_set = motion_primitives_list[1:, :]
-        neighbors = np.array(self.motion_primitive.quad_dynamics_polynomial(start_pt, u_set, dt_set)).T
+        neighbors = np.array(self.motion_primitive_graph.quad_dynamics_polynomial(start_pt, u_set, dt_set)).T
         neighbors = np.hstack((neighbors, motion_primitives_list.T))
         return neighbors
 
     def evenly_spaced_neighbors(self, node):
         dt = .5
-        num_u_per_dimension = self.motion_primitive.motion_primitives_list[0].shape[1]
+        num_u_per_dimension = self.motion_primitive_graph.motion_primitives_list[0].shape[1]
         s = np.reshape(np.array(node.state), (self.n, 1))
-        neighbors = self.motion_primitive.create_evenly_spaced_mps(s, dt, num_u_per_dimension)
+        neighbors = self.motion_primitive_graph.create_evenly_spaced_mps(s, dt, num_u_per_dimension)
         return neighbors
 
     def reset_graph_search(self):
@@ -254,11 +255,11 @@ if __name__ == "__main__":
     file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
                      str(control_space_q) + '/MotionPrimitive.pkl')
     with file_path.open('rb') as input:
-        mp = pickle.load(input)
-        mp.quad_dynamics_polynomial = mp.quad_dynamics_polynomial_symbolic()
+        mpg = pickle.load(input)
+        mpg.quad_dynamics_polynomial = mpg.quad_dynamics_polynomial_symbolic()
 
     map_size = [-2, -2, 2, 2]
-    start_state = -np.ones((mp.n))*.1
+    start_state = -np.ones((mpg.n))*.1
     goal_state = np.ones_like(start_state)
     # start_state = np.array(np.random.rand(mp.n) * [map_size[-1], *mp.max_state_derivs]/5)
     # goal_state = np.random.rand(mp.n) * [map_size[-1], *mp.max_state_derivs]
@@ -267,7 +268,7 @@ if __name__ == "__main__":
 
     goal_tolerance = np.ones_like(start_state)*.2
     plot = True
-    gs = GraphSearch(mp, start_state, goal_state, goal_tolerance, map_size, plot)
+    gs = GraphSearch(mpg, start_state, goal_state, goal_tolerance, map_size, plot)
     gs.heuristic = gs.heuristic_type.EUCLIDEAN
 
     # with PyCallGraph(output=GraphvizOutput()):

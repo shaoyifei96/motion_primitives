@@ -96,7 +96,7 @@ class MotionPrimitiveTree(MotionPrimitiveGraph):
             if self.plot:
                 plt.show()
 
-        self.start_pts = start_pts_set
+        self.start_pts = start_pts_set.T
         self.motion_primitives_list = prim_list
         self.pickle_self()
 
