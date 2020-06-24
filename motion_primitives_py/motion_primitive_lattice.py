@@ -50,14 +50,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         print("reconnect lattice")
         # self.start_pts_set = sample_pts
-        # self.motion_primitives_list = []
+        self.motion_primitives_list = []
         for start_pt in sample_pts:
             for end_pt in sample_pts:
                 if (start_pt == end_pt).all():
                     continue
                 mp = PolynomialMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
                 # mp = JerksMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
-                # self.motion_primitives_list.append()
+                self.motion_primitives_list.append(mp)
                 # TODO enforce a max number of connections
                 # TODO save and output to pickle
                 if self.plot:
@@ -67,7 +67,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             plt.plot(sp[0, :], sp[1, :])
                         if self.num_dims == 3:
                             plt.plot(sp[0, :], sp[1, :], sp[2, :])
-
+        self.pickle_self()
 
 if __name__ == "__main__":
     control_space_q = 3
