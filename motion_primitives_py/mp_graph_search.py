@@ -129,7 +129,7 @@ class GraphSearch:
         polynomial_for_plotting.reverse()
         return np.array(path), np.array(polynomial_for_plotting)
 
-    def min_dipsersion_neighbors(self, node):
+    def min_dispersion_neighbors(self, node):
         start_pt = np.array(node.state)
         closest_start_pt_index = self.mp_start_pts_tree.query(start_pt)[1]
         motion_primitives_list = self.motion_primitive_graph.motion_primitives_list[closest_start_pt_index]
@@ -250,7 +250,7 @@ class GraphSearch:
 
 if __name__ == "__main__":
 
-    control_space_q = 2
+    control_space_q = 3
     num_dims = 2
     file_path = Path("pickle/dimension_" + str(num_dims) + "/control_space_" +
                      str(control_space_q) + '/MotionPrimitive.pkl')

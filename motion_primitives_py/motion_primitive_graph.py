@@ -15,6 +15,7 @@ from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
 from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
 # from scipy.integrate import solve_bvp
+from py_opt_control import min_time_bvp
 
 
 class MotionPrimitiveGraph():
@@ -167,3 +168,46 @@ class MotionPrimitiveGraph():
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
 
+    def time_limited_forward_reachable_set(self, start_pt, max_t=1):
+        n_tests = 10000  # TODO switch to resolution based
+        decimal_places = 5
+        p1 = np.round(np.random.uniform(-self.max_state[0], self.max_state[0], (n_tests, self.num_dims)), decimal_places)
+        v1 = np.round(np.random.uniform(-self.max_state[1], self.max_state[1], (n_tests, self.num_dims)), decimal_places)
+        a1 = np.round(np.random.uniform(-self.max_state[2], self.max_state[2], (n_tests, self.num_dims)), decimal_places)
+
+        p0, v0, a0 = np.split(start_pt, self.control_space_q)
+        v_max, a_max, j_max = self.max_state[1:1+self.control_space_q]
+        v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q]
+
+        mp = []
+        for i in range(p1.shape[0]):
+            (t, j) = min_time_bvp.min_time_bvp(
+                p0, v0, a0,
+                p1[i], v1[i], a1[i],
+                v_min, v_max, v_min, v_max, a_min,
+                a_max, j_min, j_max)  # sync_x params default to true
+            a, v, p = min_time_bvp.switch_states(p0, v0, a0, t, j)
+            st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, t, j, dt=0.01)
+            is_valid = np.allclose(p1[i], sp[:, -1]) and np.allclose(v1[i], sv[:, -1]
+                                                                     ) and np.allclose(a1[i], sa[:, -1]) and t.max() <= max_t
+            if not is_valid:
+                print()
+                print('Test failed. The end position is wrong. Problem data:')
+                print(f"(p0, v0, a0) = {(p0, v0, a0)}")
+                print(f"(p1, v1, a1) = {(p1[i], v1[i], a1[i])}")
+                print()
+            else:
+                if self.plot:
+                    plt.plot(sp[0, :], sp[1, :])
+            mp.append({'p0': p0, 'v0': v0, 'a0': a0, 't': t, 'j': j, 'is_valid': is_valid})
+
+
+if __name__ == "__main__":
+    control_space_q = 3
+    num_dims = 2
+    max_state = [3, 1, 1, 100, 1, 1]
+    mpg = MotionPrimitiveGraph(control_space_q, num_dims, max_state, True)
+
+    start_pt = np.ones((6,))*.5
+    mpg.time_limited_forward_reachable_set(start_pt, 3)
+    plt.show()
