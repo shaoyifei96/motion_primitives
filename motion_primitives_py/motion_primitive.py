@@ -228,7 +228,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
 
         # call to optimization library to evaluate at time t
-        _, _, sa, sv, sp = min_time_bvp.sample(p0, v0, a0, self.switch_times, self.jerks, t)
+        sj, sa, sv, sp = min_time_bvp.sample(p0, v0, a0, self.switch_times, self.jerks, t)
         return np.concatenate([sp, sv, sa])
 
     @staticmethod
@@ -258,17 +258,32 @@ class JerksMotionPrimitive(MotionPrimitive):
 
 
 if __name__ == "__main__":
-    _start_state = np.random.rand(6,)  #
-    _end_state = np.zeros((6,))
-    _num_dims = 2
-    _max_state = np.ones((6,))*100
-    mp = JerksMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
-    print(mp.get_state(np.array([0])))
+    # problem parameters
+    num_dims = 2
+    control_space_q = 3
 
-    mp.plot()
-
-    mp = PolynomialMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
-    print(mp.get_state(np.array([0])))
-    mp.plot()
-
+    # setup problem
+    start_state = np.zeros(num_dims * control_space_q,)
+    end_state1 = np.random.rand(num_dims * control_space_q,)
+    end_state2 = np.hstack((-end_state1[:num_dims], end_state1[num_dims:]))
+    max_state = np.ones((num_dims * control_space_q,))*100
+    print(end_state1)
+    print(end_state2)
+    
+    # jerks
+    mp1 = JerksMotionPrimitive(start_state, end_state1, num_dims, max_state)
+    mp2 = JerksMotionPrimitive(start_state, end_state2, num_dims, max_state)
+    st1, sp1, sv1, sa1, sj1 = mp1.get_sampled_states()
+    st2, sp2, sv2, sa2, sj2 = mp2.get_sampled_states()
+    mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
+    mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
+    plt.show()
+    
+    # polynomial
+    mp1 = PolynomialMotionPrimitive(start_state, end_state1, num_dims, max_state)
+    mp2 = PolynomialMotionPrimitive(start_state, end_state2, num_dims, max_state)
+    st1, sp1, sv1, sa1, sj1 = mp1.get_sampled_states()
+    st2, sp2, sv2, sa2, sj2 = mp2.get_sampled_states()
+    mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
+    mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
     plt.show()

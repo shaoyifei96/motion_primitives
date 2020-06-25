@@ -34,31 +34,26 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         score[:, 0] = self.dispersion_distance_fn(potential_sample_pts, potential_sample_pts[starting_output_sample_index, :])
         actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts,
                                                                                       potential_sample_pts, score, starting_output_sample_index)
-        print(actual_sample_pts)
-        self.reconnect_lattice(actual_sample_pts)
         if self.plot:
             if self.num_dims == 2:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
             if self.num_dims == 3:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
+        self.sample_pts = actual_sample_pts
 
-        return actual_sample_pts
-
-    def reconnect_lattice(self, sample_pts):
+    def connect_lattice(self, k):
         """
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
-        print("reconnect lattice")
-        self.start_pts = sample_pts
-        self.motion_primitives_list = []
-        for start_pt in sample_pts:
-            for end_pt in sample_pts:
-                if (start_pt == end_pt).all():
-                    continue
-                mp = PolynomialMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
+        self.near_neighbors = k
+        # TODO determine which algorithm is best for this application
+        # ensure you dont count yourself as a neighbor and attempt to connect
+        neighbors = NearestNeighbors(n_neighbors=k + 1, algorithm='auto').fit(self.sample_pts)
+        for i in range(len(self.sample_pts)):
+            for j in neighbors.kneighbors(self.sample_pts)[1][i][1:]:
+                mp = PolynomialMotionPrimitive(self.sample_pts[i], self.sample_pts[j], self.num_dims, self.max_state)
                 # mp = JerksMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
                 self.motion_primitives_list.append(mp)
-                # TODO enforce a max number of connections
                 if self.plot:
                     st, sp, sv, sa, sj = mp.get_sampled_states()
                     if st is not None:
@@ -71,17 +66,12 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 if __name__ == "__main__":
     control_space_q = 3
-    num_dims = 2
+    num_dims = 3
     max_state = [1, 1, 1, 100, 1, 1]
     plot = True
-    mp = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
-    # start_pt = np.ones((mp.n))
-    # start_pt = np.array([-1., -2., 0, 0.5])
-    # print(mp.solve_bvp_meam_620_style(start_pt, start_pt*2, 1))
-    # print(mp.iteratively_solve_bvp_meam_620_style(start_pt,start_pt*2))
-
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-    mp.compute_min_dispersion_space(num_output_pts=10, resolution=[.5, .5, .5, 1, 1, 1])
-
-    if mp.plot:
+    mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
+    mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.5, .5, .5, 1, 1, 1])
+    mps.connect_lattice(5)
+    #print(mps.sample_pts[:, control_space_q,:])
+    if mps.plot:
         plt.show()

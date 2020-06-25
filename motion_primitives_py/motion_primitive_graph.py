@@ -11,7 +11,7 @@ import time
 import pickle
 import sympy as sym
 from pathlib import Path
-# from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors
 from mpl_toolkits.mplot3d import Axes3D
 from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
 # from scipy.integrate import solve_bvp
@@ -46,16 +46,20 @@ class MotionPrimitiveGraph():
             self.fig = plt.figure()
         if self.num_dims == 3:
             ax = self.fig.add_subplot(111, projection='3d')
+        self.motion_primitives_list = []
+
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
                          str(self.control_space_q) + '/MotionPrimitive.pkl')
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        plot = self.plot
         with file_path.open('wb') as output:  # TODO add timestamp of something back
             self.plot = False
             self.quad_dynamics_polynomial = None  # pickle has trouble with lambda function
             self.x_derivs = None
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+        self.plot = plot
 
     def uniform_state_set(self, bounds, resolution):
         """
