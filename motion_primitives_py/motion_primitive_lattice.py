@@ -47,20 +47,35 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         self.near_neighbors = k
         # TODO determine which algorithm is best for this application
-        # ensure you dont count yourself as a neighbor and attempt to connect
-        neighbors = NearestNeighbors(n_neighbors=k + 1, algorithm='auto').fit(self.sample_pts)
+        neighbors = NearestNeighbors(n_neighbors=len(self.sample_pts), algorithm='auto').fit(self.sample_pts)
+        # loop through starting points
         for i in range(len(self.sample_pts)):
+            valid_mps = 0
+            
+            # loop through neighbors in order of which are best (excludes self)
             for j in neighbors.kneighbors(self.sample_pts)[1][i][1:]:
+                # check if max k connections have been acheived
+                if valid_mps == k:
+                    continue
+
+                # create the motion primitive and check validity
                 mp = PolynomialMotionPrimitive(self.sample_pts[i], self.sample_pts[j], self.num_dims, self.max_state)
                 # mp = JerksMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
+                st, sp, sv, sa, sj = mp.get_sampled_states()
+                if st is None:
+                    continue
+                
+                # add it to the list of valid mps
                 self.motion_primitives_list.append(mp)
+                valid_mps += 1
+
+                # handle plotting of the motion primitive
                 if self.plot:
-                    st, sp, sv, sa, sj = mp.get_sampled_states()
-                    if st is not None:
-                        if self.num_dims == 2:
-                            plt.plot(sp[0, :], sp[1, :])
-                        if self.num_dims == 3:
-                            plt.plot(sp[0, :], sp[1, :], sp[2, :])
+
+                    if self.num_dims == 2:
+                        plt.plot(sp[0, :], sp[1, :])
+                    if self.num_dims == 3:
+                        plt.plot(sp[0, :], sp[1, :], sp[2, :])
                 mp.x_derivs = None  # TODO hacky thing to help with pickling. Polynomial MPs are carrying around lambda functions which are hard to pickle
         self.pickle_self()
 
