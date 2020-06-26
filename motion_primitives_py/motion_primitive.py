@@ -21,6 +21,8 @@ class MotionPrimitive():
         self.num_dims = num_dims
         self.max_state = max_state
         self.control_space_q = int(start_state.shape[0]/num_dims)
+        self.is_valid = False
+        self.cost = None
 
     def get_state(self, t):
         """
@@ -80,6 +82,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
         self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
+        if self.polys is not None:
+            self.is_valid = True
+            self.cost = self.traj_time
 
     def get_state(self, t):
         """
@@ -215,6 +220,10 @@ class JerksMotionPrimitive(MotionPrimitive):
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
         self.switch_times, self.jerks = self.solve_bvp_min_time(self.start_state, self.end_state, self.num_dims, self.max_state)
+        traj_time = np.max(self.switch_times[:, -1])
+        self.is_valid = np.allclose(self.get_state(traj_time) - self.end_state, 0)
+        if self.is_valid:
+            self.cost = traj_time
 
     def get_state(self, t):
         """
@@ -229,7 +238,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
         # call to optimization library to evaluate at time t
         sj, sa, sv, sp = min_time_bvp.sample(p0, v0, a0, self.switch_times, self.jerks, t)
-        return np.concatenate([sp, sv, sa])
+        return np.squeeze(np.concatenate([sp, sv, sa]))  # TODO concatenate may be slow because allocates new memory
 
     @staticmethod
     def solve_bvp_min_time(start_state, end_state, num_dims, max_state):
@@ -267,8 +276,6 @@ if __name__ == "__main__":
     end_state1 = np.random.rand(num_dims * control_space_q,)
     end_state2 = np.hstack((-end_state1[:num_dims], end_state1[num_dims:]))
     max_state = np.ones((num_dims * control_space_q,))*100
-    print(end_state1)
-    print(end_state2)
     
     # jerks
     mp1 = JerksMotionPrimitive(start_state, end_state1, num_dims, max_state)
