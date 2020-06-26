@@ -39,7 +39,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
             if self.num_dims == 3:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
-        self.sample_pts = actual_sample_pts
+        self.sample_pts = actual_sample_pts # TODO pass these around functionally instead of parametrically
         return actual_sample_pts
 
     def connect_lattice(self, k):
@@ -59,7 +59,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # loop through starting points
         for i in range(len(self.sample_pts)):
             valid_mps = 0
-            
+
             # loop through neighbors in order of which are best (excludes self)
             for j in neighbors.kneighbors(self.sample_pts)[1][i][1:]:
                 # check if max k connections have been acheived
@@ -72,7 +72,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 st, sp, sv, sa, sj = mp.get_sampled_states()
                 if st is None:
                     continue
-                
+
                 # add it to the list of valid mps
                 self.motion_primitives_list.append(mp)
                 valid_mps += 1
@@ -88,7 +88,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         self.pickle_self()
 
     def tile_lattice(self):
-        bounds = np.array([0, -self.max_state[0], self.max_state[0]])
+        bounds = 2* np.array([0, -self.max_state[0], self.max_state[0]])
         tiled_pts = np.array([self.sample_pts for i in range(3 ** self.num_dims)])
         if self.num_dims == 2:
             offsets = itertools.product(bounds, bounds)
@@ -96,13 +96,19 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             offsets = itertools.product(bounds, bounds, bounds)
         for i, offset in enumerate(offsets):
             tiled_pts[i, :, :self.num_dims] += offset
-        return tiled_pts.reshape(len(self.sample_pts) * 3 ** self.num_dims, self.num_dims * self.control_space_q)
+        
+        tiled_pts = tiled_pts.reshape(len(self.sample_pts) * 3 ** self.num_dims, self.num_dims * self.control_space_q)
+        if self.plot:
+            plt.plot(tiled_pts[:,0],tiled_pts[:,1],'ko')
+            plt.plot(self.sample_pts[:,0],self.sample_pts[:,1],'mo')
+        return tiled_pts
+
 
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
-    num_dims = 3
-    max_state = [1, 1, 1, 100, 1, 1] # .5 m/s max velocity 14 m/s^2 max acceleration
+    num_dims = 2
+    max_state = [1, 1, 1, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
     min_connections = 5
 
@@ -110,6 +116,7 @@ if __name__ == "__main__":
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     mps.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, 1, 1, 25, 1, 1])
     mps.connect_lattice(min_connections)
+    mps.tile_lattice()
 
     # plot
     if mps.plot:
