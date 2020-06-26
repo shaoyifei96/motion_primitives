@@ -40,14 +40,22 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             if self.num_dims == 3:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
         self.sample_pts = actual_sample_pts
+        return actual_sample_pts
 
     def connect_lattice(self, k):
         """
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
+        tiled_pts = self.tile_lattice()
+        if self.plot:
+            if self.num_dims == 2:
+                plt.plot(tiled_pts[:, 0], tiled_pts[:, 1], 'om')
+            if self.num_dims == 3:
+                plt.plot(tiled_pts[:, 0], tiled_pts[:, 1], tiled_pts[:, 2], 'om')
         self.near_neighbors = k
         # TODO determine which algorithm is best for this application
-        neighbors = NearestNeighbors(n_neighbors=len(self.sample_pts), algorithm='auto').fit(self.sample_pts)
+        # need a better metric to compare distances
+        neighbors = NearestNeighbors(n_neighbors=len(self.sample_pts), algorithm='auto').fit(tiled_pts)
         # loop through starting points
         for i in range(len(self.sample_pts)):
             valid_mps = 0
@@ -59,7 +67,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     continue
 
                 # create the motion primitive and check validity
-                mp = PolynomialMotionPrimitive(self.sample_pts[i], self.sample_pts[j], self.num_dims, self.max_state)
+                mp = PolynomialMotionPrimitive(tiled_pts[i], tiled_pts[j], self.num_dims, self.max_state)
                 # mp = JerksMotionPrimitive(start_pt, end_pt, self.num_dims, self.max_state)
                 st, sp, sv, sa, sj = mp.get_sampled_states()
                 if st is None:
@@ -79,14 +87,30 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 mp.x_derivs = None  # TODO hacky thing to help with pickling. Polynomial MPs are carrying around lambda functions which are hard to pickle
         self.pickle_self()
 
+    def tile_lattice(self):
+        bounds = np.array([0, -self.max_state[0], self.max_state[0]])
+        tiled_pts = np.array([self.sample_pts for i in range(3 ** self.num_dims)])
+        if self.num_dims == 2:
+            offsets = itertools.product(bounds, bounds)
+        elif self.num_dims == 3:
+            offsets = itertools.product(bounds, bounds, bounds)
+        for i, offset in enumerate(offsets):
+            tiled_pts[i, :, :self.num_dims] += offset
+        return tiled_pts.reshape(len(self.sample_pts) * 3 ** self.num_dims, self.num_dims * self.control_space_q)
+
 if __name__ == "__main__":
+    # define parameters
     control_space_q = 3
     num_dims = 3
-    max_state = [1, 1, 1, 100, 1, 1]
+    max_state = [1, 1, 1, 100, 1, 1] # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
+    min_connections = 5
+
+    # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
-    mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.5, .5, .5, 1, 1, 1])
-    mps.connect_lattice(5)
-    #print(mps.sample_pts[:, control_space_q,:])
+    mps.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, 1, 1, 25, 1, 1])
+    mps.connect_lattice(min_connections)
+
+    # plot
     if mps.plot:
         plt.show()

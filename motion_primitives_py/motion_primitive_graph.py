@@ -14,6 +14,7 @@ from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 from mpl_toolkits.mplot3d import Axes3D
 from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
+import itertools
 # from scipy.integrate import solve_bvp
 from py_opt_control import min_time_bvp
 
@@ -44,8 +45,8 @@ class MotionPrimitiveGraph():
         self.x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
         if self.plot:
             self.fig = plt.figure()
-        if self.num_dims == 3:
-            ax = self.fig.add_subplot(111, projection='3d')
+            if self.num_dims == 3:
+                ax = self.fig.add_subplot(111, projection='3d')
         self.motion_primitives_list = []
 
 
