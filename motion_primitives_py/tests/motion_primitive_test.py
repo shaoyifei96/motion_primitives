@@ -5,17 +5,23 @@ from motion_primitives_py.motion_primitive import JerksMotionPrimitive, Polynomi
 
 
 class TestMotionPrimitive(unittest.TestCase):
+    def setUp(self):
+        self.start_state = np.random.rand(6,)
+        self.end_state = np.random.rand(6,)
+        self.num_dims = 2
+        self.max_state = 100 * np.ones((6,))
+    
+    def test_polynomial_initial_state(self):
+        mp = PolynomialMotionPrimitive(self.start_state, self.end_state, 
+                                       self.num_dims, self.max_state)
+        s0 = mp.get_state(np.array([0]))
+        self.assertTrue(((np.squeeze(s0) - self.start_state) < 10e-5).all())
 
-    def test_polynomial_get_state(self):
-
-        _start_state = np.random.rand(6,)
-        _end_state = np.random.rand(6,)
-        _num_dims = 2
-        _max_state = np.ones((6,))*100
-        mp = PolynomialMotionPrimitive(_start_state, _end_state, _num_dims, _max_state)
-        s0 = mp.get_state(0)
-        self.assertTrue(((np.squeeze(s0)-_start_state) < 10e-5).all())
-
+    def test_jerks_initial_state(self):
+        mp = JerksMotionPrimitive(self.start_state, self.end_state, 
+                                  self.num_dims, self.max_state)
+        s0 = mp.get_state(np.array([0]))
+        self.assertTrue(((np.squeeze(s0) - self.start_state) < 10e-5).all())
 
 if __name__ == '__main__':
     unittest.main()
