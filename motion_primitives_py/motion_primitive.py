@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import sympy as sym
 from scipy.special import factorial
 import numpy as np
+import c_output_redirector
+import io
 
 
 class MotionPrimitive():
@@ -13,13 +15,14 @@ class MotionPrimitive():
     If the implementation is specific to the subclass, raise a NotImplementedError
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state):
+    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
         """
         """
         self.start_state = start_state
         self.end_state = end_state
         self.num_dims = num_dims
         self.max_state = max_state
+        self.subclass_specific_data = subclass_specific_data
         self.control_space_q = int(start_state.shape[0]/num_dims)
         self.is_valid = False
         self.cost = None
@@ -68,9 +71,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     A motion primitive constructed from polynomial coefficients
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state, x_derivs=None):
-        super().__init__(start_state, end_state, num_dims, max_state)  # Run MotionPrimitive's instantiation first
-        self.polynomial_constructor(x_derivs)
+    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
+        super().__init__(start_state, end_state, num_dims, max_state, subclass_specific_data)  # Run MotionPrimitive's instantiation first
+        self.polynomial_constructor()
 
     def polynomial_constructor(self, x_derivs=None):
         """
@@ -78,8 +81,11 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Optional input x_derivs is the list of lambda functions evaluating polynomial derivative of state (see setup_bvp_meam_620_style).
         It can be passed in to save on repeated computation.
         """
-        if x_derivs is None:
+        if self.subclass_specific_data.get('x_derivs') is None:
             self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
+        else:
+            self.x_derivs = self.subclass_specific_data.get('x_derivs')
+
         self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
         if self.polys is not None:
@@ -210,8 +216,8 @@ class JerksMotionPrimitive(MotionPrimitive):
     A motion primitive constructed from a sequence of constant jerks
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state):
-        super().__init__(start_state, end_state, num_dims, max_state)
+    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
+        super().__init__(start_state, end_state, num_dims, max_state, subclass_specific_data)
         assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
         self.jerks_constructor()
 
@@ -255,8 +261,11 @@ class JerksMotionPrimitive(MotionPrimitive):
         v_max, a_max, j_max = max_state[1:1+control_space_q]
         v_min, a_min, j_min = -max_state[1:1+control_space_q]
         # call to optimization library
-        (t, j) = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min,
-                                           a_max, j_min, j_max)
+
+        f = io.BytesIO()
+        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
+            (t, j) = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min,
+                                               a_max, j_min, j_max)
 
         return t, j
 
@@ -276,7 +285,7 @@ if __name__ == "__main__":
     end_state1 = np.random.rand(num_dims * control_space_q,)
     end_state2 = np.hstack((-end_state1[:num_dims], end_state1[num_dims:]))
     max_state = np.ones((num_dims * control_space_q,))*100
-    
+
     # jerks
     mp1 = JerksMotionPrimitive(start_state, end_state1, num_dims, max_state)
     mp2 = JerksMotionPrimitive(start_state, end_state2, num_dims, max_state)
@@ -285,7 +294,7 @@ if __name__ == "__main__":
     mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
     mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
     plt.show()
-    
+
     # polynomial
     mp1 = PolynomialMotionPrimitive(start_state, end_state1, num_dims, max_state)
     mp2 = PolynomialMotionPrimitive(start_state, end_state2, num_dims, max_state)

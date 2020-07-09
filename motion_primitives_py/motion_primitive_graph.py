@@ -49,7 +49,6 @@ class MotionPrimitiveGraph():
                 ax = self.fig.add_subplot(111, projection='3d')
         self.motion_primitives_list = []
 
-
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
                          str(self.control_space_q) + '/MotionPrimitive.pkl')
@@ -62,7 +61,7 @@ class MotionPrimitiveGraph():
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
         self.plot = plot
 
-    def uniform_state_set(self, bounds, resolution):
+    def uniform_state_set(self, bounds, resolution, random=False):
         """
         Return a uniform Cartesian sampling over vector bounds with vector resolution.
         Input:
@@ -76,7 +75,10 @@ class MotionPrimitiveGraph():
         bounds = np.asarray(bounds)
         for (a, b, r) in zip(bounds[:, 0], bounds[:, 1], resolution):
             for _ in range(self.num_dims):
-                independent.append(np.arange(a, b+.00001, r))
+                if random:
+                    independent.append(a + np.random.rand((np.ceil((b-a)/r+1).astype(int)))*(b-a))
+                else:
+                    independent.append(np.arange(a, b+.00001, r))
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
@@ -93,7 +95,6 @@ class MotionPrimitiveGraph():
         min_score = np.ones((starting_score.shape[0], 2))*np.inf
         min_score[:, 0] = np.amin(starting_score, axis=1)
         for mp_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
-            # print(mp_num)
             # distances of potential sample points to closest chosen output MP node
             min_score[:, 0] = np.amin(min_score, axis=1)
             # take the new point with the maximum distance to its closest node
