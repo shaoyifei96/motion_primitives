@@ -225,7 +225,20 @@ class JerksMotionPrimitive(MotionPrimitive):
         """
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
-        self.switch_times, self.jerks = self.solve_bvp_min_time(self.start_state, self.end_state, self.num_dims, self.max_state)
+        f = io.BytesIO()
+
+        # start point
+        p0, v0, a0 = self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
+                                                                        self.num_dims], self.start_state[2*self.num_dims:3*self.num_dims]
+        # end point
+        p1, v1, a1 = self.end_state[:self.num_dims], self.end_state[self.num_dims:2 *
+                                                                    self.num_dims], self.end_state[2*self.num_dims:3*self.num_dims]
+        # state and input limits
+        v_max, a_max, j_max = self.max_state[1:1+self.control_space_q]
+        v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q]
+
+        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
+            self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, a_min, j_min, v_max, a_max, j_max)
         traj_time = np.max(self.switch_times[:, -1])
         self.is_valid = np.allclose(self.get_state(traj_time) - self.end_state, 0)
         if self.is_valid:
@@ -239,35 +252,11 @@ class JerksMotionPrimitive(MotionPrimitive):
         Return:
             state, a numpy array of size (num_dims x 4), ordered (p, v, a, j)
         """
-        # start point
-        p0, v0, a0 = np.split(self.start_state, self.control_space_q)
 
         # call to optimization library to evaluate at time t
-        sj, sa, sv, sp = min_time_bvp.sample(p0, v0, a0, self.switch_times, self.jerks, t)
+        sj, sa, sv, sp = min_time_bvp.sample(self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
+                                                                                                self.num_dims], self.start_state[2*self.num_dims:3*self.num_dims], self.switch_times, self.jerks, t)
         return np.squeeze(np.concatenate([sp, sv, sa]))  # TODO concatenate may be slow because allocates new memory
-
-    @staticmethod
-    def solve_bvp_min_time(start_state, end_state, num_dims, max_state):
-        """
-        Solve the BVP for time optimal jerk control trajectories as in Beul ICUAS '17 https://github.com/jpaulos/opt_control
-        """
-        control_space_q = int(start_state.shape[0]/num_dims)
-        # start point
-        p0, v0, a0 = np.split(start_state, control_space_q)
-        # end point
-        p1, v1, a1 = np.split(end_state, control_space_q)
-
-        # state and input limits
-        v_max, a_max, j_max = max_state[1:1+control_space_q]
-        v_min, a_min, j_min = -max_state[1:1+control_space_q]
-        # call to optimization library
-
-        f = io.BytesIO()
-        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
-            (t, j) = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min,
-                                               a_max, j_min, j_max)
-
-        return t, j
 
     def get_sampled_states(self):
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
