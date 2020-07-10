@@ -13,18 +13,19 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         assert(start_pts.shape[0] == 1 or end_pts.shape[0] == 1), "Either start_pts or end_pts must be only one point"
         num_pts = np.max([start_pts.shape[0], end_pts.shape[0]])
 
-        score = np.zeros(num_pts)
+        score = -np.ones(num_pts)*np.inf
         mp_list = np.empty(num_pts, dtype=object)
         for i in range(start_pts.shape[0]):
             for j in range(end_pts.shape[0]):
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
-                mp = JerksMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
-                # mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
+                # mp = JerksMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
+                mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
                 # TODO pass motion primitive class type around
                 ind = max(i, j)
                 mp_list[ind] = mp
-                score[ind] = mp.cost  # + np.linalg.norm(u)*.0001  # tie break w/ u?
+                if mp.is_valid:
+                    score[ind] = mp.cost  # + np.linalg.norm(u)*.0001  # tie break w/ u?
         return score, mp_list
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts):
@@ -66,7 +67,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=True)
         print(potential_sample_pts.shape)
-        actual_sample_pts, actual_sample_indices, mp_adjacency_matrix = self.compute_min_dispersion_points(num_output_pts, potential_sample_pts)
+        actual_sample_pts, actual_sample_indices, mp_adjacency_matrix = self.compute_min_dispersion_points(
+            num_output_pts, potential_sample_pts)
         if self.plot:
             if self.num_dims == 2:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
@@ -82,29 +84,30 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         if self.plot:
             if self.num_dims == 2:
                 plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
+                for i in range(sample_inds.shape[0]):
+                    for j in range(sample_inds.shape[0]):
+                        if i != j:
+                            mp = adjacency_matrix[i][sample_inds[j]]
+                            if mp.is_valid:
+                                st1, sp1, sv1, sa1, sj1 = mp.get_sampled_states()
+                                plt.plot(sp1[0, :], sp1[1, :])
+
             if self.num_dims == 3:
                 plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
-        for i in range(sample_inds.shape[0]):
-            for j in range(sample_inds.shape[0]):
-                if i != j:
-                    mp = adjacency_matrix[i][sample_inds[j]]
-                    st1, sp1, sv1, sa1, sj1 = mp.get_sampled_states()
-                    plt.plot(sp1[0,:],sp1[1,:])
-
 
 
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
     num_dims = 2
-    max_state = [1, 1, 1, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    max_state = [1, .1, .1, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
 
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=2, resolution=[.2, 1, 1, 25, 1, 1])
-    mps.connect_lattice(sample_pts,sample_inds, adj_mat)
+    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=20, resolution=[.2, .1, .1, 25, 1, 1])
+    mps.connect_lattice(sample_pts, sample_inds, adj_mat)
 
     # plot
     if mps.plot:
