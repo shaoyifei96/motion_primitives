@@ -51,7 +51,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
             min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, result_pt[np.newaxis, :])  # new point's score
             # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
-            mp_adjacency_matrix[index, :] = mp_list
+            mp_adjacency_matrix[sample_pt_num, :] = mp_list
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         print(actual_sample_pts)
         return actual_sample_pts, mp_adjacency_matrix
