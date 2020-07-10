@@ -32,7 +32,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # TODO will pick the same point if all MPs fail
         # overloaded from motion_primitive_graph for the moment # TODO maybe unify with original version used in tree
         mp_adjacency_matrix = np.empty((num_output_pts, potential_sample_pts.shape[0]), dtype=object)
-
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
         score[:, 0], mp_list = self.dispersion_distance_fn(potential_sample_pts, potential_sample_pts[0, :][np.newaxis, :])
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
@@ -75,27 +74,41 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             if self.num_dims == 3:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
         self.sample_pts = actual_sample_pts  # TODO pass these around functionally instead of parametrically
-        return actual_sample_pts, actual_sample_indices, mp_adjacency_matrix
+        return actual_sample_pts, mp_adjacency_matrix #mp_adjacency_matrix[:, actual_sample_indices]
 
-    def connect_lattice(self, sample_pts, sample_inds, adjacency_matrix):
+    def connect_lattice(self, sample_pts, adjacency_matrix):
         """
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
-        cost_threshold = 3
-        if self.plot:
-            if self.num_dims == 2:
-                for i in range(sample_inds.shape[0]):
-                    for j in range(sample_inds.shape[0]):
-                        if i != j:
-                            mp = adjacency_matrix[i][sample_inds[j]]
-                            if mp.is_valid:
-                                if mp.cost < cost_threshold:
-                                    st1, sp1, sv1, sa1, sj1 = mp.get_sampled_states()
-                                    plt.plot(sp1[0, :], sp1[1, :])
-                plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
+        cost_threshold = np.inf
+        for i in range(sample_pts.shape[0]):
+            for j in range(sample_pts.shape[0]):
+                mp = adjacency_matrix[i, j]
+                if mp is not None and mp.is_valid and mp.cost < cost_threshold:
+                    self.motion_primitives_list.append(mp)
+                    if self.plot:
+                        st, sp, sv, sa, sj = mp.get_sampled_states() 
+                        if self.num_dims == 2:
+                            plt.plot(sp[0, :], sp[1, :])
+                            plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
+                        elif self.num_dims == 3:
+                            plt.plot(sp[0, :], sp[1, :], sp[2, :])
+                            plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
 
-            if self.num_dims == 3:
-                plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
+    def tile_points(self, pts):
+        """
+        function that takes in an array of points and returns those points tiled in position space
+        """
+        bounds = 2* np.array([0, -self.max_state[0], self.max_state[0]])
+        tiled_pts = np.array([pts for i in range(3 ** self.num_dims)])
+        if self.num_dims == 2:
+            offsets = itertools.product(bounds, bounds)
+        elif self.num_dims == 3:
+            offsets = itertools.product(bounds, bounds, bounds)
+        for i, offset in enumerate(offsets):
+            tiled_pts[i, :, :self.num_dims] += offset
+        return tiled_pts.reshape(len(pts) * 3 ** self.num_dims, 
+                                 self.num_dims * self.control_space_q)
 
 
 if __name__ == "__main__":
@@ -108,8 +121,8 @@ if __name__ == "__main__":
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .1, .1, 25, 1, 1])
-    mps.connect_lattice(sample_pts, sample_inds, adj_mat)
+    V, E = mps.compute_min_dispersion_space(num_output_pts=50, resolution=[.2, .1, .1, 25, 1, 1])
+    mps.connect_lattice(V, E)
 
     # plot
     if mps.plot:
