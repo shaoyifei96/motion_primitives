@@ -240,7 +240,8 @@ class JerksMotionPrimitive(MotionPrimitive):
         with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
             self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, a_min, j_min, v_max, a_max, j_max)
         traj_time = np.max(self.switch_times[:, -1])
-        self.is_valid = np.allclose(self.get_state(traj_time) - self.end_state, 0)
+        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all()
+        # self.is_valid = np.allclose(self.get_state(traj_time) - self.end_state, 0)
         if self.is_valid:
             self.cost = traj_time
 
