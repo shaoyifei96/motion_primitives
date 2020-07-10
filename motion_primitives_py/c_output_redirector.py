@@ -8,7 +8,10 @@ import tempfile
 libc = ctypes.CDLL(None)
 c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
 
-
+"""
+Code from the internet to get the opt_control library to stop logging a million errors to stdout
+https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
+"""
 @contextmanager
 def stdout_redirector(stream):
     # The original fd stdout points to. Usually 1 on POSIX systems.

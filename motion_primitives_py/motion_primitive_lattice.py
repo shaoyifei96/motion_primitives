@@ -50,10 +50,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             actual_sample_indices[sample_pt_num] = np.array((index))
             min_score[index, 0] = - np.inf  # give nodes we have already chosen low score
             min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, result_pt[np.newaxis, :])  # new point's score
+            # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
             mp_adjacency_matrix[index, :] = mp_list
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         print(actual_sample_pts)
-        return actual_sample_pts, actual_sample_indices
+        return actual_sample_pts, mp_adjacency_matrix
 
     def compute_min_dispersion_space(self, num_output_pts=250, resolution=[0.2, 0.2, 0.2]):
         """
@@ -65,14 +66,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=True)
         print(potential_sample_pts.shape)
-        actual_sample_pts, actual_sample_indices = self.compute_min_dispersion_points(num_output_pts, potential_sample_pts)
+        actual_sample_pts, mp_adjacency_matrix = self.compute_min_dispersion_points(num_output_pts, potential_sample_pts)
         if self.plot:
             if self.num_dims == 2:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
             if self.num_dims == 3:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
         self.sample_pts = actual_sample_pts  # TODO pass these around functionally instead of parametrically
-        return actual_sample_pts
+        return actual_sample_pts, mp_adjacency_matrix
 
     def connect_lattice(self, k):
         """
