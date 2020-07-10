@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import sympy as sym
 from scipy.special import factorial
 import numpy as np
-import c_output_redirector
+from motion_primitives_py import c_output_redirector
 import io
 
 
@@ -225,7 +225,6 @@ class JerksMotionPrimitive(MotionPrimitive):
         """
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
-        f = io.BytesIO()
 
         # start point
         p0, v0, a0 = self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
@@ -237,10 +236,11 @@ class JerksMotionPrimitive(MotionPrimitive):
         v_max, a_max, j_max = self.max_state[1:1+self.control_space_q]
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q]
 
+        f = io.BytesIO()
         with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
-            self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, a_min, j_min, v_max, a_max, j_max)
+            self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
         traj_time = np.max(self.switch_times[:, -1])
-        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all() and traj_time > 0
+        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all()
         # self.is_valid = np.allclose(self.get_state(traj_time) - self.end_state, 0)
         if self.is_valid:
             self.cost = traj_time
