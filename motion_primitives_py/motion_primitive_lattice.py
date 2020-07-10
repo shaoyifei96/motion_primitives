@@ -29,6 +29,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return score, mp_list
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts):
+        # TODO will pick the same point if all MPs fail
         # overloaded from motion_primitive_graph for the moment # TODO maybe unify with original version used in tree
         mp_adjacency_matrix = np.empty((num_output_pts, potential_sample_pts.shape[0]), dtype=object)
 
@@ -54,7 +55,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
             mp_adjacency_matrix[sample_pt_num, :] = mp_list
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
-        print(actual_sample_pts)
         return actual_sample_pts, actual_sample_indices, mp_adjacency_matrix
 
     def compute_min_dispersion_space(self, num_output_pts=250, resolution=[0.2, 0.2, 0.2]):
@@ -81,16 +81,18 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
+        cost_threshold = 3
         if self.plot:
             if self.num_dims == 2:
-                plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
                 for i in range(sample_inds.shape[0]):
                     for j in range(sample_inds.shape[0]):
                         if i != j:
                             mp = adjacency_matrix[i][sample_inds[j]]
                             if mp.is_valid:
-                                st1, sp1, sv1, sa1, sj1 = mp.get_sampled_states()
-                                plt.plot(sp1[0, :], sp1[1, :])
+                                if mp.cost < cost_threshold:
+                                    st1, sp1, sv1, sa1, sj1 = mp.get_sampled_states()
+                                    plt.plot(sp1[0, :], sp1[1, :])
+                plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
 
             if self.num_dims == 3:
                 plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
@@ -98,15 +100,15 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 if __name__ == "__main__":
     # define parameters
-    control_space_q = 3
+    control_space_q = 2
     num_dims = 2
-    max_state = [1, .1, .1, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    max_state = [1, .1, 100, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
 
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=20, resolution=[.2, .1, .1, 25, 1, 1])
+    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .1, .1, 25, 1, 1])
     mps.connect_lattice(sample_pts, sample_inds, adj_mat)
 
     # plot

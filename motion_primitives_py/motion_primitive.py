@@ -176,7 +176,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         # TODO make parameters
         dt = .2
-        max_t = 1
+        max_t = 2
         t = 0
         u_max = np.inf
         polys = None
