@@ -74,7 +74,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             if self.num_dims == 3:
                 plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
         self.sample_pts = actual_sample_pts  # TODO pass these around functionally instead of parametrically
-        return actual_sample_pts, mp_adjacency_matrix #mp_adjacency_matrix[:, actual_sample_indices]
+        return actual_sample_pts, mp_adjacency_matrix[:, actual_sample_indices]
 
     def connect_lattice(self, sample_pts, adjacency_matrix):
         """
