@@ -14,6 +14,7 @@ from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 from mpl_toolkits.mplot3d import Axes3D
 from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
+from reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 import itertools
 # from scipy.integrate import solve_bvp
 from py_opt_control import min_time_bvp

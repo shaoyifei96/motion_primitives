@@ -20,7 +20,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
                 # mp = JerksMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
-                mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
+                # mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
+                mp = ReedsSheppMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
+
                 # TODO pass motion primitive class type around
                 ind = max(i, j)
                 mp_list[ind] = mp
@@ -54,6 +56,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, result_pt[np.newaxis, :])  # new point's score
             # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
             mp_adjacency_matrix[sample_pt_num, :] = mp_list
+            self.dispersion = max(min_score[:, 0])
+            # print(self.dispersion)
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices, mp_adjacency_matrix
 
@@ -65,7 +69,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=True)
+        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=False)
         print(potential_sample_pts.shape)
         actual_sample_pts, actual_sample_indices, mp_adjacency_matrix = self.compute_min_dispersion_points(
             num_output_pts, potential_sample_pts)
@@ -81,7 +85,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
         """
-        cost_threshold = 3
+        cost_threshold = 2*self.dispersion
         if self.plot:
             if self.num_dims == 2:
                 for i in range(sample_inds.shape[0]):
@@ -102,13 +106,13 @@ if __name__ == "__main__":
     # define parameters
     control_space_q = 2
     num_dims = 2
-    max_state = [1, .1, 100, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    max_state = [1, 1, 7, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
 
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .1, .1, 25, 1, 1])
+    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .2, .1, 25, 1, 1])
     mps.connect_lattice(sample_pts, sample_inds, adj_mat)
 
     # plot

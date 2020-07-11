@@ -38,6 +38,7 @@ class MotionPrimitive():
         """
         Return a sampling of the trajectory for plotting 
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        returns sampled time, state1, state2, ... stateN
         """
         raise NotImplementedError
 
