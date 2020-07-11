@@ -49,6 +49,8 @@ class MotionPrimitiveGraph():
             if self.num_dims == 3:
                 ax = self.fig.add_subplot(111, projection='3d')
         self.motion_primitives_list = []
+        self.dispersion = None
+        self.dispersion_list = []
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +

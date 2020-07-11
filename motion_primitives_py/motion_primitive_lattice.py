@@ -57,7 +57,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
             mp_adjacency_matrix[sample_pt_num, :] = mp_list
             self.dispersion = max(min_score[:, 0])
-            # print(self.dispersion)
+            self.dispersion_list.append(self.dispersion)
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices, mp_adjacency_matrix
 
@@ -87,33 +87,75 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         cost_threshold = 2*self.dispersion
         if self.plot:
-            if self.num_dims == 2:
+            if self.num_dims == 3:
+                plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
+            else:
                 for i in range(sample_inds.shape[0]):
                     for j in range(sample_inds.shape[0]):
                         if i != j:
                             mp = adjacency_matrix[i][sample_inds[j]]
                             if mp.is_valid:
                                 if mp.cost < cost_threshold:
-                                    st1, sp1, sv1, sa1, sj1 = mp.get_sampled_states()
-                                    plt.plot(sp1[0, :], sp1[1, :])
+                                    _, sp, _, _, _ = mp.get_sampled_states()
+                                    plt.plot(sp[0, :], sp[1, :], linewidth=.4)
                 plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
 
-            if self.num_dims == 3:
-                plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
+    def make_animation(self):
+        plt.ion()
+        sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=12, resolution=[.25, .25, np.inf])
+        f, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
+        ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
+        ax1.set_title("Sample Set Evolution")
+        ax2.set_xlim(0, sample_inds.shape[0])
+        ax2.set_ylim(0, self.dispersion_list[0]*1.2)
+        ax2.set_title("Trajectory Length Dispersion")
+        plt.pause(5)
+        for i in range(sample_inds.shape[0]):
+            # plt.clf()
+
+            for j in range(adj_mat.shape[1]):
+                mp = adj_mat[i, j]
+                if mp is not None:
+                    _, sp, _, _, _ = mp.get_sampled_states()
+                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4)
+                    ax1.plot(mp.end_state[0], mp.end_state[1], 'og')
+                    ax1.plot(mp.start_state[0], mp.start_state[1], 'ok', markersize=1)
+                    # plt.pause(.001)
+            plt.pause(.5)
+            for k in range(i+2):
+                if i+1 != k and i+1 < sample_inds.shape[0]:
+                    mp = adj_mat[i+1, sample_inds[k]]
+
+                    # mp = adj_mat[i,sample_inds[i+1]]
+                    _, sp, _, _, _ = mp.get_sampled_states()
+                    ax1.plot(sp[0, :], sp[1, :], 'k')
+                    ax1.plot(mp.start_state[0], mp.start_state[1], 'or')
+            plt.pause(.5)
+
+            ax1.plot(mp.end_state[0], mp.end_state[1], 'og')
+            ax1.plot(mp.start_state[0], mp.start_state[1], 'or')
+
+            if i+1 < sample_inds.shape[0]:
+                ax2.plot(range(i+1), self.dispersion_list[:i+1], 'ok--')
+            plt.pause(1.5)
+
+        plt.ioff()
 
 
 if __name__ == "__main__":
     # define parameters
-    control_space_q = 2
-    num_dims = 2
-    max_state = [1, 1, 7, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    control_space_q = 3
+    num_dims = 1
+    max_state = [1, 1, np.pi, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
 
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .2, .1, 25, 1, 1])
-    mps.connect_lattice(sample_pts, sample_inds, adj_mat)
+    # sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .2, .2, 25, 1, 1])
+    # mps.connect_lattice(sample_pts, sample_inds, adj_mat)
+    mps.make_animation()
 
     # plot
     if mps.plot:

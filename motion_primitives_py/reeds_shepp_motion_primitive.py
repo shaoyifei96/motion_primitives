@@ -15,7 +15,7 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
 
     def reeds_shepp_constructor(self):
         if self.subclass_specific_data.get('turning_radius') is None:
-            self.turning_radius = 6
+            self.turning_radius = .5
         else:
             self.turning_radius = self.subclass_specific_data.get('turning_radius')
         self.cost = reeds_shepp.path_length(self.start_state, self.end_state, self.turning_radius)
@@ -37,8 +37,8 @@ if __name__ == "__main__":
     max_state = np.ones((3,))*100
 
     mp1 = ReedsSheppMotionPrimitive(start_state, end_state, 3, max_state)
-    st1, sx1, _,_,_ = mp1.get_sampled_states()
+    st1, sx1, _, _, _ = mp1.get_sampled_states()
     plt.plot(start_state[0], start_state[1], 'go')
     plt.plot(end_state[0], end_state[1], 'ro')
-    plt.plot(sx1[0,:], sx1[1,:])
+    plt.plot(sx1[0, :], sx1[1, :])
     plt.show()
