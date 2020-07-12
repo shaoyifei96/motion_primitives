@@ -17,6 +17,7 @@ from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
 import itertools
 # from scipy.integrate import solve_bvp
 from py_opt_control import min_time_bvp
+import json
 
 
 class MotionPrimitiveGraph():
