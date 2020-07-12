@@ -1,7 +1,6 @@
 from py_opt_control import min_time_bvp
 import matplotlib.pyplot as plt
 import sympy as sym
-from scipy.special import factorial
 import numpy as np
 from motion_primitives_py import c_output_redirector
 import io
@@ -66,6 +65,13 @@ class MotionPrimitive():
         else:
             print("Trajectory was not found")
 
+    def convert_to_dict(self, filename=None):
+        """
+        Write important attributes of motion primitive to a dictionary
+        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        """
+        raise NotImplementedError
+
 
 class PolynomialMotionPrimitive(MotionPrimitive):
     """
@@ -87,11 +93,11 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         else:
             self.x_derivs = self.subclass_specific_data.get('x_derivs')
 
-        self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
+        self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
         if self.polys is not None:
             self.is_valid = True
-            self.cost = self.traj_time
+            self.cost = traj_time
 
     def get_state(self, t):
         """
@@ -198,8 +204,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
     def get_sampled_states(self):
         # TODO connect w/ get_state
-        if not np.isinf(self.traj_time):
-            st = np.linspace(0, self.traj_time, 100)
+        if self.is_valid:
+            st = np.linspace(0, self.cost, 10)
             sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
@@ -210,6 +216,20 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             return st, sp, sv, sa, sj
         else:
             return None, None, None, None, None
+
+    def convert_to_dict(self, filename=None):
+        """
+        Write important attributes of motion primitive to a dictionary
+        """
+        if self.is_valid:
+            saved_params = {"cost": self.cost,
+                            "start_state": self.start_state.tolist(),
+                            "end_state": self.end_state.tolist(),
+                            "polys": self.polys.tolist(),
+            }
+        else:
+            saved_params = {}
+        return saved_params
 
 
 class JerksMotionPrimitive(MotionPrimitive):
@@ -265,6 +285,20 @@ class JerksMotionPrimitive(MotionPrimitive):
         st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
         return st, sp, sv, sa, sj
 
+    def convert_to_dict(self):
+        """
+        Write important attributes of motion primitive to a dictionary
+        """
+        if self.is_valid:
+            saved_params = {"cost": self.cost,
+                            "start_state": self.start_state.tolist(),
+                            "end_state": self.end_state.tolist(),
+                            "jerks": self.jerks.tolist(),
+                            "switch_times": self.switch_times.tolist()
+            }
+        else:
+            saved_params = {}
+        return saved_params
 
 if __name__ == "__main__":
     # problem parameters
@@ -284,7 +318,6 @@ if __name__ == "__main__":
     st2, sp2, sv2, sa2, sj2 = mp2.get_sampled_states()
     mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
     mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
-    plt.show()
 
     # polynomial
     mp1 = PolynomialMotionPrimitive(start_state, end_state1, num_dims, max_state)
@@ -293,4 +326,6 @@ if __name__ == "__main__":
     st2, sp2, sv2, sa2, sj2 = mp2.get_sampled_states()
     mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
     mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
+
+    print(mp1.convert_to_dict())
     plt.show()

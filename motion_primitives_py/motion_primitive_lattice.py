@@ -20,9 +20,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
                 # mp = JerksMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
-                # mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
-                mp = ReedsSheppMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
-
+                mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
+                # mp = ReedsSheppMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
                 # TODO pass motion primitive class type around
                 ind = max(i, j)
                 mp_list[ind] = mp
@@ -33,6 +32,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts):
         # TODO will pick the same point if all MPs fail
         # overloaded from motion_primitive_graph for the moment # TODO maybe unify with original version used in tree
+        print("potential sample points:", potential_sample_pts.shape[0])
         mp_adjacency_matrix = np.empty((num_output_pts, potential_sample_pts.shape[0]), dtype=object)
 
         score = np.ones((potential_sample_pts.shape[0], num_output_pts))*np.inf
@@ -58,104 +58,115 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             mp_adjacency_matrix[sample_pt_num, :] = mp_list
             self.dispersion = max(min_score[:, 0])
             self.dispersion_list.append(self.dispersion)
-        actual_sample_pts = potential_sample_pts[actual_sample_indices]
-        return actual_sample_pts, actual_sample_indices, mp_adjacency_matrix
 
-    def compute_min_dispersion_space(self, num_output_pts=250, resolution=[0.2, 0.2, 0.2]):
+        vertices = potential_sample_pts[actual_sample_indices]
+        edges = mp_adjacency_matrix[:, actual_sample_indices]
+        return vertices, edges
+
+    def compute_min_dispersion_space(self, num_output_pts, resolution):
         """
-        Using the bounds on the state space, compute a set of minimum dispersion points
-        (Similar to original Dispertio paper)
+        Using the bounds on the state space, compute a set of minimum dispersion
+        points (similar to original Dispertio paper) and save the resulting 
+        graph as a class attribute
+
+        Input:
+            num_output_pts, desired number of samples (M) in the set
+            resolution, (N,) resolution over N dimensions
         """
         self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=False)
-        print(potential_sample_pts.shape)
-        actual_sample_pts, actual_sample_indices, mp_adjacency_matrix = self.compute_min_dispersion_points(
-            num_output_pts, potential_sample_pts)
+        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=True)
+        self.vertices, self.edges = self.compute_min_dispersion_points(num_output_pts, potential_sample_pts)
         if self.plot:
             if self.num_dims == 2:
-                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], 'om')
+                plt.plot(self.vertices[:, 0], self.vertices[:, 1], 'om')
             if self.num_dims == 3:
-                plt.plot(actual_sample_pts[:, 0], actual_sample_pts[:, 1], actual_sample_pts[:, 2], 'om')
-        self.sample_pts = actual_sample_pts  # TODO pass these around functionally instead of parametrically
-        return actual_sample_pts, actual_sample_indices, mp_adjacency_matrix
+                plt.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'om')
 
-    def connect_lattice(self, sample_pts, sample_inds, adjacency_matrix):
+    def limit_connections(self, cost_threshold):
         """
-        Given a set of min dispersion sample points, connect each point to each other via solving BVPs. TODO: limit the number of connections for each point
+        Examine the graph of motion primitives making up the lattice and remove
+        edges that have costs greater than a given threshold
+
+        Input:
+            cost_threshold, max allowable cost for any edge in returned graph
         """
-        cost_threshold = 2*self.dispersion
-        if self.plot:
-            if self.num_dims == 3:
-                plt.plot(sample_pts[:, 0], sample_pts[:, 1], sample_pts[:, 2], 'om')
-            else:
-                for i in range(sample_inds.shape[0]):
-                    for j in range(sample_inds.shape[0]):
-                        if i != j:
-                            mp = adjacency_matrix[i][sample_inds[j]]
-                            if mp.is_valid:
-                                if mp.cost < cost_threshold:
-                                    _, sp, _, _, _ = mp.get_sampled_states()
-                                    plt.plot(sp[0, :], sp[1, :], linewidth=.4)
-                plt.plot(sample_pts[:, 0], sample_pts[:, 1], 'om')
+        for i in range(len(self.vertices)):
+            for j in range(len(self.vertices)):
+                mp = self.edges[i, j]
+                if mp is not None and mp.is_valid and mp.cost < cost_threshold:
+                    if self.plot:
+                        st, sp, sv, sa, sj = mp.get_sampled_states()
+                        if self.num_dims == 2:
+                            plt.plot(sp[0, :], sp[1, :])
+                            plt.plot(self.vertices[:, 0],
+                                     self.vertices[:, 1], 'om')
+                        elif self.num_dims == 3:
+                            plt.plot(sp[0, :], sp[1, :], sp[2, :])
+                            plt.plot(self.vertices[:, 0], self.vertices[:, 1],
+                                     self.vertices[:, 2], 'om')
+                else:
+                    self.edges[i, j] = None
 
-    def make_animation(self):
-        plt.ion()
-        sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=12, resolution=[.25, .25, np.inf])
-        f, (ax1, ax2) = plt.subplots(1, 2)
-        ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
-        ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
-        ax1.set_title("Sample Set Evolution")
-        ax2.set_xlim(0, sample_inds.shape[0])
-        ax2.set_ylim(0, self.dispersion_list[0]*1.2)
-        ax2.set_title("Trajectory Length Dispersion")
-        plt.pause(5)
-        for i in range(sample_inds.shape[0]):
-            # plt.clf()
+    def tile_points(self, pts):
+        """
+        Given a set of points in state space, return the set of points that
+        copies the original set into the neighbors of an 8 or 26-connected grid.
+        Each cell in this grid will have dimensions corresponding to the 
+        position bounds of the motion primitive lattice.
 
-            for j in range(adj_mat.shape[1]):
-                mp = adj_mat[i, j]
+        Input:
+            pts, (M, N) a set of M points each of N dimension
+        Output:
+            tiled_pts, (L, N) the tiled set of input points. 
+                L is 9M or 27M depending on the dimension of the state space
+        """
+        bounds = 2 * np.array([0, -self.max_state[0], self.max_state[0]])
+        tiled_pts = np.array([pts for i in range(3 ** self.num_dims)])
+        if self.num_dims == 2:
+            offsets = itertools.product(bounds, bounds)
+        elif self.num_dims == 3:
+            offsets = itertools.product(bounds, bounds, bounds)
+        for i, offset in enumerate(offsets):
+            tiled_pts[i, :, :self.num_dims] += offset
+        return tiled_pts.reshape(len(pts) * 3 ** self.num_dims,
+                                 self.num_dims * self.control_space_q)
+
+    def save(self):
+        """
+        save the motion primitive lattice to a json file
+        """
+        mps = []
+        for i in range(len(self.vertices)):
+            for j in range(len(self.vertices)):
+                mp = self.edges[i, j]
                 if mp is not None:
-                    _, sp, _, _, _ = mp.get_sampled_states()
-                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4)
-                    ax1.plot(mp.end_state[0], mp.end_state[1], 'og')
-                    ax1.plot(mp.start_state[0], mp.start_state[1], 'ok', markersize=1)
-                    # plt.pause(.001)
-            plt.pause(.5)
-            for k in range(i+2):
-                if i+1 != k and i+1 < sample_inds.shape[0]:
-                    mp = adj_mat[i+1, sample_inds[k]]
-
-                    # mp = adj_mat[i,sample_inds[i+1]]
-                    _, sp, _, _, _ = mp.get_sampled_states()
-                    ax1.plot(sp[0, :], sp[1, :], 'k')
-                    ax1.plot(mp.start_state[0], mp.start_state[1], 'or')
-            plt.pause(.5)
-
-            ax1.plot(mp.end_state[0], mp.end_state[1], 'og')
-            ax1.plot(mp.start_state[0], mp.start_state[1], 'or')
-
-            if i+1 < sample_inds.shape[0]:
-                ax2.plot(range(i+1), self.dispersion_list[:i+1], 'ok--')
-            plt.pause(1.5)
-
-        plt.ioff()
-
+                    mps.append(mp.convert_to_dict())
+                else:
+                    mps.append({})
+        saved_params = {"control_space_q": self.control_space_q,
+                        "num_dims": self.num_dims,
+                        "max_state": self.max_state.tolist(),
+                        "vertices": self.vertices.tolist(),
+                        "edges": mps
+                        }
+        with open("lattice_test.json", "w") as output_file:
+            json.dump(saved_params, output_file, indent=4)
 
 if __name__ == "__main__":
     # define parameters
-    control_space_q = 3
-    num_dims = 1
-    max_state = [1, 1, np.pi, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    control_space_q = 2
+    num_dims = 2
+    max_state = [1, .1, 100, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
     plot = True
 
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    # sample_pts, sample_inds, adj_mat = mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .2, .2, 25, 1, 1])
-    # mps.connect_lattice(sample_pts, sample_inds, adj_mat)
-    mps.make_animation()
+    mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.2, .1, .1, 25, 1, 1])
+    mps.limit_connections(np.inf)#2*mps.dispersion)
+    # mps.save()
 
     # plot
     if mps.plot:

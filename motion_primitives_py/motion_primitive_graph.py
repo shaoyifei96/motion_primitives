@@ -11,13 +11,12 @@ import time
 import pickle
 import sympy as sym
 from pathlib import Path
-from sklearn.neighbors import NearestNeighbors
 from mpl_toolkits.mplot3d import Axes3D
 from motion_primitive import PolynomialMotionPrimitive, JerksMotionPrimitive
 from reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 import itertools
-# from scipy.integrate import solve_bvp
 from py_opt_control import min_time_bvp
+import json
 
 
 class MotionPrimitiveGraph():
@@ -44,13 +43,15 @@ class MotionPrimitiveGraph():
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
         self.x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
+
+        self.motion_primitives_list = []
+        self.dispersion = None
+        self.dispersion_list = []
+
         if self.plot:
             self.fig = plt.figure()
             if self.num_dims == 3:
                 ax = self.fig.add_subplot(111, projection='3d')
-        self.motion_primitives_list = []
-        self.dispersion = None
-        self.dispersion_list = []
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
