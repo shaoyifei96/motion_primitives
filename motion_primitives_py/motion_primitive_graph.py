@@ -23,6 +23,14 @@ import json
 class MotionPrimitiveGraph():
     """
     Compute motion primitive graphs for quadrotors over different size state spaces
+
+    Attributes:
+        vertices, (M, N) minimum dispersion set of M points sampled 
+            in N dimensions, the vertices of the graph
+        edges, (M, M) adjacency matrix of MotionPrimitive objects representing 
+            edges of the graph, with each element (x,y) of the matrix 
+            corresponding to a trajectory from state vertices(x) to 
+            state vertices(y).  
     """
 
     def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], plot=False):
@@ -33,22 +41,28 @@ class MotionPrimitiveGraph():
             max_state, list of max values of position space and its derivatives
             plot, boolean of whether to create/show plots
         """
-
-        self.control_space_q = control_space_q  # which derivative of position is the control space
-        self.num_dims = num_dims  # Dimension of the configuration space
+        self.control_space_q = control_space_q 
+        self.num_dims = num_dims  
         self.max_state = np.array(max_state)
         self.plot = plot
-        self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
-        self.n = (self.control_space_q)*self.num_dims  # dimension of state space
+        
+        # dimension of state space
+        self.n = (self.control_space_q)*self.num_dims  
 
+        # define cost function for dispersion computation
+        # TODO pass as param/input?
+        self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  
+
+        # specific to dynamic system
         self.A, self.B = self.A_and_B_matrices_quadrotor()
         self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
         self.x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
+        
+        # setup plot
         if self.plot:
             self.fig = plt.figure()
             if self.num_dims == 3:
                 ax = self.fig.add_subplot(111, projection='3d')
-        self.motion_primitives_list = []
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +
