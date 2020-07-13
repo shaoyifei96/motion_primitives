@@ -24,7 +24,7 @@ class MotionPrimitiveGraph():
     Compute motion primitive graphs for quadrotors over different size state spaces
     """
 
-    def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], plot=False):
+    def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], motion_primitive_type=ReedsSheppMotionPrimitive, plot=False):
         """
         Input:
             control_space_q, derivative of configuration which is the control input.
@@ -37,12 +37,17 @@ class MotionPrimitiveGraph():
         self.num_dims = num_dims  # Dimension of the configuration space
         self.max_state = np.array(max_state)
         self.plot = plot
+        self.motion_primitive_type = motion_primitive_type
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
+        self.mp_subclass_specific_data = {}
 
-        self.A, self.B = self.A_and_B_matrices_quadrotor()
-        self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
-        self.x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
+        # Pre-computation for Polynomial Motion Primitive graph
+        if self.motion_primitive_type == PolynomialMotionPrimitive:
+            self.A, self.B = self.A_and_B_matrices_quadrotor()
+            self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
+            x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
+            self.mp_subclass_specific_data['x_derivs'] =  x_derivs
 
         self.motion_primitives_list = []
         self.dispersion = None

@@ -226,7 +226,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                             "start_state": self.start_state.tolist(),
                             "end_state": self.end_state.tolist(),
                             "polys": self.polys.tolist(),
-            }
+                            }
         else:
             saved_params = {}
         return saved_params
@@ -247,7 +247,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
 
-        # start point
+        # start point # ugly but this is faster than using np.split
         p0, v0, a0 = self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
                                                                         self.num_dims], self.start_state[2*self.num_dims:3*self.num_dims]
         # end point
@@ -258,11 +258,10 @@ class JerksMotionPrimitive(MotionPrimitive):
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q]
 
         f = io.BytesIO()
-        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
+        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library #TODO this adds a lot of slowness
             self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
         traj_time = np.max(self.switch_times[:, -1])
-        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all()
-        # self.is_valid = np.allclose(self.get_state(traj_time) - self.end_state, 0)
+        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all() 
         if self.is_valid:
             self.cost = traj_time
 
@@ -295,10 +294,11 @@ class JerksMotionPrimitive(MotionPrimitive):
                             "end_state": self.end_state.tolist(),
                             "jerks": self.jerks.tolist(),
                             "switch_times": self.switch_times.tolist()
-            }
+                            }
         else:
             saved_params = {}
         return saved_params
+
 
 if __name__ == "__main__":
     # problem parameters

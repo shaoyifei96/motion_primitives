@@ -19,10 +19,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             for j in range(end_pts.shape[0]):
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
-                # mp = JerksMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
-                # mp = PolynomialMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state, {'x_derivs': self.x_derivs})
-                mp = ReedsSheppMotionPrimitive(start_pts[i, :], end_pts[j, :], self.num_dims, self.max_state)
-                # TODO pass motion primitive class type around
+                mp = self.motion_primitive_type(start_pts[i, :], end_pts[j, :], self.num_dims,
+                                                self.max_state, self.mp_subclass_specific_data)
                 ind = max(i, j)
                 mp_list[ind] = mp
                 if mp.is_valid:
@@ -45,7 +43,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         min_score = np.ones((score.shape[0], 2))*np.inf
         min_score[:, 0] = np.amin(score, axis=1)
         for sample_pt_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
-            print(f"{sample_pt_num}/{num_output_pts}")
+            print(f"{sample_pt_num+1}/{num_output_pts}")
             # distances of potential sample points to closest chosen output MP node
             min_score[:, 0] = np.amin(min_score, axis=1)
             # take the new point with the maximum distance to its closest node
@@ -198,15 +196,18 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
-    num_dims = 1
-    max_state = [1, 1, np.pi, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    num_dims = 2
+    max_state = [1, 1, 1, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    motion_primitive_type = JerksMotionPrimitive  # ReedsSheppMotionPrimitive
     plot = True
+    animate = False
 
     # build lattice
-    mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.25, .25, np.inf, 25, 1, 1], animate=True)
+    mps = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+        mps.compute_min_dispersion_space(num_output_pts=2, resolution=[.5, .5, .5, 25, 1, 1], animate=animate)
     mps.limit_connections(np.inf)  # 2*mps.dispersion)
+    print(mps.vertices)
     # mps.save()
 
     # plot
