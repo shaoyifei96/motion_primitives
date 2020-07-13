@@ -37,18 +37,29 @@ class MotionPrimitive():
     @classmethod
     def from_dict(cls, dict, num_dims, max_state):
         """
-        Load a polynomial representation of the motion primitive from a 
-        dictionary. 
-        Will be specific to the subclass, so we raise an error if the subclass has not implemented it.
+        load a motion primitive from a dictionary
         """
-        raise NotImplementedError
+        if dict:
+            mp = cls(np.array(dict["start_state"]), np.array(dict["end_state"]), 
+                     num_dims, max_state)
+            mp.cost = dict["cost"]
+            mp.is_valid = True
+        else:
+            mp = None
+        return mp
 
-    def to_dict(self, filename=None):
+    def to_dict(self):
         """
         Write important attributes of motion primitive to a dictionary
-        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
-        raise NotImplementedError
+        if self.is_valid:
+            dict = {"cost": self.cost,
+                    "start_state": self.start_state.tolist(),
+                    "end_state": self.end_state.tolist(),
+            }
+        else:
+            dict = {}
+        return dict
     
     def get_state(self, t):
         """
@@ -122,29 +133,18 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         can't be saved and loaded. right now this won't work for things that 
         aren't the quadrotor
         """
-        if dict:
-            mp = cls(np.array(dict["start_state"]), np.array(dict["end_state"]), 
-                     num_dims, max_state)
-            mp.polys = np.array(dict["polys"])
-            mp.cost = dict["cost"]
-            mp.is_valid = True
-        else:
-            mp = None
+        mp = super(PolynomialMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
+        mp.polys = np.array(dict["polys"])
         return mp
 
-    def to_dict(self, filename=None):
+    def to_dict(self):
         """
         Write important attributes of motion primitive to a dictionary
         """
-        if self.is_valid:
-            saved_params = {"cost": self.cost,
-                            "start_state": self.start_state.tolist(),
-                            "end_state": self.end_state.tolist(),
-                            "polys": self.polys.tolist(),
-            }
-        else:
-            saved_params = {}
-        return saved_params
+        dict = super().to_dict()
+        if dict:
+            dict["polys"] = self.polys.tolist()
+        return dict
 
     def get_state(self, t):
         """
@@ -275,7 +275,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
         self.jerks_constructor()
 
-    def jerks_constructor(self):
+    def new(self):
         """
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
@@ -299,6 +299,25 @@ class JerksMotionPrimitive(MotionPrimitive):
         if self.is_valid:
             self.cost = traj_time
 
+    def from_dict(self):
+        """
+        load a jerks representation of the motion primitive from a dictionary 
+        """
+        mp = super(JerksMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
+        mp.switch_times = np.array(dict["switch_times"])
+        mp.jerks = np.array(dict["jerks"])
+        return mp
+
+    def to_dict(self):
+        """
+        Write important attributes of motion primitive to a dictionary
+        """
+        dict = super().to_dict()
+        if dict:
+            dict["jerks"] = self.jerks.tolist(),
+            dict["switch_times"] = self.switch_times.tolist()
+        return dict
+
     def get_state(self, t):
         """
         Evaluate full state of a trajectory at a given time
@@ -307,7 +326,6 @@ class JerksMotionPrimitive(MotionPrimitive):
         Return:
             state, a numpy array of size (num_dims x 4), ordered (p, v, a, j)
         """
-
         # call to optimization library to evaluate at time t
         sj, sa, sv, sp = min_time_bvp.sample(self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
                                                                                                 self.num_dims], self.start_state[2*self.num_dims:3*self.num_dims], self.switch_times, self.jerks, t)
@@ -318,20 +336,6 @@ class JerksMotionPrimitive(MotionPrimitive):
         st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
         return st, sp, sv, sa, sj
 
-    def convert_to_dict(self):
-        """
-        Write important attributes of motion primitive to a dictionary
-        """
-        if self.is_valid:
-            saved_params = {"cost": self.cost,
-                            "start_state": self.start_state.tolist(),
-                            "end_state": self.end_state.tolist(),
-                            "jerks": self.jerks.tolist(),
-                            "switch_times": self.switch_times.tolist()
-            }
-        else:
-            saved_params = {}
-        return saved_params
 
 if __name__ == "__main__":
     # problem parameters
