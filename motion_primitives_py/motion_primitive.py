@@ -37,18 +37,29 @@ class MotionPrimitive():
     @classmethod
     def from_dict(cls, dict, num_dims, max_state):
         """
-        Load a polynomial representation of the motion primitive from a 
-        dictionary. 
-        Will be specific to the subclass, so we raise an error if the subclass has not implemented it.
+        load a motion primitive from a dictionary
         """
-        raise NotImplementedError
+        if dict:
+            mp = cls(np.array(dict["start_state"]), np.array(dict["end_state"]), 
+                     num_dims, max_state)
+            mp.cost = dict["cost"]
+            mp.is_valid = True
+        else:
+            mp = None
+        return mp
 
-    def to_dict(self, filename=None):
+    def to_dict(self):
         """
         Write important attributes of motion primitive to a dictionary
-        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
-        raise NotImplementedError
+        if self.is_valid:
+            dict = {"cost": self.cost,
+                    "start_state": self.start_state.tolist(),
+                    "end_state": self.end_state.tolist(),
+            }
+        else:
+            dict = {}
+        return dict
     
     def get_state(self, t):
         """
@@ -61,7 +72,6 @@ class MotionPrimitive():
         """
         Return a sampling of the trajectory for plotting 
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
-        returns sampled time, state1, state2, ... stateN
         """
         raise NotImplementedError
 
@@ -105,8 +115,6 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def new(cls, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
         """
         Create the polynomial representation of the motion primitive. 
-        Optional input x_derivs is the list of lambda functions evaluating polynomial derivative of state (see setup_bvp_meam_620_style).
-        It can be passed in to save on repeated computation.
         """
         mp = cls(start_state, end_state, num_dims, max_state, subclass_specific_data)
         mp.polys, traj_time = cls.iteratively_solve_bvp_meam_620_style(
@@ -125,29 +133,18 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         can't be saved and loaded. right now this won't work for things that 
         aren't the quadrotor
         """
-        if dict:
-            mp = cls(np.array(dict["start_state"]), np.array(dict["end_state"]), 
-                     num_dims, max_state)
-            mp.polys = np.array(dict["polys"])
-            mp.cost = dict["cost"]
-            mp.is_valid = True
-        else:
-            mp = None
+        mp = super(PolynomialMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
+        mp.polys = np.array(dict["polys"])
         return mp
 
-    def to_dict(self, filename=None):
+    def to_dict(self):
         """
         Write important attributes of motion primitive to a dictionary
         """
-        if self.is_valid:
-            saved_params = {"cost": self.cost,
-                            "start_state": self.start_state.tolist(),
-                            "end_state": self.end_state.tolist(),
-                            "polys": self.polys.tolist(),
-            }
-        else:
-            saved_params = {}
-        return saved_params
+        dict = super().to_dict()
+        if dict:
+            dict["polys"] = self.polys.tolist()
+        return dict
 
     def get_state(self, t):
         """
@@ -278,7 +275,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
         self.jerks_constructor()
 
-    def jerks_constructor(self):
+    def new(self):
         """
         When the constructor is called, solve the min-time two-point BVP given the class parameters
         """
@@ -294,12 +291,31 @@ class JerksMotionPrimitive(MotionPrimitive):
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q]
 
         f = io.BytesIO()
-        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library #TODO this adds a lot of slowness
+        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
             self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
         traj_time = np.max(self.switch_times[:, -1])
-        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all() 
+        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all()
         if self.is_valid:
             self.cost = traj_time
+
+    def from_dict(self):
+        """
+        load a jerks representation of the motion primitive from a dictionary 
+        """
+        mp = super(JerksMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
+        mp.switch_times = np.array(dict["switch_times"])
+        mp.jerks = np.array(dict["jerks"])
+        return mp
+
+    def to_dict(self):
+        """
+        Write important attributes of motion primitive to a dictionary
+        """
+        dict = super().to_dict()
+        if dict:
+            dict["jerks"] = self.jerks.tolist(),
+            dict["switch_times"] = self.switch_times.tolist()
+        return dict
 
     def get_state(self, t):
         """
@@ -320,20 +336,6 @@ class JerksMotionPrimitive(MotionPrimitive):
         st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
         return st, sp, sv, sa, sj
 
-    def convert_to_dict(self):
-        """
-        Write important attributes of motion primitive to a dictionary
-        """
-        if self.is_valid:
-            saved_params = {"cost": self.cost,
-                            "start_state": self.start_state.tolist(),
-                            "end_state": self.end_state.tolist(),
-                            "jerks": self.jerks.tolist(),
-                            "switch_times": self.switch_times.tolist()
-                            }
-        else:
-            saved_params = {}
-        return saved_params
 
 if __name__ == "__main__":
     # problem parameters
@@ -341,26 +343,22 @@ if __name__ == "__main__":
     control_space_q = 3
 
     # setup problem
-    start_state = np.zeros(num_dims * control_space_q,)
-    end_state1 = np.random.rand(num_dims * control_space_q,)
-    end_state2 = np.hstack((-end_state1[:num_dims], end_state1[num_dims:]))
+    start_state = np.zeros((num_dims * control_space_q,))
+    end_state = np.random.rand(num_dims * control_space_q,)
     max_state = np.ones((num_dims * control_space_q,))*100
 
     # jerks
-    mp1 = JerksMotionPrimitive(start_state, end_state1, num_dims, max_state)
-    mp2 = JerksMotionPrimitive(start_state, end_state2, num_dims, max_state)
-    st1, sp1, sv1, sa1, sj1 = mp1.get_sampled_states()
-    st2, sp2, sv2, sa2, sj2 = mp2.get_sampled_states()
-    mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
-    mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
+    mp = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
 
     # polynomial
-    mp1 = PolynomialMotionPrimitive(start_state, end_state1, num_dims, max_state)
-    mp2 = PolynomialMotionPrimitive(start_state, end_state2, num_dims, max_state)
-    st1, sp1, sv1, sa1, sj1 = mp1.get_sampled_states()
-    st2, sp2, sv2, sa2, sj2 = mp2.get_sampled_states()
-    mp1.plot_from_sampled_states(st1, sp1, sv1, sa1, sj1)
-    mp2.plot_from_sampled_states(st2, sp2, sv2, sa2, -sj2)
+    mp = PolynomialMotionPrimitive.new(start_state, end_state, num_dims, max_state)
 
-    print(mp1.convert_to_dict())
+    # save and load
+    assert(mp.is_valid)
+    dictionary = mp.to_dict()
+    mp = PolynomialMotionPrimitive.from_dict(dictionary, num_dims, max_state)
+
+    # plot
+    st, sp, sv, sa, sj = mp.get_sampled_states()
+    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
     plt.show()
