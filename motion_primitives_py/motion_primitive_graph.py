@@ -25,12 +25,21 @@ class MotionPrimitiveGraph():
     Compute motion primitive graphs for quadrotors over different size state spaces
 
     Attributes:
-        vertices, (M, N) minimum dispersion set of M points sampled 
-            in N dimensions, the vertices of the graph
-        edges, (M, M) adjacency matrix of MotionPrimitive objects representing 
-            edges of the graph, with each element (x,y) of the matrix 
-            corresponding to a trajectory from state vertices(x) to 
-            state vertices(y).  
+        control_space_q, 
+            derivative of configuration which is the control input.
+        num_dims, 
+            dimension of configuration space
+        max_state, 
+            list of max values of position space and its derivatives
+        plot, 
+            boolean of whether to create/show plots
+        vertices, (M, N) 
+            minimum dispersion set of M points sampled in N dimensions, 
+            the vertices of the graph
+        edges, (M, M) 
+            adjacency matrix of MotionPrimitive objects representing edges of 
+            the graph, with each element (x,y) of the matrix corresponding to a
+            trajectory from state vertices(x) to state vertices(y).  
     """
 
     def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], plot=False):

@@ -3,8 +3,57 @@ from motion_primitive_graph import *
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
-    A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
+    A class that provides functions to compute a lattice of minimum dispersion
+    points in the state space connected by feasible trajectories
+    #TODO need some global way to specify what mp class to use
     """
+    @classmethod
+    def load(cls, filename, plot=False):
+        """
+        create a motion primitive lattice from a given json file
+        """
+        try:
+            with open(filename) as json_file:
+                data = json.load(json_file)
+                print("Reading lattice from", filename, "...")
+        except: 
+            print("Error reading from", filename)
+            return None
+        mpl = cls(control_space_q=data["control_space_q"], 
+                  num_dims=data["num_dims"], 
+                  max_state=data["max_state"], 
+                  plot=plot)
+        mpl.vertices = np.array(data["vertices"])
+        mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
+        for i in range(len(mpl.vertices)):
+            for j in range(len(mpl.vertices)):
+                mpl.edges[i, j] = PolynomialMotionPrimitive.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
+        print("Lattice successfully read")
+
+
+    def save(self, filename):
+        """
+        save the motion primitive lattice to a JSON file
+        """
+        # convert the motion primitives to a form that can be written
+        mps = []
+        for i in range(len(self.vertices)):
+            for j in range(len(self.vertices)):
+                mp = self.edges[i, j]
+                if mp is not None:
+                    mps.append(mp.to_dict())
+                else:
+                    mps.append({})
+        
+        # write the JSON file
+        with open(filename, "w") as output_file:
+            saved_params = {"control_space_q": self.control_space_q,
+                            "num_dims": self.num_dims,
+                            "max_state": self.max_state.tolist(),
+                            "vertices": self.vertices.tolist(),
+                            "edges": mps
+            }
+            json.dump(saved_params, output_file, indent=4) 
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
@@ -126,28 +175,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_pts[i, :, :self.num_dims] += offset
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims, 
                                  self.num_dims * self.control_space_q)
-
-    def save(self):
-        """
-        save the motion primitive lattice to a json file
-        """
-        mps = []
-        for i in range(len(self.vertices)):
-            for j in range(len(self.vertices)):
-                mp = self.edges[i, j]
-                if mp is not None:
-                    mps.append(mp.convert_to_dict())
-                else:
-                    mps.append({})
-        saved_params = {"control_space_q": self.control_space_q,
-                        "num_dims": self.num_dims,
-                        "max_state": self.max_state.tolist(),
-                        "vertices": self.vertices.tolist(),
-                        "edges": mps
-        }
-        with open("lattice_test.json", "w") as output_file:
-            json.dump(saved_params, output_file, indent=4) 
-
+    
 
 if __name__ == "__main__":
     # define parameters
@@ -157,12 +185,14 @@ if __name__ == "__main__":
     plot = True
 
     # build lattice
-    mps = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
+    #mpl = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mps.compute_min_dispersion_space(num_output_pts=50, resolution=[.2, .1, .1, 25, 1, 1])
-    mps.limit_connections(np.inf)
-    mps.save()
+    #mpl.compute_min_dispersion_space(num_output_pts=50, resolution=[.2, .1, .1, 25, 1, 1])
+    #mpl.limit_connections(np.inf)
+    #mpl.save("lattice_test.json")
+
+    mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
-    if mps.plot:
-        plt.show()
+    #if mpl.plot:
+    #    plt.show()
