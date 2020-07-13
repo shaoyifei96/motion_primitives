@@ -22,6 +22,23 @@ import json
 class MotionPrimitiveGraph():
     """
     Compute motion primitive graphs for quadrotors over different size state spaces
+
+    Attributes:
+        control_space_q, 
+            derivative of configuration which is the control input.
+        num_dims, 
+            dimension of configuration space
+        max_state, 
+            list of max values of position space and its derivatives
+        plot, 
+            boolean of whether to create/show plots
+        vertices, (M, N) 
+            minimum dispersion set of M points sampled in N dimensions, 
+            the vertices of the graph
+        edges, (M, M) 
+            adjacency matrix of MotionPrimitive objects representing edges of 
+            the graph, with each element (x,y) of the matrix corresponding to a
+            trajectory from state vertices(x) to state vertices(y).  
     """
 
     def __init__(self, control_space_q=3, num_dims=2,  max_state=[1, 1, 1, 1], motion_primitive_type=ReedsSheppMotionPrimitive, plot=False):
@@ -32,9 +49,8 @@ class MotionPrimitiveGraph():
             max_state, list of max values of position space and its derivatives
             plot, boolean of whether to create/show plots
         """
-
-        self.control_space_q = control_space_q  # which derivative of position is the control space
-        self.num_dims = num_dims  # Dimension of the configuration space
+        self.control_space_q = control_space_q 
+        self.num_dims = num_dims  
         self.max_state = np.array(max_state)
         self.plot = plot
         self.motion_primitive_type = motion_primitive_type
@@ -42,7 +58,7 @@ class MotionPrimitiveGraph():
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
         self.mp_subclass_specific_data = {}
 
-        # Pre-computation for Polynomial Motion Primitive graph
+        # Pre-computation for Polynomial Motion Primitive graph #TODO shouldn't live here
         if self.motion_primitive_type == PolynomialMotionPrimitive:
             self.A, self.B = self.A_and_B_matrices_quadrotor()
             self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()

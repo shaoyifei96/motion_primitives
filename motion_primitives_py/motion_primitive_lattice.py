@@ -5,6 +5,53 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
     A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
     """
+    @classmethod
+    def load(cls, filename, plot=False):
+        """
+        create a motion primitive lattice from a given json file
+        """
+        try:
+            with open(filename) as json_file:
+                data = json.load(json_file)
+                print("Reading lattice from", filename, "...")
+        except: 
+            print("Error reading from", filename)
+            return None
+        mpl = cls(control_space_q=data["control_space_q"], 
+                  num_dims=data["num_dims"], 
+                  max_state=data["max_state"], 
+                  plot=plot)
+        mpl.vertices = np.array(data["vertices"])
+        mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
+        for i in range(len(mpl.vertices)):
+            for j in range(len(mpl.vertices)):
+                mpl.edges[i, j] = PolynomialMotionPrimitive.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
+        print("Lattice successfully read")
+
+
+    def save(self, filename):
+        """
+        save the motion primitive lattice to a JSON file
+        """
+        # convert the motion primitives to a form that can be written
+        mps = []
+        for i in range(len(self.vertices)):
+            for j in range(len(self.vertices)):
+                mp = self.edges[i, j]
+                if mp is not None:
+                    mps.append(mp.to_dict())
+                else:
+                    mps.append({})
+        
+        # write the JSON file
+        with open(filename, "w") as output_file:
+            saved_params = {"control_space_q": self.control_space_q,
+                            "num_dims": self.num_dims,
+                            "max_state": self.max_state.tolist(),
+                            "vertices": self.vertices.tolist(),
+                            "edges": mps
+            }
+            json.dump(saved_params, output_file, indent=4) 
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
@@ -133,90 +180,28 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims,
                                  self.num_dims * self.control_space_q)
 
-    def save(self):
-        """
-        save the motion primitive lattice to a json file
-        """
-        mps = []
-        for i in range(len(self.vertices)):
-            for j in range(len(self.vertices)):
-                mp = self.edges[i, j]
-                if mp is not None:
-                    mps.append(mp.convert_to_dict())
-                else:
-                    mps.append({})
-        saved_params = {"control_space_q": self.control_space_q,
-                        "num_dims": self.num_dims,
-                        "max_state": self.max_state.tolist(),
-                        "vertices": self.vertices.tolist(),
-                        "edges": mps
-                        }
-        with open("lattice_test.json", "w") as output_file:
-            json.dump(saved_params, output_file, indent=4)
-
-    def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices):
-        # ffmpeg -f image2 -framerate 1 -i frame%d.jpg  out2.mp4
-        plt.ion()
-        f, (ax1, ax2) = plt.subplots(1, 2)
-        plt.show()
-        costs_mat = np.array([getattr(obj, 'cost', np.inf) for index, obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
-        colors = plt.cm.tab20(np.linspace(0, 1, adj_mat.shape[0]))
-        plt.pause(.001)
-        # plt.pause(5)
-
-        for i in range(adj_mat.shape[0]):
-            ax1.cla()
-            ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
-            ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
-            ax1.set_title("Sample Set Evolution")
-            ax2.set_xlim(0, sample_inds.shape[0])
-            ax2.set_ylim(0, self.dispersion_list[0]*1.2)
-            ax2.set_title("Trajectory Length Dispersion")
-
-            closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
-            # colors = plt.cm.jet(np.linspace(0, 1, i+1))
-
-            for j in range(adj_mat.shape[1]):
-                mp = adj_mat[closest_sample_pt[j], j]
-        #         mp = adj_mat[i, j]
-                if mp is not None and j not in sample_inds: # Don't plot the trajectories between actual samples
-                    _, sp, _, _, _ = mp.get_sampled_states()
-                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4, color=colors[closest_sample_pt[j]])
-                    ax1.plot(mp.start_state[0], mp.start_state[1], 'o', markersize=1, color=('0.8'))
-            if i+1 < sample_inds.shape[0]:
-                ax2.plot(range(i+1), self.dispersion_list[:i+1], 'ok--')
-            ax1.plot(vertices[:i+1, 0], vertices[:i+1, 1], 'og')
-
-            plt.savefig(f"images/frame{i}.jpg")
-            plt.pause(1)
-        plt.ioff()
-        plt.show()
-
-
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
     num_dims = 1
-    max_state = [2, 2, 2*np.pi, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    max_state = [2, 2, 2*np.pi, 100, 1, 1]  
     motion_primitive_type = ReedsSheppMotionPrimitive
     plot = False
     animate = True
 
+    #motion_primitive_type = PolynomialMotionPrimitive
+    #control_space_q = 2
+    #num_dims = 2
+    #max_state = [1, .1, 100, 100, 1, 1]  
+
     # build lattice
-    mps = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
+    mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    from timeit import default_timer as timer
-
-    # start = timer()
-    # ...
-
-    mps.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, .1, np.inf, 25, 1, 1], animate=animate)
-    # end = timer()
-    # print(end - start)  # Time in seconds, e.g. 5.38091952400282
-
-    # mps.limit_connections(np.inf)  # 2*mps.dispersion)
-    # mps.save()
+    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, .1, np.inf, 25, 1, 1], animate=animate)    
+    #mpl.limit_connections(np.inf)
+    #mpl.save("lattice_test.json")
+    #mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
-    if mps.plot:
+    if mpl.plot:
         plt.show()
