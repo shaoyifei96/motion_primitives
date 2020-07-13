@@ -60,7 +60,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         vertices = potential_sample_pts[actual_sample_indices]
         edges = mp_adjacency_matrix[:, actual_sample_indices]
         if animate:
-            self.make_animation_min_dispersion_points(actual_sample_indices, mp_adjacency_matrix)
+            self.make_animation_min_dispersion_points(actual_sample_indices, mp_adjacency_matrix, vertices)
         return vertices, edges
 
     def compute_min_dispersion_space(self, num_output_pts, resolution, animate=False):
@@ -154,60 +154,59 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         with open("lattice_test.json", "w") as output_file:
             json.dump(saved_params, output_file, indent=4)
 
-    def make_animation_min_dispersion_points(self, sample_inds, adj_mat):
+    def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices):
+
         plt.ion()
         f, (ax1, ax2) = plt.subplots(1, 2)
-        ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
-        ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
-        ax1.set_title("Sample Set Evolution")
-        ax2.set_xlim(0, sample_inds.shape[0])
-        ax2.set_ylim(0, self.dispersion_list[0]*1.2)
-        ax2.set_title("Trajectory Length Dispersion")
+        plt.show()
+        costs_mat = np.array([getattr(obj, 'cost', np.inf) for index, obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
+        colors = plt.cm.tab10(np.linspace(0, 1, adj_mat.shape[0]))
+        plt.pause(.001)
         # plt.pause(5)
-        for i in range(sample_inds.shape[0]):
+
+        for i in range(adj_mat.shape[0]):
+            ax1.cla()
+            ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
+            ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
+            ax1.set_title("Sample Set Evolution")
+            ax2.set_xlim(0, sample_inds.shape[0])
+            ax2.set_ylim(0, self.dispersion_list[0]*1.2)
+            ax2.set_title("Trajectory Length Dispersion")
+            ax1.plot(vertices[:i+1, 0], vertices[:i+1, 1], 'og')
+
+            closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
+            # colors = plt.cm.jet(np.linspace(0, 1, i+1))
+
             for j in range(adj_mat.shape[1]):
-                mp = adj_mat[i, j]
+                mp = adj_mat[closest_sample_pt[j], j]
+        #         mp = adj_mat[i, j]
                 if mp is not None:
                     _, sp, _, _, _ = mp.get_sampled_states()
-                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4)
-                    ax1.plot(mp.end_state[0], mp.end_state[1], 'og')
+                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4, color=colors[closest_sample_pt[j]])
                     ax1.plot(mp.start_state[0], mp.start_state[1], 'ok', markersize=1)
-                    # plt.pause(.001)
-            plt.pause(.5)
-            for k in range(i+2):
-                if i+1 != k and i+1 < sample_inds.shape[0]:
-                    mp = adj_mat[i+1, sample_inds[k]]
-
-                    # mp = adj_mat[i,sample_inds[i+1]]
-                    _, sp, _, _, _ = mp.get_sampled_states()
-                    ax1.plot(sp[0, :], sp[1, :], 'k')
-                    ax1.plot(mp.start_state[0], mp.start_state[1], 'or')
-            plt.pause(.5)
-
-            ax1.plot(mp.end_state[0], mp.end_state[1], 'og')
-            ax1.plot(mp.start_state[0], mp.start_state[1], 'or')
-
             if i+1 < sample_inds.shape[0]:
                 ax2.plot(range(i+1), self.dispersion_list[:i+1], 'ok--')
-            plt.pause(1.5)
+
+            plt.savefig(f"images/frame{i}.jpg")
+            plt.pause(1)
         plt.ioff()
+        plt.show()
 
 
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
-    num_dims = 2
-    max_state = [1, 1, 1, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
-    motion_primitive_type = JerksMotionPrimitive  # ReedsSheppMotionPrimitive
-    plot = True
-    animate = False
+    num_dims = 1
+    max_state = [1, 1, np.pi, 100, 1, 1]  # .5 m/s max velocity 14 m/s^2 max acceleration
+    motion_primitive_type = ReedsSheppMotionPrimitive
+    plot = False
+    animate = True
 
     # build lattice
     mps = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-        mps.compute_min_dispersion_space(num_output_pts=2, resolution=[.5, .5, .5, 25, 1, 1], animate=animate)
-    mps.limit_connections(np.inf)  # 2*mps.dispersion)
-    print(mps.vertices)
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    mps.compute_min_dispersion_space(num_output_pts=10, resolution=[.25, .25, np.inf, 25, 1, 1], animate=animate)
+    # mps.limit_connections(np.inf)  # 2*mps.dispersion)
     # mps.save()
 
     # plot
