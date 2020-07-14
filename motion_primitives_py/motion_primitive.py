@@ -27,21 +27,15 @@ class MotionPrimitive():
         self.cost = None
 
     @classmethod
-    def new(cls, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
-        """
-        Create the polynomial representation of the motion primitive. 
-        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
-        """
-        raise NotImplementedError
-    
-    @classmethod
     def from_dict(cls, dict, num_dims, max_state):
         """
         load a motion primitive from a dictionary
         """
         if dict:
-            mp = cls(np.array(dict["start_state"]), np.array(dict["end_state"]), 
-                     num_dims, max_state)
+            mp = cls.__new__(cls) 
+            super(cls, mp).__init__(np.array(dict["start_state"]), 
+                                    np.array(dict["end_state"]), 
+                                    num_dims, max_state)
             mp.cost = dict["cost"]
             mp.is_valid = True
         else:
@@ -105,36 +99,34 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     """
 
     def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
+        # Initialize class 
         super().__init__(start_state, end_state, num_dims, max_state, subclass_specific_data)  
+        # TODO: figure out another way to accomplish this - code is duplicated
         if self.subclass_specific_data.get('x_derivs') is None:
             self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
         else:
             self.x_derivs = self.subclass_specific_data.get('x_derivs')
 
-    @classmethod
-    def new(cls, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
-        """
-        Create the polynomial representation of the motion primitive. 
-        """
-        mp = cls(start_state, end_state, num_dims, max_state, subclass_specific_data)
-        mp.polys, traj_time = cls.iteratively_solve_bvp_meam_620_style(
-            mp.start_state, mp.end_state, mp.num_dims, mp.max_state, mp.x_derivs)
-        if mp.polys is not None:
-            mp.is_valid = True
-            mp.cost = traj_time
-        return mp
+        # Solve boundary value problem
+        self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
+            self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
+        if self.polys is not None:
+            self.is_valid = True
+            self.cost = traj_time
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state):
         """
-        load a polynomial representation of the motion primitive from a 
-        dictionary 
-        TODO: need another way to speciy what system to use.  xderivs method
-        can't be saved and loaded. right now this won't work for things that 
-        aren't the quadrotor
+        Load a polynomial representation of the motion primitive from a dictionary 
         """
         mp = super(PolynomialMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
-        mp.polys = np.array(dict["polys"])
+        if mp:
+            mp.polys = np.array(dict["polys"])
+            # TODO: figure out another way to accomplish this - code is duplicated
+            if mp.subclass_specific_data.get('x_derivs') is None:
+                mp.x_derivs = mp.setup_bvp_meam_620_style(mp.control_space_q)
+            else:
+                mp.x_derivs = mp.subclass_specific_data.get('x_derivs')
         return mp
 
     def to_dict(self):
@@ -273,12 +265,6 @@ class JerksMotionPrimitive(MotionPrimitive):
     def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
         super().__init__(start_state, end_state, num_dims, max_state, subclass_specific_data)
         assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
-        self.jerks_constructor()
-
-    def new(self):
-        """
-        When the constructor is called, solve the min-time two-point BVP given the class parameters
-        """
 
         # start point
         p0, v0, a0 = self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
@@ -299,13 +285,15 @@ class JerksMotionPrimitive(MotionPrimitive):
         if self.is_valid:
             self.cost = traj_time
 
-    def from_dict(self):
+    @classmethod
+    def from_dict(cls, dict, num_dims, max_state):
         """
         load a jerks representation of the motion primitive from a dictionary 
         """
         mp = super(JerksMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
-        mp.switch_times = np.array(dict["switch_times"])
-        mp.jerks = np.array(dict["jerks"])
+        if mp:
+            mp.switch_times = np.array(dict["switch_times"])
+            mp.jerks = np.array(dict["jerks"][0])
         return mp
 
     def to_dict(self):
@@ -348,17 +336,25 @@ if __name__ == "__main__":
     max_state = np.ones((num_dims * control_space_q,))*100
 
     # jerks
-    mp = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
+    mp1 = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
 
     # polynomial
-    mp = PolynomialMotionPrimitive.new(start_state, end_state, num_dims, max_state)
+    mp2 = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
 
-    # save and load
-    assert(mp.is_valid)
-    dictionary = mp.to_dict()
-    mp = PolynomialMotionPrimitive.from_dict(dictionary, num_dims, max_state)
+    # save
+    assert(mp1.is_valid)
+    dictionary1 = mp1.to_dict()
+    assert(mp2.is_valid)
+    dictionary2 = mp2.to_dict()
+
+    # reconstruct
+    mp1 = JerksMotionPrimitive.from_dict(dictionary1, num_dims, max_state)
+    mp2 = PolynomialMotionPrimitive.from_dict(dictionary2, num_dims, max_state)
 
     # plot
-    st, sp, sv, sa, sj = mp.get_sampled_states()
-    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    st, sp, sv, sa, sj = mp1.get_sampled_states()
+    mp1.plot_from_sampled_states(st, sp, sv, sa, sj)
+    plt.show()
+    st, sp, sv, sa, sj = mp2.get_sampled_states()
+    mp2.plot_from_sampled_states(st, sp, sv, sa, sj)
     plt.show()
