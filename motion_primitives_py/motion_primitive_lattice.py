@@ -28,7 +28,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 mpl.edges[i, j] = PolynomialMotionPrimitive.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
         print("Lattice successfully read")
 
-
     def save(self, filename):
         """
         save the motion primitive lattice to a JSON file
