@@ -2,7 +2,7 @@
 from py_opt_control import min_time_bvp
 from motion_primitives_py import c_output_redirector
 import io
-from motion_primitive import *
+from motion_primitives_py.motion_primitive import *
 
 
 class JerksMotionPrimitive(MotionPrimitive):
@@ -97,4 +97,3 @@ if __name__ == "__main__":
     st, sp, sv, sa, sj = mp1.get_sampled_states()
     mp1.plot_from_sampled_states(st, sp, sv, sa, sj)
     plt.show()
-

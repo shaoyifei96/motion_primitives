@@ -1,4 +1,4 @@
-from motion_primitive import *
+from motion_primitives_py.motion_primitive import *
 import sympy as sym
 
 

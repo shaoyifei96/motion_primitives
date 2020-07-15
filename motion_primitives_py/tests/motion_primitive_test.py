@@ -1,8 +1,8 @@
 import unittest
 import motion_primitive_test
 import numpy as np
-from motion_primitives_py.motion_primitive import JerksMotionPrimitive, PolynomialMotionPrimitive
-
+from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
+from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
 
 class TestMotionPrimitive(unittest.TestCase):
     def setUp(self):
@@ -10,7 +10,7 @@ class TestMotionPrimitive(unittest.TestCase):
         self.end_state = np.array([1, 1, 0, 0, 0, 0])
         self.num_dims = 2
         self.max_state = 100 * np.ones((6,))
-        self.polynomial_mp = PolynomialMotionPrimitive.new(self.start_state, 
+        self.polynomial_mp = PolynomialMotionPrimitive(self.start_state, 
                                                            self.end_state, 
                                                            self.num_dims, 
                                                            self.max_state)
