@@ -19,6 +19,9 @@ import itertools
 from py_opt_control import min_time_bvp
 import json
 
+# TODO a lot of cleanup of this file needed to reflect updates to MotionPrimitiveLattice. Some code could be moved to MotionPrimitiveTree, PolynomialMotionPrimitive
+# TODO MotionPrimitiveTree should take the motion_primitive_type parameter
+
 
 class MotionPrimitiveGraph():
     """
@@ -31,6 +34,8 @@ class MotionPrimitiveGraph():
             dimension of configuration space
         max_state, 
             list of max values of position space and its derivatives
+        motion_primitive_type,
+            class that the motion primitive edges belong to. Must be a subclass of MotionPrimitive
         plot, 
             boolean of whether to create/show plots
         vertices, (M, N) 
@@ -199,6 +204,7 @@ class MotionPrimitiveGraph():
             x = np.vstack((x, d))
         x = x.T[0]
         return sym.lambdify([start_pt, u, dt], x)
+
 
 if __name__ == "__main__":
     control_space_q = 3
