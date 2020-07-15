@@ -14,12 +14,12 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             with open(filename) as json_file:
                 data = json.load(json_file)
                 print("Reading lattice from", filename, "...")
-        except: 
+        except:
             print("Error reading from", filename)
             return None
-        mpl = cls(control_space_q=data["control_space_q"], 
-                  num_dims=data["num_dims"], 
-                  max_state=data["max_state"], 
+        mpl = cls(control_space_q=data["control_space_q"],
+                  num_dims=data["num_dims"],
+                  max_state=data["max_state"],
                   plot=plot)
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
@@ -41,7 +41,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     mps.append(mp.to_dict())
                 else:
                     mps.append({})
-        
+
         # write the JSON file
         with open(filename, "w") as output_file:
             saved_params = {"control_space_q": self.control_space_q,
@@ -49,8 +49,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "max_state": self.max_state.tolist(),
                             "vertices": self.vertices.tolist(),
                             "edges": mps
-            }
-            json.dump(saved_params, output_file, indent=4) 
+                            }
+            json.dump(saved_params, output_file, indent=4)
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
@@ -106,7 +106,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         vertices = potential_sample_pts[actual_sample_indices]
         edges = mp_adjacency_matrix[:, actual_sample_indices]
         if animate:
-            self.make_animation_min_dispersion_points(actual_sample_indices, mp_adjacency_matrix, vertices)
+            self.make_animation_min_dispersion_points(actual_sample_indices, mp_adjacency_matrix, vertices, potential_sample_pts)
         return vertices, edges
 
     def compute_min_dispersion_space(self, num_output_pts, resolution, animate=False):
@@ -179,49 +179,63 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims,
                                  self.num_dims * self.control_space_q)
 
-    def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices):
-        # ffmpeg -f image2 -framerate 1 -i frame%d.jpg  out2.mp4
-        plt.ion()
+    def animation_helper(self, i, costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts):
+        closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
+
+        for j in range(adj_mat.shape[1]):
+            mp = adj_mat[closest_sample_pt[j], j]
+            if mp is not None and j not in sample_inds:  # Don't plot the trajectories between actual samples
+                _, sp, _, _, _ = mp.get_sampled_states()
+                self.lines[0][j].set_data(sp[0, :], sp[1, :])
+                self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
+        if i+1 < sample_inds.shape[0]:
+            self.lines[3].set_data(range(i+1), self.dispersion_list[:i+1])
+        self.lines[1].set_data(potential_sample_pts[:, 0], potential_sample_pts[:, 1])
+        self.lines[2].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
+        return self.lines
+
+    def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
+        save_animation = False
+        if save_animation:
+            import matplotlib
+            matplotlib.use("Agg")
+
+        import matplotlib.animation as animation
+
         f, (ax1, ax2) = plt.subplots(1, 2)
-        plt.show()
+        ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
+        ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
+        ax1.set_title("Sample Set Evolution")
+        ax2.set_xlim(0, sample_inds.shape[0])
+        ax2.set_ylim(0, self.dispersion_list[0]*1.2)
+        ax2.set_title("Trajectory Length Dispersion")
+
+        traj_lines = []
+        for j in range(adj_mat.shape[1]):
+            traj_lines.append(ax1.plot([], [], linewidth=.4)[0])
+        dense_sample_pt_line, = ax1.plot([], [], 'o', markersize=1, color=('0.8'))
+        actual_sample_pt_line, = ax1.plot([], [], 'og')
+        dispersion_line, = ax2.plot([], [], 'ok--')
+        self.lines = [traj_lines, dense_sample_pt_line, actual_sample_pt_line, dispersion_line]
+
         costs_mat = np.array([getattr(obj, 'cost', np.inf) for index, obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
-        colors = plt.cm.tab20(np.linspace(0, 1, adj_mat.shape[0]))
-        plt.pause(.001)
-        # plt.pause(5)
+        colors = plt.cm.tab20(np.linspace(0, 1, 20))
+        ani = animation.FuncAnimation(
+            f, self.animation_helper, adj_mat.shape[0], fargs=(costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
-        for i in range(adj_mat.shape[0]):
-            ax1.cla()
-            ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
-            ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
-            ax1.set_title("Sample Set Evolution")
-            ax2.set_xlim(0, sample_inds.shape[0])
-            ax2.set_ylim(0, self.dispersion_list[0]*1.2)
-            ax2.set_title("Trajectory Length Dispersion")
+        if save_animation:
+            print("Saving animation to disk")
+            ani.save('dispersion_algorithm.mp4')
+            print("Finished saving animation")
+        else:
+            plt.show()
 
-            closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
-            # colors = plt.cm.jet(np.linspace(0, 1, i+1))
-
-            for j in range(adj_mat.shape[1]):
-                mp = adj_mat[closest_sample_pt[j], j]
-        #         mp = adj_mat[i, j]
-                if mp is not None and j not in sample_inds: # Don't plot the trajectories between actual samples
-                    _, sp, _, _, _ = mp.get_sampled_states()
-                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4, color=colors[closest_sample_pt[j]])
-                    ax1.plot(mp.start_state[0], mp.start_state[1], 'o', markersize=1, color=('0.8'))
-            if i+1 < sample_inds.shape[0]:
-                ax2.plot(range(i+1), self.dispersion_list[:i+1], 'ok--')
-            ax1.plot(vertices[:i+1, 0], vertices[:i+1, 1], 'og')
-
-            plt.savefig(f"images/frame{i}.jpg")
-            plt.pause(1)
-        plt.ioff()
-        plt.show()
 
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
     num_dims = 1
-    max_state = [2, 2, 2*np.pi, 100, 1, 1]  
+    max_state = [2, 2, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
     plot = False
     animate = True
@@ -229,14 +243,14 @@ if __name__ == "__main__":
     #motion_primitive_type = PolynomialMotionPrimitive
     #control_space_q = 2
     #num_dims = 2
-    #max_state = [1, .1, 100, 100, 1, 1]  
+    #max_state = [1, .1, 100, 100, 1, 1]
 
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, .1, np.inf, 25, 1, 1], animate=animate)    
-    #mpl.limit_connections(np.inf)
-    #mpl.save("lattice_test.json")
+    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, .1, np.inf, 25, 1, 1], animate=animate)
+    # mpl.limit_connections(np.inf)
+    # mpl.save("lattice_test.json")
     #mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
