@@ -179,6 +179,44 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims,
                                  self.num_dims * self.control_space_q)
 
+    def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices):
+        # ffmpeg -f image2 -framerate 1 -i frame%d.jpg  out2.mp4
+        plt.ion()
+        f, (ax1, ax2) = plt.subplots(1, 2)
+        plt.show()
+        costs_mat = np.array([getattr(obj, 'cost', np.inf) for index, obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
+        colors = plt.cm.tab20(np.linspace(0, 1, adj_mat.shape[0]))
+        plt.pause(.001)
+        # plt.pause(5)
+
+        for i in range(adj_mat.shape[0]):
+            ax1.cla()
+            ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
+            ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
+            ax1.set_title("Sample Set Evolution")
+            ax2.set_xlim(0, sample_inds.shape[0])
+            ax2.set_ylim(0, self.dispersion_list[0]*1.2)
+            ax2.set_title("Trajectory Length Dispersion")
+
+            closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
+            # colors = plt.cm.jet(np.linspace(0, 1, i+1))
+
+            for j in range(adj_mat.shape[1]):
+                mp = adj_mat[closest_sample_pt[j], j]
+        #         mp = adj_mat[i, j]
+                if mp is not None and j not in sample_inds: # Don't plot the trajectories between actual samples
+                    _, sp, _, _, _ = mp.get_sampled_states()
+                    ax1.plot(sp[0, :], sp[1, :], linewidth=.4, color=colors[closest_sample_pt[j]])
+                    ax1.plot(mp.start_state[0], mp.start_state[1], 'o', markersize=1, color=('0.8'))
+            if i+1 < sample_inds.shape[0]:
+                ax2.plot(range(i+1), self.dispersion_list[:i+1], 'ok--')
+            ax1.plot(vertices[:i+1, 0], vertices[:i+1, 1], 'og')
+
+            plt.savefig(f"images/frame{i}.jpg")
+            plt.pause(1)
+        plt.ioff()
+        plt.show()
+
 if __name__ == "__main__":
     # define parameters
     control_space_q = 3
