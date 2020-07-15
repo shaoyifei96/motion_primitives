@@ -180,11 +180,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                                  self.num_dims * self.control_space_q)
 
     def animation_helper(self, i, costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts):
+        print(f"frame {i+1}/{adj_mat.shape[0]}")
         closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
-
         for j in range(adj_mat.shape[1]):
             mp = adj_mat[closest_sample_pt[j], j]
-            if mp is not None and j not in sample_inds:  # Don't plot the trajectories between actual samples
+            if mp is not None and mp.is_valid and j not in sample_inds:  # Don't plot the trajectories between actual samples
                 _, sp, _, _, _ = mp.get_sampled_states()
                 self.lines[0][j].set_data(sp[0, :], sp[1, :])
                 self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
@@ -195,16 +195,16 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return self.lines
 
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
-        save_animation = False
+        save_animation = True
         if save_animation:
             import matplotlib
+            normal_backend = matplotlib.get_backend()
             matplotlib.use("Agg")
-
         import matplotlib.animation as animation
 
         f, (ax1, ax2) = plt.subplots(1, 2)
         ax1.set_xlim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
-        ax1.set_ylim(-self.max_state[1]*1.2, self.max_state[1]*1.2)
+        ax1.set_ylim(-self.max_state[0]*1.2, self.max_state[0]*1.2)
         ax1.set_title("Sample Set Evolution")
         ax2.set_xlim(0, sample_inds.shape[0])
         ax2.set_ylim(0, self.dispersion_list[0]*1.2)
@@ -218,15 +218,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         dispersion_line, = ax2.plot([], [], 'ok--')
         self.lines = [traj_lines, dense_sample_pt_line, actual_sample_pt_line, dispersion_line]
 
-        costs_mat = np.array([getattr(obj, 'cost', np.inf) for index, obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
+        costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
+                              obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
         colors = plt.cm.tab20(np.linspace(0, 1, 20))
         ani = animation.FuncAnimation(
-            f, self.animation_helper, adj_mat.shape[0], fargs=(costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
+            f, self.animation_helper, adj_mat.shape[0], interval=1000, fargs=(costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
         if save_animation:
             print("Saving animation to disk")
             ani.save('dispersion_algorithm.mp4')
             print("Finished saving animation")
+            matplotlib.use(normal_backend)
         else:
             plt.show()
 
@@ -237,19 +239,20 @@ if __name__ == "__main__":
     num_dims = 1
     max_state = [2, 2, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
-    plot = False
+    plot = True
     animate = True
 
-    #motion_primitive_type = PolynomialMotionPrimitive
-    #control_space_q = 2
-    #num_dims = 2
-    #max_state = [1, .1, 100, 100, 1, 1]
+    motion_primitive_type = PolynomialMotionPrimitive
+    control_space_q = 2
+    num_dims = 2
+    max_state = [2, 1, 2, 100, 1, 1]
 
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, .1, np.inf, 25, 1, 1], animate=animate)
-    # mpl.limit_connections(np.inf)
+    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, 1, 1, 25, 1, 1], animate=animate)
+    print(mpl.vertices)
+    mpl.limit_connections(np.inf)
     # mpl.save("lattice_test.json")
     #mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
