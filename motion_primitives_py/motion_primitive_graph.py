@@ -34,8 +34,11 @@ class MotionPrimitiveGraph():
             dimension of configuration space
         max_state, 
             list of max values of position space and its derivatives
+<<<<<<< HEAD
         motion_primitive_type,
             class that the motion primitive edges belong to. Must be a subclass of MotionPrimitive
+=======
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
         plot, 
             boolean of whether to create/show plots
         vertices, (M, N) 

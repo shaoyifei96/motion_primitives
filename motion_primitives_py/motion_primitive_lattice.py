@@ -3,18 +3,24 @@ from motion_primitive_graph import *
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
-    A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
+    A class that provides functions to compute a lattice of minimum dispersion
+    points in the state space connected by feasible trajectories
+    #TODO need some global way to specify what mp class to use
     """
     @classmethod
     def load(cls, filename, plot=False):
         """
         create a motion primitive lattice from a given json file
         """
+<<<<<<< HEAD
         # read from JSON file
+=======
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
         try:
             with open(filename) as json_file:
                 data = json.load(json_file)
                 print("Reading lattice from", filename, "...")
+<<<<<<< HEAD
         except:
             print("Error reading from", filename)
             return None
@@ -24,12 +30,24 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
                   motion_primitive_type=data["motion_primitive_type"],
+=======
+        except: 
+            print("Error reading from", filename)
+            return None
+        mpl = cls(control_space_q=data["control_space_q"], 
+                  num_dims=data["num_dims"], 
+                  max_state=data["max_state"], 
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
                   plot=plot)
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
         for i in range(len(mpl.vertices)):
             for j in range(len(mpl.vertices)):
+<<<<<<< HEAD
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
+=======
+                mpl.edges[i, j] = PolynomialMotionPrimitive.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
         print("Lattice successfully read")
 
     def save(self, filename):
@@ -45,17 +63,28 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     mps.append(mp.to_dict())
                 else:
                     mps.append({})
+<<<<<<< HEAD
 
         # write the JSON file
         with open(filename, "w") as output_file:
             saved_params = {"motion_primitive_type": self.motion_primitive_type,
                             "control_space_q": self.control_space_q,
+=======
+        
+        # write the JSON file
+        with open(filename, "w") as output_file:
+            saved_params = {"control_space_q": self.control_space_q,
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
                             "num_dims": self.num_dims,
                             "max_state": self.max_state.tolist(),
                             "vertices": self.vertices.tolist(),
                             "edges": mps
             }
+<<<<<<< HEAD
             json.dump(saved_params, output_file, indent=4)
+=======
+            json.dump(saved_params, output_file, indent=4) 
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
@@ -183,6 +212,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_pts[i, :, :self.num_dims] += offset
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims,
                                  self.num_dims * self.control_space_q)
+<<<<<<< HEAD
 
     def animation_helper(self, i, costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts):
         print(f"frame {i+1}/{adj_mat.shape[0]}")
@@ -237,6 +267,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         else:
             plt.show()
 
+=======
+    
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
 
 if __name__ == "__main__":
     # define parameters
@@ -253,6 +286,7 @@ if __name__ == "__main__":
     max_state = [2, 1, 2, 100, 1, 1]
 
     # build lattice
+<<<<<<< HEAD
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, 1, 1, 25, 1, 1], animate=False)
@@ -264,3 +298,16 @@ if __name__ == "__main__":
     # plot
     if mpl.plot:
         plt.show()
+=======
+    #mpl = MotionPrimitiveLattice(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    #mpl.compute_min_dispersion_space(num_output_pts=50, resolution=[.2, .1, .1, 25, 1, 1])
+    #mpl.limit_connections(np.inf)
+    #mpl.save("lattice_test.json")
+
+    mpl = MotionPrimitiveLattice.load("lattice_test.json")
+
+    # plot
+    #if mpl.plot:
+    #    plt.show()
+>>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
