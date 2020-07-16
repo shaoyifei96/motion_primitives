@@ -22,10 +22,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             return None
         
         # build motion primitive lattice from data
+        mp_types = {"PolynomialMotionPrimitive": PolynomialMotionPrimitive,
+                    "JerksMotionPrimitive": JerksMotionPrimitive,
+                    "ReedsSheppMotionPrimitive": ReedsSheppMotionPrimitive
+        }
         mpl = cls(control_space_q=data["control_space_q"],
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
-                  motion_primitive_type=data["motion_primitive_type"],
+                  motion_primitive_type=mp_types[data["mp_type"]],
                   plot=plot)
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
@@ -33,6 +37,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             for j in range(len(mpl.vertices)):
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
         print("Lattice successfully read")
+        return mpl
 
     def save(self, filename):
         """
@@ -50,7 +55,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         # write the JSON file
         with open(filename, "w") as output_file:
-            saved_params = {"motion_primitive_type": self.motion_primitive_type,
+            saved_params = {"mp_type": self.motion_primitive_type.__name__,
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
                             "max_state": self.max_state.tolist(),
@@ -255,12 +260,12 @@ if __name__ == "__main__":
     max_state = [2, 1, 2, 100, 1, 1]
 
     # build lattice
-    mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
+    #mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, 1, 1, 25, 1, 1], animate=False)
-    print(mpl.vertices)
-    mpl.limit_connections(np.inf)
-    mpl.save("lattice_test.json")
+    #mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, 1, 1, 25, 1, 1], animate=False)
+    #print(mpl.vertices)
+    #mpl.limit_connections(np.inf)
+    #mpl.save("lattice_test.json")
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
