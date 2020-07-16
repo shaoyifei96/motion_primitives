@@ -6,20 +6,36 @@ import reeds_shepp
 
 class ReedsSheppMotionPrimitive(MotionPrimitive):
     """
-    A motion primitive constructed from polynomial coefficients
+    Create a new Reeds-Shepp motion primitive
     """
 
     def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
         super().__init__(start_state, end_state, num_dims, max_state, subclass_specific_data)  # Run MotionPrimitive's instantiation first
-        self.reeds_shepp_constructor()
-
-    def reeds_shepp_constructor(self):
         if self.subclass_specific_data.get('turning_radius') is None:
             self.turning_radius = .5
         else:
             self.turning_radius = self.subclass_specific_data.get('turning_radius')
         self.cost = reeds_shepp.path_length(self.start_state, self.end_state, self.turning_radius)
         self.is_valid = True
+
+    @classmethod
+    def from_dict(cls, dict, num_dims, max_state):
+        """
+        Load a Reeds-Shepp motion primitive from a dictionary 
+        """
+        mp = super().from_dict(dict, num_dims, max_state)
+        if mp:
+            mp.turning_radius = dict["turning_radius"]
+        return mp
+
+    def to_dict(self):
+        """
+        Write important attributes of motion primitive to a dictionary
+        """
+        dict = super().to_dict()
+        if dict:
+            dict["turning_radius"] = self.turning_radius
+        return dict
 
     def get_state(self, t):
         pass
@@ -37,6 +53,9 @@ if __name__ == "__main__":
     max_state = np.ones((3,))*100
 
     mp1 = ReedsSheppMotionPrimitive(start_state, end_state, 3, max_state)
+    dict = mp1.to_dict()
+    mp1 = ReedsSheppMotionPrimitive.from_dict(dict, 2, max_state)
+    
     st1, sx1, _, _, _ = mp1.get_sampled_states()
     plt.plot(start_state[0], start_state[1], 'go')
     plt.plot(end_state[0], end_state[1], 'ro')

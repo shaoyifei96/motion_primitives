@@ -37,7 +37,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         """
         load a jerks representation of the motion primitive from a dictionary 
         """
-        mp = super(JerksMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
+        mp = super().from_dict(dict, num_dims, max_state)
         if mp:
             mp.switch_times = np.array(dict["switch_times"])
             mp.jerks = np.array(dict["jerks"][0])
