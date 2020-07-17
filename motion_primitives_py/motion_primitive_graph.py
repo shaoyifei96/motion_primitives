@@ -71,6 +71,7 @@ class MotionPrimitiveGraph():
             x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
             self.mp_subclass_specific_data['x_derivs'] = x_derivs
 
+        # TODO update Tree subclass to use latest data structures
         self.motion_primitives_list = []
         self.dispersion = None
         self.dispersion_list = []

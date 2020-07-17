@@ -28,7 +28,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         Load a polynomial representation of the motion primitive from a dictionary 
         """
-        mp = super(PolynomialMotionPrimitive, cls).from_dict(dict, num_dims, max_state)
+        mp = super().from_dict(dict, num_dims, max_state)
         if mp:
             mp.polys = np.array(dict["polys"])
             # TODO: figure out another way to accomplish this - code is duplicated
