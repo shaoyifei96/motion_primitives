@@ -85,7 +85,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 mp_list[i, j] = mp
                 if mp.is_valid:
                     score[i, j] = mp.cost
-        return score, mp_list
+        return np.min(score, axis=1), mp_list[:, 0]
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, animate=False):
         # TODO will pick the same point if all MPs fail
@@ -94,13 +94,13 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mp_adjacency_matrix = np.empty((num_output_pts, len(potential_sample_pts)), dtype=object)
 
         score = np.ones((len(potential_sample_pts), num_output_pts)) * np.inf
-        score[:, [0]], mp_list = self.dispersion_distance_fn(potential_sample_pts, potential_sample_pts[0, :][np.newaxis, :])
+        score[:, 0], mp_list = self.dispersion_distance_fn(potential_sample_pts, potential_sample_pts[0, :][np.newaxis, :])
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_indices[0] = 0
-        mp_adjacency_matrix[[0], :] = mp_list.transpose()
+        mp_adjacency_matrix[0, :] = mp_list.transpose()
 
         # distances of potential sample points to closest chosen output MP node # bottleneck
-        min_score = np.ones((score.shape[0], 3 ** self.num_dims + 1)) * np.inf
+        min_score = np.ones((score.shape[0], 2)) * np.inf
         min_score[:, 0] = np.amin(score, axis=1)
         for sample_pt_num in range(1, num_output_pts):  # start at 1 because we already chose the closest point as a motion primitive
             print(f"{sample_pt_num+1}/{num_output_pts}")
@@ -111,9 +111,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             result_pt = potential_sample_pts[index, :]
             actual_sample_indices[sample_pt_num] = np.array((index))
             min_score[index, 0] = -np.inf  # give nodes we have already chosen low score
-            min_score[:, 1:], mp_list = self.dispersion_distance_fn(potential_sample_pts, self.tile_points(result_pt[np.newaxis, :]))  # new point's score
+            min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, self.tile_points(result_pt[np.newaxis, :]))  # new point's score
             # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
-            mp_adjacency_matrix[sample_pt_num, :] = mp_list[:, 0]
+            mp_adjacency_matrix[sample_pt_num, :] = mp_list
             self.dispersion = max(min_score[:, 0])
             self.dispersion_list.append(self.dispersion)
 
