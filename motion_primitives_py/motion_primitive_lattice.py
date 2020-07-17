@@ -190,7 +190,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
         if i+1 < sample_inds.shape[0]:
             self.lines[3].set_data(range(i+1), self.dispersion_list[:i+1])
-        self.lines[1].set_data(potential_sample_pts[:, 0], potential_sample_pts[:, 1])
         self.lines[2].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
         return self.lines
 
@@ -217,6 +216,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         actual_sample_pt_line, = ax1.plot([], [], 'og')
         dispersion_line, = ax2.plot([], [], 'ok--')
         self.lines = [traj_lines, dense_sample_pt_line, actual_sample_pt_line, dispersion_line]
+        self.lines[1].set_data(potential_sample_pts[:, 0], potential_sample_pts[:, 1])
 
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)

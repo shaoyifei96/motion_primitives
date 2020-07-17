@@ -109,7 +109,10 @@ class MotionPrimitiveGraph():
                 if random:
                     independent.append(a + np.random.rand((np.ceil((b-a)/r+1).astype(int)))*(b-a))
                 else:
-                    independent.append(np.arange(a, b+.00001, r))
+                    if r != np.inf:
+                        independent.append(np.arange(a, b+.00001, r))
+                    else:
+                        independent.append(0) # if the requestedresolution is infinity, just return 0 
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
