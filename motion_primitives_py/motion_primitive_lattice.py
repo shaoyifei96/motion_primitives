@@ -21,11 +21,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             print("Error reading from", filename)
             return None
         
-        # build motion primitive lattice from data
+        # create dictionary of supported subclasses 
+        # TODO this is a little hacky - figure out a way to create a class instance from a string
         mp_types = {"PolynomialMotionPrimitive": PolynomialMotionPrimitive,
                     "JerksMotionPrimitive": JerksMotionPrimitive,
                     "ReedsSheppMotionPrimitive": ReedsSheppMotionPrimitive
         }
+
+        # build motion primitive lattice from data
         mpl = cls(control_space_q=data["control_space_q"],
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],

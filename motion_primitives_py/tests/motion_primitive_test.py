@@ -10,11 +10,7 @@ class TestMotionPrimitive(unittest.TestCase):
         self.end_state = np.array([1, 1, 0, 0, 0, 0])
         self.num_dims = 2
         self.max_state = 100 * np.ones((6,))
-<<<<<<< HEAD
         self.polynomial_mp = PolynomialMotionPrimitive(self.start_state, 
-=======
-        self.polynomial_mp = PolynomialMotionPrimitive.new(self.start_state, 
->>>>>>> be08b640907c26f100306501bbbb3dc4c014182f
                                                            self.end_state, 
                                                            self.num_dims, 
                                                            self.max_state)
