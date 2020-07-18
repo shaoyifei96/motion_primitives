@@ -95,7 +95,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mp_adjacency_matrix = np.empty((num_output_pts, potential_sample_pts.shape[0]), dtype=object)
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         # distances of potential sample points to closest chosen output MP node
-        min_score = np.ones((potential_sample_pts.shape[0], 2))*np.inf
+        min_score = np.ones((potential_sample_pts.shape[0], 3**num_dims+1))*np.inf
         index = 0
 
         for sample_pt_num in range(num_output_pts):
@@ -104,18 +104,24 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             result_pt = potential_sample_pts[index, :]
             actual_sample_indices[sample_pt_num] = np.array((index))
             min_score[index, 0] = -np.inf  # give nodes we have already chosen low score
-            min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, result_pt[np.newaxis, :])  # new point's score
-            # min_score[:, 1], mp_list = self.dispersion_distance_fn(result_pt[np.newaxis, :],potential_sample_pts)  # new point's score
-            mp_adjacency_matrix[sample_pt_num, :] = mp_list
-            self.dispersion = max(min_score[:, 0])
-            self.dispersion_list.append(self.dispersion)
 
+            actual_sample_pts = potential_sample_pts[actual_sample_indices[:sample_pt_num]]
+            tiled_pts = self.tile_points([result_pt])
+            min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, result_pt[np.newaxis, :])  # new point's score
+
+            for k in range(tiled_pts.shape[1]):
+                min_score[:, k+2], _ = self.dispersion_distance_fn(potential_sample_pts, tiled_pts[k, :][np.newaxis, :])
+
+            mp_adjacency_matrix[sample_pt_num, :] = mp_list
             min_score[:, 0] = np.amin(min_score, axis=1)
             # take the new point with the maximum distance to its closest node
             index = np.argmax(min_score[:, 0])
             if min_score[index, 0] == -np.inf:
                 print("ERROR: no new valid trajectories to a point in the sample set. You probably need to increase max state or decrease resolution. Exiting.")
                 raise SystemExit
+
+            self.dispersion = max(min_score[:, 0])
+            self.dispersion_list.append(self.dispersion)
 
         vertices = potential_sample_pts[actual_sample_indices]
         edges = mp_adjacency_matrix[:, actual_sample_indices]
@@ -198,8 +204,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         closest_sample_pt = np.argmin(costs_mat[:i+1, ], axis=0)
         for j in range(adj_mat.shape[1]):
             mp = adj_mat[closest_sample_pt[j], j]
-            if mp is not None and mp.is_valid and j not in sample_inds:  # Don't plot the trajectories between actual samples
-                _, sp, _, _, _ = mp.get_sampled_states()
+            if mp is not None and mp.is_valid:
+                if j in sample_inds[:i+1]:  # Don't plot the trajectories between actual samples
+                    sp = np.array([[], []])
+                else:
+                    _, sp, _, _, _ = mp.get_sampled_states()
                 self.lines[0][j].set_data(sp[0, :], sp[1, :])
                 self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
         if i+1 < sample_inds.shape[0]:
@@ -208,7 +217,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return self.lines
 
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
-        save_animation = True
+        save_animation = False
         if save_animation:
             import matplotlib
             normal_backend = matplotlib.get_backend()
@@ -249,17 +258,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 if __name__ == "__main__":
     # define parameters
-    control_space_q = 3
-    num_dims = 1
-    max_state = [2, 2, 2*np.pi, 100, 1, 1]
-    motion_primitive_type = ReedsSheppMotionPrimitive
-    plot = True
-    animate = False
-
-    motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [2, 1, 10, 100, 1, 1]
+    max_state = [2, 2*np.pi, 2*np.pi, 100, 1, 1]
+    motion_primitive_type = ReedsSheppMotionPrimitive
+    plot = False
+    animate = True
+
+    # motion_primitive_type = PolynomialMotionPrimitive
+    # control_space_q = 2
+    # num_dims = 2
+    # max_state = [2, 1, 10, 100, 1, 1]
 
     # motion_primitive_type = JerksMotionPrimitive
     # control_space_q = 3
@@ -269,7 +278,7 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, .5, .5, 25, 1, 1], animate=animate)
+    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, np.inf, np.inf, 25, 1, 1], animate=animate)
     # print(mpl.vertices)
     mpl.limit_connections(np.inf)
     # mpl.save("lattice_test.json")
