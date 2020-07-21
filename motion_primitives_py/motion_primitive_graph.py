@@ -18,6 +18,7 @@ from reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 import itertools
 from py_opt_control import min_time_bvp
 import json
+import sys
 
 # TODO a lot of cleanup of this file needed to reflect updates to MotionPrimitiveLattice. Some code could be moved to MotionPrimitiveTree, PolynomialMotionPrimitive
 # TODO MotionPrimitiveTree should take the motion_primitive_type parameter
@@ -127,7 +128,7 @@ class MotionPrimitiveGraph():
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
                 score[i, j] = np.linalg.norm((start_pts[i] - end_pts[j]))
-        return np.min(score, axis=1), None
+        return score, None
         
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)

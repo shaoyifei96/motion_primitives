@@ -20,17 +20,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             print("Error reading from", filename)
             return None
 
-        # create dictionary of supported subclasses
-        # TODO figure out a way to create a class instance from a string
-        mp_types = {"PolynomialMotionPrimitive": PolynomialMotionPrimitive,
-                    "JerksMotionPrimitive": JerksMotionPrimitive,
-                    "ReedsSheppMotionPrimitive": ReedsSheppMotionPrimitive}
-
         # build motion primitive lattice from data
         mpl = cls(control_space_q=data["control_space_q"],
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
-                  motion_primitive_type=mp_types[data["mp_type"]],
+                  motion_primitive_type=getattr(sys.modules[__name__], data["mp_type"]),
                   plot=plot)
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
@@ -85,7 +79,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 mp_list[i, j] = mp
                 if mp.is_valid:
                     score[i, j] = mp.cost
-        return np.min(score, axis=1), mp_list[:, 0]
+        return score, mp_list[:, 0]
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, animate=False):
         # TODO will pick the same point if all MPs fail
@@ -99,7 +93,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # initialize data structures
         mp_adjacency_matrix = np.empty((num_output_pts, len(potential_sample_pts)), dtype=object)
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
-        min_score = np.ones((len(potential_sample_pts), 2)) * np.inf
+        min_score = np.ones((len(potential_sample_pts), 3 ** self.num_dims + 1)) * np.inf
 
         # each time through loop add point to the set and update data structures
         print("potential sample points:", len(potential_sample_pts))
@@ -111,7 +105,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             
             # update scores of nodes
             min_score[index, 0] = -np.inf  # give node we chose low score
-            min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, self.tile_points([potential_sample_pts[index, :]]))
+            min_score[:, 1:], mp_list = self.dispersion_distance_fn(potential_sample_pts, self.tile_points([potential_sample_pts[index, :]]))
             min_score[:, 0] = np.amin(min_score, axis=1)
 
             # take the new point with the maximum distance to its closest node
@@ -198,8 +192,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Input:
             pts, (M, N) a set of M points each of N dimension
         Output:
-            tiled_pts, (L, N) the tiled set of input points. 
+            tiled_pts, (M, L, N) the tiled set of input points. 
                 L is 9M or 27M depending on the dimension of the state space
+                the 0th row for each m in M will always be the original point
         """
         bounds = 2 * np.array([0, -self.max_state[0], self.max_state[0]])
         tiled_pts = np.array([pts for i in range(3 ** self.num_dims)])
@@ -294,8 +289,8 @@ if __name__ == "__main__":
     mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.1, np.inf, np.inf, 25, 1, 1], animate=animate)
     # print(mpl.vertices)
     mpl.limit_connections(np.inf)
-    # mpl.save("lattice_test.json")
-    # mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    mpl.save("lattice_test.json")
+    mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
     if mpl.plot:
