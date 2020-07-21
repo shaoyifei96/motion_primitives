@@ -3,7 +3,8 @@ from motion_primitive_graph import *
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
-    A class that provides functions to compute a lattice of minimum dispersion points in the state space connected by feasible trajectories
+    A class that provides functions to compute a lattice of minimum dispersion 
+    points in the state space connected by feasible trajectories
     """
     @classmethod
     def load(cls, filename, plot=False):
@@ -20,11 +21,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             return None
 
         # create dictionary of supported subclasses
-        # TODO this is a little hacky - figure out a way to create a class instance from a string
+        # TODO figure out a way to create a class instance from a string
         mp_types = {"PolynomialMotionPrimitive": PolynomialMotionPrimitive,
                     "JerksMotionPrimitive": JerksMotionPrimitive,
-                    "ReedsSheppMotionPrimitive": ReedsSheppMotionPrimitive
-                    }
+                    "ReedsSheppMotionPrimitive": ReedsSheppMotionPrimitive}
 
         # build motion primitive lattice from data
         mpl = cls(control_space_q=data["control_space_q"],
@@ -36,7 +36,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
         for i in range(len(mpl.vertices)):
             for j in range(len(mpl.vertices)):
-                mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, mpl.max_state)
+                mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(
+                    data["edges"][i * len(mpl.vertices) + j], 
+                    mpl.num_dims, mpl.max_state)
         print("Lattice successfully read")
         return mpl
 
@@ -67,66 +69,76 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
-        A function that evaluates the cost of a path from an array of start_pts to an array of end_pts. For the moment the cost is the time of the optimal path.
+        A function that evaluates the cost of a path from an array of start_pts
+        to an array of end_pts. For the moment the cost is the time of the 
+        optimal path.
         """
-        assert(start_pts.shape[0] == 1 or end_pts.shape[0] == 1), "Either start_pts or end_pts must be only one point"
-        num_pts = np.max([start_pts.shape[0], end_pts.shape[0]])
-
-        score = -np.ones(num_pts)*np.inf
-        mp_list = np.empty(num_pts, dtype=object)
+        score = np.ones((len(start_pts), len(end_pts))) * -np.inf
+        mp_list = np.empty((len(start_pts), len(end_pts)), dtype=object)
         for i in range(start_pts.shape[0]):
             for j in range(end_pts.shape[0]):
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
-                mp = self.motion_primitive_type(start_pts[i, :], end_pts[j, :], self.num_dims,
-                                                self.max_state, self.mp_subclass_specific_data)
-                ind = max(i, j)
-                mp_list[ind] = mp
+                mp = self.motion_primitive_type(start_pts[i, :], end_pts[j, :], 
+                                                self.num_dims, self.max_state, 
+                                                self.mp_subclass_specific_data)
+                mp_list[i, j] = mp
                 if mp.is_valid:
-                    score[ind] = mp.cost  # + np.linalg.norm(u)*.0001  # tie break w/ u?
-        return score, mp_list
+                    score[i, j] = mp.cost
+        return np.min(score, axis=1), mp_list[:, 0]
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, animate=False):
         # TODO will pick the same point if all MPs fail
-        # overloaded from motion_primitive_graph for the moment # TODO maybe unify with original version used in tree
-        print("potential sample points:", potential_sample_pts.shape[0])
+        # overloaded from motion_primitive_graph for the moment 
+        # TODO maybe unify with original version used in tree
+        
         # always take the all zero state as the first actual sample
         potential_sample_pts = np.vstack((np.zeros(self.n), potential_sample_pts))
-        mp_adjacency_matrix = np.empty((num_output_pts, potential_sample_pts.shape[0]), dtype=object)
-        actual_sample_indices = np.zeros((num_output_pts)).astype(int)
-        # distances of potential sample points to closest chosen output MP node
-        min_score = np.ones((potential_sample_pts.shape[0], 3**num_dims+1))*np.inf
         index = 0
 
-        for sample_pt_num in range(num_output_pts):
-            print(f"{sample_pt_num+1}/{num_output_pts}")
-            # distances of potential sample points to closest chosen output MP node
-            result_pt = potential_sample_pts[index, :]
-            actual_sample_indices[sample_pt_num] = np.array((index))
-            min_score[index, 0] = -np.inf  # give nodes we have already chosen low score
+        # initialize data structures
+        mp_adjacency_matrix = np.empty((num_output_pts, len(potential_sample_pts)), dtype=object)
+        actual_sample_indices = np.zeros((num_output_pts)).astype(int)
+        min_score = np.ones((len(potential_sample_pts), 2)) * np.inf
 
-            actual_sample_pts = potential_sample_pts[actual_sample_indices[:sample_pt_num]]
-            tiled_pts = self.tile_points([result_pt])
-            min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, result_pt[np.newaxis, :])  # new point's score
-
-            for k in range(tiled_pts.shape[1]):
-                min_score[:, k+2], _ = self.dispersion_distance_fn(potential_sample_pts, tiled_pts[k, :][np.newaxis, :])
-
-            mp_adjacency_matrix[sample_pt_num, :] = mp_list
+        # each time through loop add point to the set and update data structures
+        print("potential sample points:", len(potential_sample_pts))
+        for i in range(num_output_pts):
+            print(f"{i + 1}/{num_output_pts}")
+            
+            # add index to the list of sample node indices
+            actual_sample_indices[i] = np.array((index))
+            
+            # update scores of nodes
+            min_score[index, 0] = -np.inf  # give node we chose low score
+            min_score[:, 1], mp_list = self.dispersion_distance_fn(potential_sample_pts, self.tile_points([potential_sample_pts[index, :]]))
             min_score[:, 0] = np.amin(min_score, axis=1)
+
             # take the new point with the maximum distance to its closest node
             index = np.argmax(min_score[:, 0])
             if min_score[index, 0] == -np.inf:
-                print("ERROR: no new valid trajectories to a point in the sample set. You probably need to increase max state or decrease resolution. Exiting.")
+                print("""ERROR: no new valid trajectories to a point in the 
+                      sample set. You probably need to increase max state or 
+                      decrease resolution. Exiting.""")
                 raise SystemExit
 
+            # save motion primitives in the adjacency matrix
+            mp_adjacency_matrix[i, :] = mp_list
+
+            # update dispersion metric
             self.dispersion = max(min_score[:, 0])
             self.dispersion_list.append(self.dispersion)
 
+        # create graph representation to return
         vertices = potential_sample_pts[actual_sample_indices]
         edges = mp_adjacency_matrix[:, actual_sample_indices]
+        
+        # create an animation of the dispersion set growth
         if animate:
-            self.make_animation_min_dispersion_points(actual_sample_indices, mp_adjacency_matrix, vertices, potential_sample_pts)
+            self.make_animation_min_dispersion_points(actual_sample_indices, 
+                                                      mp_adjacency_matrix, 
+                                                      vertices, 
+                                                      potential_sample_pts)
         return vertices, edges
 
     def compute_min_dispersion_space(self, num_output_pts, resolution, animate=False):
@@ -139,6 +151,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             num_output_pts, desired number of samples (M) in the set
             resolution, (N,) resolution over N dimensions
         """
+        # TODO maybe move this somewhere else
         self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
