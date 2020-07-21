@@ -192,9 +192,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Input:
             pts, (M, N) a set of M points each of N dimension
         Output:
-            tiled_pts, (M, L, N) the tiled set of input points. 
+            tiled_pts, (L, N) the tiled set of input points. 
                 L is 9M or 27M depending on the dimension of the state space
-                the 0th row for each m in M will always be the original point
+                each row that is a multiple of M corresponds to M[row]
         """
         bounds = 2 * np.array([0, -self.max_state[0], self.max_state[0]])
         tiled_pts = np.array([pts for i in range(3 ** self.num_dims)])
