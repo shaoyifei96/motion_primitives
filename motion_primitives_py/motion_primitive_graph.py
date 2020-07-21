@@ -114,22 +114,15 @@ class MotionPrimitiveGraph():
                     if r != np.inf:
                         independent.append(np.arange(a, b+.00001, r))
                     else:
-                        independent.append(0) # if the requestedresolution is infinity, just return 0 
+                        independent.append(0)  # if the requested resolution is infinity, just return 0
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
 
     def dispersion_distance_fn_simple_norm(self, start_pts, end_pts):
-        # TODO a bit of duplicate code here
-        score = np.ones((len(start_pts), len(end_pts))) * -np.inf
-        mp_list = np.empty((len(start_pts), len(end_pts)), dtype=object)
-        for i in range(len(start_pts)):
-            for j in range(len(end_pts)):
-                if (start_pts[i, :] == end_pts[j, :]).all():
-                    continue
-                score[i, j] = np.linalg.norm((start_pts[i] - end_pts[j]))
+        score = np.linalg.norm(start_pts[:, np.newaxis]-end_pts, axis=2)
         return score, None
-        
+
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, starting_score, starting_output_sample_index):
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
         actual_sample_indices[0] = starting_output_sample_index
