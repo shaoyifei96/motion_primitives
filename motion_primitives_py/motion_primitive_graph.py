@@ -48,7 +48,7 @@ class MotionPrimitiveGraph():
             trajectory from state vertices(x) to state vertices(y).  
     """
 
-    def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, plot=False):
+    def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, tiling, plot=False):
         """
         Input:
             control_space_q, derivative of configuration which is the control input.
@@ -59,8 +59,9 @@ class MotionPrimitiveGraph():
         self.control_space_q = control_space_q
         self.num_dims = num_dims
         self.max_state = np.array(max_state)
-        self.plot = plot
         self.motion_primitive_type = motion_primitive_type
+        self.tiling = tiling  # TODO only really for lattice, maybe should move there
+        self.plot = plot
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
         self.mp_subclass_specific_data = {}
@@ -115,6 +116,8 @@ class MotionPrimitiveGraph():
                         independent.append(np.arange(a, b+.00001, r))
                     else:
                         independent.append(0)  # if the requested resolution is infinity, just return 0
+        if self.motion_primitive_type == ReedsSheppMotionPrimitive:  # hack
+            independent.pop()
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts
