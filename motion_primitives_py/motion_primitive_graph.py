@@ -48,7 +48,7 @@ class MotionPrimitiveGraph():
             trajectory from state vertices(x) to state vertices(y).  
     """
 
-    def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, tiling, plot=False):
+    def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, tiling=True, plot=False):
         """
         Input:
             control_space_q, derivative of configuration which is the control input.
@@ -118,6 +118,7 @@ class MotionPrimitiveGraph():
                         independent.append(0)  # if the requested resolution is infinity, just return 0
         if self.motion_primitive_type == ReedsSheppMotionPrimitive:  # hack
             independent.pop()
+            self.n = 3
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
         return pts

@@ -93,12 +93,12 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         # initialize data structures
         if self.tiling:
-            tiling_num =  3 ** self.num_dims
+            tiling_num = 3 ** self.num_dims
         else:
-            tiling_num =1 
+            tiling_num = 1
         mp_adjacency_matrix = np.empty((num_output_pts*tiling_num, len(potential_sample_pts)), dtype=object)
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
-        min_score = np.ones((len(potential_sample_pts),tiling_num + 1)) * np.inf
+        min_score = np.ones((len(potential_sample_pts), tiling_num + 1)) * np.inf
 
         # each time through loop add point to the set and update data structures
         print("potential sample points:", len(potential_sample_pts))
@@ -175,16 +175,19 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Input:
             cost_threshold, max allowable cost for any edge in returned graph
         """
-        for i in range(len(self.vertices)):
+        for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
                 if mp is not None and mp.is_valid and mp.cost < cost_threshold:
                     if self.plot:
                         st, sp, sv, sa, sj = mp.get_sampled_states()
                         if self.num_dims == 2:
+                            if self.tiling:
+                                t = self.tile_points(self.vertices)
                             plt.plot(sp[0, :], sp[1, :])
                             plt.plot(self.vertices[:, 0],
                                      self.vertices[:, 1], 'om')
+
                         elif self.num_dims == 3:
                             plt.plot(sp[0, :], sp[1, :], sp[2, :])
                             plt.plot(self.vertices[:, 0], self.vertices[:, 1],
@@ -287,13 +290,13 @@ if __name__ == "__main__":
     max_state = [2, 2*np.pi, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
     tiling = True
-    plot = False
-    animate = True
+    plot = True
+    animate = False
 
     # motion_primitive_type = PolynomialMotionPrimitive
     # control_space_q = 2
     # num_dims = 2
-    # max_state = [2, 1, 10, 100, 1, 1]
+    # max_state = [2, 1, 100, 100, 1, 1]
 
     # motion_primitive_type = JerksMotionPrimitive
     # control_space_q = 3
@@ -302,13 +305,13 @@ if __name__ == "__main__":
 
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
-    mpl.n = 3
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=8, resolution=[.1, np.inf, np.inf, 25, 1, 1], animate=animate)
+    mpl.compute_min_dispersion_space(num_output_pts=8, resolution=[.5, .5, np.inf, 25, 1, 1], animate=animate)
     # print(mpl.vertices)
     mpl.limit_connections(np.inf)
-    mpl.save("lattice_test.json")
-    mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    # mpl.limit_connections(2*mpl.dispersion)
+    # mpl.save("lattice_test.json")
+    # mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
     if mpl.plot:
