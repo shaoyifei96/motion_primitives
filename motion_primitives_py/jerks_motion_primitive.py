@@ -21,8 +21,8 @@ class JerksMotionPrimitive(MotionPrimitive):
         p1, v1, a1 = self.end_state[:self.num_dims], self.end_state[self.num_dims:2 *
                                                                     self.num_dims], self.end_state[2*self.num_dims:3*self.num_dims]
         # state and input limits
-        v_max, a_max, j_max = self.max_state[1:1+self.control_space_q]
-        v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q]
+        v_max, a_max, j_max = self.max_state[1:1+self.control_space_q] + 1e-5  # numerical hack for library seg fault
+        v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q] - 1e-5
 
         f = io.BytesIO()
         with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
