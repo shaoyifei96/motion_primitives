@@ -163,9 +163,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         self.vertices, self.edges = self.compute_min_dispersion_points(num_output_pts, potential_sample_pts, animate)
         if self.plot:
             if self.num_dims == 2:
-                plt.plot(self.vertices[:, 0], self.vertices[:, 1], 'om')
+                self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
             if self.num_dims == 3:
-                plt.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'om')
+                self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
 
     def limit_connections(self, cost_threshold):
         """
@@ -184,9 +184,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                         if self.num_dims == 2:
                             if self.tiling:
                                 t = self.tile_points(self.vertices)
-                            plt.plot(sp[0, :], sp[1, :])
-                            plt.plot(self.vertices[:, 0],
-                                     self.vertices[:, 1], 'om')
+                            self.ax.plot(sp[0, :], sp[1, :])
+                            self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
+                            self.ax_3d.plot(sp[0, :], sp[1, :], sv[0, :])
+                            self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
 
                         elif self.num_dims == 3:
                             plt.plot(sp[0, :], sp[1, :], sp[2, :])
@@ -289,7 +290,7 @@ if __name__ == "__main__":
     num_dims = 2
     max_state = [2, 2*np.pi, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
-    tiling = True
+    tiling = False
     plot = True
     animate = False
 
@@ -306,10 +307,10 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=8, resolution=[.5, .5, np.inf, 25, 1, 1], animate=animate)
+    mpl.compute_min_dispersion_space(num_output_pts=5, resolution=[.3, .3, np.inf, 25, 1, 1], animate=animate)
     # print(mpl.vertices)
-    mpl.limit_connections(np.inf)
-    # mpl.limit_connections(2*mpl.dispersion)
+    # mpl.limit_connections(np.inf)
+    mpl.limit_connections(2*mpl.dispersion)
     # mpl.save("lattice_test.json")
     # mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
