@@ -59,8 +59,8 @@ class MotionPrimitiveGraph():
         self.control_space_q = control_space_q
         self.num_dims = num_dims
         self.max_state = np.array(max_state)
-        self.motion_primitive_type = motion_primitive_type
         self.plot = plot
+        self.motion_primitive_type = motion_primitive_type
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
         self.mp_subclass_specific_data = {}

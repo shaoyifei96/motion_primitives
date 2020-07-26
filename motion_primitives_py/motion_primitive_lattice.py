@@ -59,7 +59,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "max_state": self.max_state.tolist(),
                             "vertices": self.vertices.tolist(),
                             "edges": mps
-                            }
+            }
             json.dump(saved_params, output_file, indent=4)
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
