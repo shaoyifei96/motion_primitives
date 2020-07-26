@@ -223,7 +223,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 indices and the MotionPrimitive object respectively 
         """
         # map state to within bounds of original lattice
-        state = (state[:self.num_dims] % (2 * self.max_state[0])) - self.max_state[0]
+        state[:self.num_dims] = (state[:self.num_dims] % (2 * self.max_state[0])) - self.max_state[0]
 
         # build list of neighbors
         connections = []
