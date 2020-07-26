@@ -60,7 +60,6 @@ class MotionPrimitiveGraph():
         self.num_dims = num_dims
         self.max_state = np.array(max_state)
         self.motion_primitive_type = motion_primitive_type
-        self.tiling = tiling  # TODO only really for lattice, maybe should move there
         self.plot = plot
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
@@ -72,6 +71,12 @@ class MotionPrimitiveGraph():
             self.quad_dynamics_polynomial = self.quad_dynamics_polynomial_symbolic()
             x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
             self.mp_subclass_specific_data['x_derivs'] = x_derivs
+
+        # TODO only really for lattice, maybe should move there
+        if tiling:
+            self.num_tiles = 3 ** self.num_dims
+        else:
+            self.num_tiles = 1
 
         # TODO update Tree subclass to use latest data structures
         self.motion_primitives_list = []
