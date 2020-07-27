@@ -1,4 +1,4 @@
-from motion_primitive_graph import *
+from motion_primitives_py.motion_primitive_graph import *
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
@@ -7,7 +7,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     points in the state space connected by feasible trajectories
     """
     @classmethod
-    def load(cls, filename, plot=False):
+    def load(cls, filename):
         """
         create a motion primitive lattice from a given json file
         """
@@ -15,16 +15,15 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         with open(filename) as json_file:
             data = json.load(json_file)
             print("Reading lattice from", filename, "...")
-   
+
         # build motion primitive lattice from data
         mpl = cls(control_space_q=data["control_space_q"],
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
                   motion_primitive_type=getattr(sys.modules[__name__], data["mp_type"]),
-                  tiling=data["tiling"],
-                  plot=plot)
+                  tiling=data["tiling"])
         mpl.vertices = np.array(data["vertices"])
-        mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
+        mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
         for i in range(len(mpl.edges)):
             for j in range(len(mpl.vertices)):
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(
@@ -39,14 +38,13 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         # convert the motion primitives to a form that can be written
         mps = []
-        for i in range(len(self.vertices)):
+        for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
                 if mp is not None:
                     mps.append(mp.to_dict())
                 else:
                     mps.append({})
-
         # write the JSON file
         with open(filename, "w") as output_file:
             print("Saving lattice to", filename, "...")
@@ -57,10 +55,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "max_state": self.max_state.tolist(),
                             "vertices": self.vertices.tolist(),
                             "edges": mps
-            }
+                            }
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
-
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
@@ -199,8 +196,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             node_index, index of queried node in list of vertices
 
         Output:
-            neighbors, list of tuples with entries corresponding to neighbors 
-                and the MotionPrimitive object representing the trajectory 
+            neighbors, list of tuples with entries corresponding to neighbors
+                and the MotionPrimitive object representing the trajectory
                 to get to them respectively
         """
         neighbors = []
@@ -219,17 +216,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             state, point in state space
 
         Output:
-            connections, list of tuples with entries corresponding to node 
-                indices and the MotionPrimitive object respectively 
+            connections, list of tuples with entries corresponding to node
+                indices and the MotionPrimitive object respectively
         """
         # build list of neighbors
         connections = []
         for i, vertex in enumerate(self.vertices):
-                mp = self.motion_primitive_type(state, vertex,
-                                    self.num_dims, self.max_state,
-                                    self.mp_subclass_specific_data)
-                if mp.is_valid: 
-                    connections.append((i, mp))
+            mp = self.motion_primitive_type(state, vertex,
+                                            self.num_dims, self.max_state,
+                                            self.mp_subclass_specific_data)
+            if mp.is_valid:
+                connections.append((i, mp))
         return connections
 
     def tile_points(self, pts):

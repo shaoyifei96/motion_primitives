@@ -12,9 +12,9 @@ import pickle
 import sympy as sym
 from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
-from polynomial_motion_primitive import PolynomialMotionPrimitive
-from jerks_motion_primitive import JerksMotionPrimitive
-from reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
+from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
+from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
+from motion_primitives_py.reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 import itertools
 from py_opt_control import min_time_bvp
 import json

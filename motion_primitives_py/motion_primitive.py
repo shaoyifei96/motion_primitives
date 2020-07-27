@@ -28,9 +28,9 @@ class MotionPrimitive():
         load a motion primitive from a dictionary
         """
         if dict:
-            mp = cls.__new__(cls) 
-            super(cls, mp).__init__(np.array(dict["start_state"]), 
-                                    np.array(dict["end_state"]), 
+            mp = cls.__new__(cls)
+            super(cls, mp).__init__(np.array(dict["start_state"]),
+                                    np.array(dict["end_state"]),
                                     num_dims, max_state)
             mp.cost = dict["cost"]
             mp.is_valid = True
@@ -46,11 +46,11 @@ class MotionPrimitive():
             dict = {"cost": self.cost,
                     "start_state": self.start_state.tolist(),
                     "end_state": self.end_state.tolist(),
-            }
+                    }
         else:
             dict = {}
         return dict
-    
+
     def get_state(self, t):
         """
         Given a time t, return the state of the motion primitive at that time. 
@@ -89,3 +89,7 @@ class MotionPrimitive():
         else:
             print("Trajectory was not found")
 
+    def __eq__(self, other):
+        if self.__dict__.keys() != other.__dict__.keys():
+            return False
+        return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__)
