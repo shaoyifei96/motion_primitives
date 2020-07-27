@@ -25,7 +25,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                   plot=plot)
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
-        for i in range(len(mpl.vertices)):
+        for i in range(len(mpl.edges)):
             for j in range(len(mpl.vertices)):
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(
                     data["edges"][i * len(mpl.vertices) + j],
@@ -70,8 +70,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         score = np.ones((len(start_pts), len(end_pts))) * -np.inf
         mp_list = np.empty((len(start_pts), len(end_pts)), dtype=object)
-        for i in range(start_pts.shape[0]):
-            for j in range(end_pts.shape[0]):
+        for i in range(len(start_pts)):
+            for j in range(len(end_pts)):
                 if (start_pts[i, :] == end_pts[j, :]).all():
                     continue
                 mp = self.motion_primitive_type(start_pts[i, :], end_pts[j, :],
