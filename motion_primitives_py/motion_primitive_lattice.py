@@ -7,25 +7,21 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     points in the state space connected by feasible trajectories
     """
     @classmethod
-    def load(cls, filename, tiling=True, plot=False):
+    def load(cls, filename, plot=False):
         """
         create a motion primitive lattice from a given json file
         """
         # read from JSON file
-        try:
-            with open(filename) as json_file:
-                data = json.load(json_file)
-                print("Reading lattice from", filename, "...")
-        except:
-            print("Error reading from", filename)
-            return None
-
+        with open(filename) as json_file:
+            data = json.load(json_file)
+            print("Reading lattice from", filename, "...")
+   
         # build motion primitive lattice from data
         mpl = cls(control_space_q=data["control_space_q"],
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
                   motion_primitive_type=getattr(sys.modules[__name__], data["mp_type"]),
-                  tiling=tiling,
+                  tiling=data["tiling"],
                   plot=plot)
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices), len(mpl.vertices)), dtype=object)
@@ -53,14 +49,18 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         # write the JSON file
         with open(filename, "w") as output_file:
+            print("Saving lattice to", filename, "...")
             saved_params = {"mp_type": self.motion_primitive_type.__name__,
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
+                            "tiling": True if self.num_tiles > 1 else False,
                             "max_state": self.max_state.tolist(),
                             "vertices": self.vertices.tolist(),
                             "edges": mps
             }
             json.dump(saved_params, output_file, indent=4)
+            print("Lattice successfully saved")
+
 
     def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
         """
@@ -178,8 +178,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     if self.plot:
                         st, sp, sv, sa, sj = mp.get_sampled_states()
                         if self.num_dims == 2:
-                            if self.num_tiles > 1:
-                                t = self.tile_points(self.vertices)
                             self.ax.plot(sp[0, :], sp[1, :])
                             self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
                             self.ax_3d.plot(sp[0, :], sp[1, :], sv[0, :])
@@ -326,7 +324,7 @@ if __name__ == "__main__":
     num_dims = 2
     max_state = [2, 2*np.pi, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
-    tiling = False
+    tiling = True
     plot = True
     animate = False
 
@@ -346,11 +344,10 @@ if __name__ == "__main__":
     mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, .5, np.inf, 25, 1, 1], animate=animate)
     # print(mpl.vertices)
     mpl.limit_connections(2 * mpl.dispersion)
-    # mpl.limit_connections(2*mpl.dispersion)
-    # mpl.save("lattice_test.json")
-    # mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    mpl.save("lattice_test.json")
+    mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
     # plot
-    mpl.get_neighbors(0)
+    print(mpl.num_tiles)
     if mpl.plot:
         plt.show()
