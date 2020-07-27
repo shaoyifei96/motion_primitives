@@ -178,7 +178,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     if self.plot:
                         st, sp, sv, sa, sj = mp.get_sampled_states()
                         if self.num_dims == 2:
-                            if self.tiling:
+                            if self.num_tiles > 1:
                                 t = self.tile_points(self.vertices)
                             self.ax.plot(sp[0, :], sp[1, :])
                             self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
@@ -272,7 +272,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
         if i+1 < sample_inds.shape[0]:
             self.lines[4].set_data(range(i+1), self.dispersion_list[:i+1])
-        if self.tiling:
+        if self.num_tiles > 1:
             tiled_vertices = self.tile_points(vertices[:i+1, :])
             self.lines[2].set_data(tiled_vertices[i+1:, 0], tiled_vertices[i+1:, 1])
         self.lines[3].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
@@ -343,7 +343,7 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=5, resolution=[.5, .5, np.inf, 25, 1, 1], animate=animate)
+    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, .5, np.inf, 25, 1, 1], animate=animate)
     # print(mpl.vertices)
     mpl.limit_connections(2 * mpl.dispersion)
     # mpl.limit_connections(2*mpl.dispersion)
