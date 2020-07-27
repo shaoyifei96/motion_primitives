@@ -209,7 +209,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         reset_map_index = int(np.floor(node_index / self.num_tiles))
         for i, mp in enumerate(self.edges[:, reset_map_index]):
             if mp is not None and mp.is_valid:
-                print(mp.end_state)
                 neighbors.append((i, mp))
         return neighbors
 
@@ -225,13 +224,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             connections, list of tuples with entries corresponding to node 
                 indices and the MotionPrimitive object respectively 
         """
-        # map state to within bounds of original lattice
-        state[:self.num_dims] = (state[:self.num_dims] % (2 * self.max_state[0])) - self.max_state[0]
-
         # build list of neighbors
         connections = []
         for i, vertex in enumerate(self.vertices):
-                mp = self.motion_primitive_type(state, vertex, 
+                mp = self.motion_primitive_type(state, vertex,
                                     self.num_dims, self.max_state,
                                     self.mp_subclass_specific_data)
                 if mp.is_valid: 

@@ -72,6 +72,9 @@ class MotionPrimitiveGraph():
             x_derivs = PolynomialMotionPrimitive.setup_bvp_meam_620_style(self.control_space_q)
             self.mp_subclass_specific_data['x_derivs'] = x_derivs
 
+        if self.motion_primitive_type == ReedsSheppMotionPrimitive:  # TODO shouldn't live here
+            self.n = 3
+
         # TODO only really for lattice, maybe should move there
         if tiling:
             self.num_tiles = 3 ** self.num_dims
@@ -156,6 +159,7 @@ class MotionPrimitiveGraph():
         Create motion primitives for a start point by taking an even sampling over the
         input space at a given dt
         i.e. old sikang method
+        #TODO add support for non-quadrotor double integrator MPs by switching to MotionPrimitive datatype
         """
         max_u = self.max_state[self.control_space_q]
         single_u_set = np.linspace(-max_u, max_u, num_u_per_dimension)
