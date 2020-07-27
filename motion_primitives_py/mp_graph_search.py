@@ -104,7 +104,6 @@ class GraphSearch:
             mp = [mp for (i, mp) in self.motion_primitive_graph.get_neighbors(node.parent_index)if i == node.index][0]
             st, sp, sv, sa, sj = mp.get_sampled_states()
             sampled_path.append(sp + node.parent[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis])
-            plt.plot(sampled_path[-1][0, :], sampled_path[-1][1, :])
             path_cost += mp.cost
             node = self.node_dict[node.parent.tobytes()]
         path.append(self.start_state)
@@ -113,7 +112,6 @@ class GraphSearch:
         path_cost += mp.cost
 
         sampled_path.append(sp + self.start_state[:self.num_dims][:, np.newaxis])
-        plt.plot(sampled_path[-1][0, :], sampled_path[-1][1, :])
 
         path.reverse()
         sampled_path.reverse()
@@ -192,9 +190,8 @@ class GraphSearch:
         while self.queue:
             node = heappop(self.queue)
             # If node has been closed already, skip.
-            if self.node_dict[node.state.tobytes()].is_closed:
+            if node.is_closed:
                 continue
-            self.node_dict[node.state.tobytes()].is_closed = True
             # If node is the goal node, return path.
             # TODO separately compare states besides position for goal tolerance
             if np.linalg.norm(node.state[:self.num_dims] - (self.goal_state[:self.num_dims])) < self.goal_tolerance[0]:
@@ -214,8 +211,8 @@ class GraphSearch:
                 if old_neighbor is None or neighbor_node.g < old_neighbor.g:
                     heappush(self.queue, neighbor_node)
                     self.node_dict[neighbor_node.state.tobytes()] = neighbor_node
-                    # plt.plot(neighbor_node.state[0],
-                    #          neighbor_node.state[1], 'k.')
+                if old_neighbor is not None:
+                    old_neighbor.is_closed = True
 
         print()
         print(f"Nodes in queue at finish: {len(self.queue)}")
@@ -227,6 +224,7 @@ class GraphSearch:
             print("No path found")
         return path, sampled_path, path_cost
 
+
 if __name__ == "__main__":
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
 
@@ -235,7 +233,7 @@ if __name__ == "__main__":
     goal_state = np.ones_like(start_state)
     # plt.plot(mpl.vertices[:, 0] + start_state[0], mpl.vertices[:, 1] + start_state[1], '*k')
 
-    goal_state[0] = -10
+    goal_state[0] = -5
     goal_state[1] = 1.8
     goal_tolerance = np.ones_like(start_state)
     plot = True
@@ -247,10 +245,16 @@ if __name__ == "__main__":
     plt.plot(gs.goal_state[0], gs.goal_state[1], 'or')
 
     if sampled_path is not None:
-        # plt.plot(sampled_path[0, :], sampled_path[1, :])
+        plt.plot(sampled_path[0, :], sampled_path[1, :])
         print(f'cost: {path_cost}')
         print(path.shape)
         plt.plot(path[0, :], path[1, :], '*m')
+        mp = mpl.motion_primitive_type(start_state, goal_state, mpl.num_dims, mpl.max_state)
+        st, sp, sv, sa, sj = mp.get_sampled_states()
+        print(f'optimal path cost: {mp.cost}')
+
+        plt.plot(sp[0, :], sp[1, :])
+
         # print(sampled_path[0, :])
 
     plt.show()
