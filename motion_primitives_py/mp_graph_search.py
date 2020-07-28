@@ -230,18 +230,24 @@ class GraphSearch:
 
     def animation_helper(self, i, closed_set_states):
         print(f"frame {i+1}/{len(self.closed_nodes)+10}")
-        if i >= len(self.closed_nodes):
-            i = len(self.closed_nodes)-1
-        node = self.closed_nodes[i]
         for k in range(len(self.lines[0])):
             self.lines[0][k].set_data([], [])
-        open_list = []
-        for j, (_, mp) in enumerate(self.motion_primitive_graph.get_neighbors(node.index)):
-            _, sp, _, _, _ = mp.get_sampled_states()
-            shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
-            open_list.append(shifted_sp[:, -1])
-            self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
-        self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
+
+        if i >= len(self.closed_nodes):
+            i = len(self.closed_nodes)-1
+            node = self.closed_nodes[i]
+            path, sampled_path, path_cost = self.build_path(node)
+            self.lines[0][0].set_data(sampled_path[0, :], sampled_path[1, :])
+            self.lines[0][0].set_linewidth(2)
+        else:
+            node = self.closed_nodes[i]
+            open_list = []
+            for j, (_, mp) in enumerate(self.motion_primitive_graph.get_neighbors(node.index)):
+                _, sp, _, _, _ = mp.get_sampled_states()
+                shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
+                open_list.append(shifted_sp[:, -1])
+                self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
+            self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
         self.lines[3].set_data(closed_set_states[:i+1, 0], closed_set_states[:i+1, 1])
         self.lines[4].set_data(self.open_list_states_animation[:, 0], self.open_list_states_animation[:, 1])
         return self.lines
