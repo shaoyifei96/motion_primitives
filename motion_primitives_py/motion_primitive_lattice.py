@@ -1,4 +1,5 @@
 from motion_primitives_py.motion_primitive_graph import *
+import matplotlib.animation as animation
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
@@ -22,6 +23,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                   max_state=data["max_state"],
                   motion_primitive_type=getattr(sys.modules[__name__], data["mp_type"]),
                   tiling=data["tiling"])
+        mpl.dispersion = data["dispersion"]
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
         for i in range(len(mpl.edges)):
@@ -54,7 +56,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "tiling": True if self.num_tiles > 1 else False,
                             "max_state": self.max_state.tolist(),
                             "vertices": self.vertices.tolist(),
-                            "edges": mps
+                            "edges": mps,
+                            "dispersion": self.dispersion
                             }
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
@@ -168,6 +171,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Input:
             cost_threshold, max allowable cost for any edge in returned graph
         """
+        # TODO determine how we want to interface this with saving
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
@@ -253,8 +257,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_pts[i, :, :self.num_dims] += offset
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims, self.n)
 
-    def animation_helper(self, i, costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts):
+    def animation_helper(self, i, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts):
         print(f"frame {i+1}/{vertices.shape[0]}")
+        colors = plt.cm.tab20(np.linspace(0, 1, 20))
         closest_sample_pt = np.argmin(costs_mat[:(i + 1) * self.num_tiles, ], axis=0)
         for j in range(adj_mat.shape[1]):
             mp = adj_mat[closest_sample_pt[j], j]
@@ -280,7 +285,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             import matplotlib
             normal_backend = matplotlib.get_backend()
             matplotlib.use("Agg")
-        import matplotlib.animation as animation
 
         f, (ax1, ax2) = plt.subplots(1, 2)
         ax1.set_xlim(-self.max_state[0]*1.2*3, self.max_state[0]*1.2*3)
@@ -302,9 +306,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
-        colors = plt.cm.tab20(np.linspace(0, 1, 20))
         ani = animation.FuncAnimation(
-            f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(costs_mat, colors, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
+            f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
         if save_animation:
             print("Saving animation to disk")
@@ -319,7 +322,7 @@ if __name__ == "__main__":
     # define parameters
     control_space_q = 2
     num_dims = 2
-    max_state = [2, 2*np.pi, 2*np.pi, 100, 1, 1]
+    max_state = [.2, 2*np.pi, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
     tiling = True
     plot = True
@@ -336,15 +339,21 @@ if __name__ == "__main__":
     # max_state = [1, 1, 1, 100, 1, 1]
 
     # build lattice
-    mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.5, .5, np.inf, 25, 1, 1], animate=animate)
-    # print(mpl.vertices)
-    mpl.limit_connections(2 * mpl.dispersion)
-    mpl.save("lattice_test.json")
+    # mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
+    # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    # mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.05, .05, np.inf, 25, 1, 1], animate=animate)
+    # # # print(mpl.vertices)
+    # # mpl.limit_connections(2 * mpl.dispersion)
+    # mpl.save("lattice_test.json")
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    # mpl.plot = True
+    # fig, mpl.ax = plt.subplots()
+    # fig_3d, ax_3d = plt.subplots()
+    # mpl.ax_3d = fig_3d.add_subplot(111, projection='3d')
+    # print(mpl.dispersion)
+    mpl.limit_connections(2*mpl.dispersion)
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None]))
 
     # plot
-    print(mpl.num_tiles)
     if mpl.plot:
         plt.show()

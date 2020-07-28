@@ -157,7 +157,7 @@ class GraphSearch:
         self.node_dict = {}  # A dict where key is an state and the value is a node in the queue.
         self.queue = []      # A priority queue of nodes as a heapq.
         self.neighbor_list = []
-        self.expanded_nodes_list = []
+        self.closed_nodes = []
 
         if self.neighbor_type.LATTICE == self.get_neighbors:
             starting_neighbors = self.motion_primitive_graph.find_mps_to_lattice(deepcopy(self.start_state) - self.start_position_offset)
@@ -179,27 +179,28 @@ class GraphSearch:
             node = Node(0, 0, 0, 0, self.start_state, None)
             heappush(self.queue, node)
 
-    def run_graph_search(self, neighbor_method="min_dispersion"):
+    def run_graph_search(self):
         self.reset_graph_search()
 
         # # While queue is not empty, pop the next smallest total cost f node.
         path = None
         sampled_path = None
         nodes_expanded = 0
-        # print(self.queue)
         while self.queue:
             node = heappop(self.queue)
             # If node has been closed already, skip.
             if node.is_closed:
                 continue
+
+            # Otherwise, expand node and for each neighbor...
+            nodes_expanded += 1
+            self.closed_nodes.append(node)  # for animation/plotting
+
             # If node is the goal node, return path.
             # TODO separately compare states besides position for goal tolerance
             if np.linalg.norm(node.state[:self.num_dims] - (self.goal_state[:self.num_dims])) < self.goal_tolerance[0]:
                 path, sampled_path, path_cost = self.build_path(node)
                 break
-
-            # Otherwise, expand node and for each neighbor...
-            nodes_expanded += 1
 
             # JUST FOR TESTING
             # if (nodes_expanded) > 20:
@@ -213,6 +214,7 @@ class GraphSearch:
                     self.node_dict[neighbor_node.state.tobytes()] = neighbor_node
                 if old_neighbor is not None:
                     old_neighbor.is_closed = True
+                self.neighbor_list.append(neighbor_node.state)  # for plotting
 
         print()
         print(f"Nodes in queue at finish: {len(self.queue)}")
@@ -222,39 +224,98 @@ class GraphSearch:
 
         if path is None:
             print("No path found")
+        self.neighbor_list = np.array(self.neighbor_list)
+        self.closed_nodes = np.array(self.closed_nodes)
         return path, sampled_path, path_cost
+
+    def animation_helper(self, i, closed_set_states):
+        print(f"frame {i+1}/{len(self.closed_nodes)+10}")
+        if i >= len(self.closed_nodes):
+            i = len(self.closed_nodes)-1
+        node = self.closed_nodes[i]
+        for k in range(len(self.lines[0])):
+            self.lines[0][k].set_data([], [])
+        open_list = []
+        for j, (_, mp) in enumerate(self.motion_primitive_graph.get_neighbors(node.index)):
+            _, sp, _, _, _ = mp.get_sampled_states()
+            shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
+            open_list.append(shifted_sp[:, -1])
+            self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
+        self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
+        self.lines[3].set_data(closed_set_states[:i+1, 0], closed_set_states[:i+1, 1])
+        self.lines[4].set_data(self.open_list_states_animation[:, 0], self.open_list_states_animation[:, 1])
+        return self.lines
+
+    def make_graph_search_animation(self):
+        save_animation = True
+        if save_animation:
+            import matplotlib
+            normal_backend = matplotlib.get_backend()
+            matplotlib.use("Agg")
+
+        f, ax = plt.subplots(1, 1)
+        ax.set_xlim(min(self.start_state[0], self.goal_state[0]) - 1, max(self.start_state[0], self.goal_state[0]) + 1)
+        ax.set_ylim(min(self.start_state[1], self.goal_state[1]) - 1, max(self.start_state[1], self.goal_state[1]) + 1)
+        ax.axis('equal')
+
+        mp_lines = []
+        for j in range(len(self.motion_primitive_graph.edges)):
+            mp_lines.append(ax.plot([], [], linewidth=.4)[0])
+        start_line, = ax.plot(self.start_state[0], self.start_state[1], 'og')
+        goal_line, = ax.plot(self.goal_state[0], self.goal_state[1], 'or')
+        closed_set_line, = ax.plot([], [], 'k*')
+        open_set_line, = ax.plot([], [], '.', color=('.8'),  zorder=1)
+        circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
+        circle_patch = ax.add_artist(circle)
+        self.lines = [mp_lines, start_line, goal_line, closed_set_line, open_set_line, circle_patch]
+        closed_set = np.array([node.state for node in self.closed_nodes])
+        self.open_list_states_animation = self.start_state[:self.num_dims]
+        ani = animation.FuncAnimation(f, self.animation_helper, len(self.closed_nodes)+10,
+                                      interval=300, fargs=(closed_set,), repeat=False)
+
+        if save_animation:
+            print("Saving animation to disk")
+            ani.save('graph_search.mp4')
+            print("Finished saving animation")
+            matplotlib.use(normal_backend)
+        else:
+            plt.show()
 
 
 if __name__ == "__main__":
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
-
+    mpl.limit_connections(2*mpl.dispersion)
     map_size = [-2, -2, 2, 2]
     start_state = np.ones((mpl.n))
     goal_state = np.ones_like(start_state)
     # plt.plot(mpl.vertices[:, 0] + start_state[0], mpl.vertices[:, 1] + start_state[1], '*k')
 
-    goal_state[0] = -5
-    goal_state[1] = 1.8
-    goal_tolerance = np.ones_like(start_state)
+    goal_state[0] = 5
+    goal_state[1] = 5.4
+    goal_state[2] = 0
+    goal_tolerance = np.ones_like(start_state)*mpl.dispersion
     plot = True
     gs = GraphSearch(mpl, start_state, goal_state, goal_tolerance, map_size, plot)
     gs.get_neighbors = gs.neighbor_type.LATTICE
+    gs.heuristic = gs.heuristic_type.EUCLIDEAN
     path, sampled_path, path_cost = gs.run_graph_search()
 
-    plt.plot(gs.start_state[0], gs.start_state[1], 'og')
-    plt.plot(gs.goal_state[0], gs.goal_state[1], 'or')
+    gs.make_graph_search_animation()
 
-    if sampled_path is not None:
-        plt.plot(sampled_path[0, :], sampled_path[1, :])
-        print(f'cost: {path_cost}')
-        print(path.shape)
-        plt.plot(path[0, :], path[1, :], '*m')
-        mp = mpl.motion_primitive_type(start_state, goal_state, mpl.num_dims, mpl.max_state)
-        st, sp, sv, sa, sj = mp.get_sampled_states()
-        print(f'optimal path cost: {mp.cost}')
+    # plt.figure()
+    # plt.plot(gs.start_state[0], gs.start_state[1], 'og')
+    # plt.plot(gs.goal_state[0], gs.goal_state[1], 'or')
+    # # plt.plot(gs.neighbor_list[:, 0], gs.neighbor_list[:, 1], 'k.')
+    # # plt.plot(gs.expanded_nodes_list[:, 0], gs.expanded_nodes_list[:, 1], 'k.')
 
-        plt.plot(sp[0, :], sp[1, :])
+    # if sampled_path is not None:
+    #     plt.plot(sampled_path[0, :], sampled_path[1, :])
+    #     print(f'cost: {path_cost}')
+    #     plt.plot(path[0, :], path[1, :], '*m')
+    #     mp = mpl.motion_primitive_type(start_state, goal_state, mpl.num_dims, mpl.max_state)
+    #     st, sp, sv, sa, sj = mp.get_sampled_states()
+    #     print(f'optimal path cost: {mp.cost}')
 
-        # print(sampled_path[0, :])
+    #     plt.plot(sp[0, :], sp[1, :])
 
     plt.show()
