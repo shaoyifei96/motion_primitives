@@ -8,3 +8,4 @@ __pycache__/
 **/images/
 *.json
 *.mp4
+*.bag
