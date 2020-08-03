@@ -35,6 +35,15 @@ class OccupancyMap():
     def get_voxel_center(self, indices):
         return self.resolution * (indices + .5) + self.origin
 
+    def get_bounds(self):
+        """
+        return an array representing the bounds of map 
+            
+        Output:
+            bounds, array in form [x_min, y_min, [z_min], x_max, y_max, [z_max]]
+        """
+        return np.hstack((np.zeros(len(self.dims)), self.resolution * self.dims))
+
     def is_in_bounds(self, indices):    
         if any(indices < 0) or any((self.dims - indices) < 0):
             return False
@@ -50,17 +59,17 @@ class OccupancyMap():
         else:
             return True
 
-    def mp_has_collision(self, mp, offset=np.array([0, 0, 0]), plot=False):
+    def collision_free(self, mp, offset, plot=False):
         """
         Function to check if there is a collision between a motion primitive
         trajectory and the occupancy map
 
         Input:
             mp, a MotionPrimitive object to be checked
-            offset, optional argument to specify offset for starting point
+            offset, offset for starting point
 
         Output:
-            collision, boolean that is True if there were any collisions
+            collision, boolean that is True if there were no collisions
         """
         # TODO make number of points a parameter to pass in here
         _, samples, _, _, _, = mp.get_sampled_states()
@@ -72,10 +81,10 @@ class OccupancyMap():
                 if plot:
                     plt.plot(indices[0], indices[1], 'or')
                     self.get_voxel_center(indices)
-                return True
+                return False
             if plot:
                 plt.plot(indices[0], indices[1], 'og')
-        return False
+        return True
 
     def plot(self):
         if len(self.dims) == 2:
@@ -119,6 +128,6 @@ if __name__ == "__main__":
 
     # check collision
     if mp.is_valid:
-        print(occ_map.mp_has_collision(mp, plot=True))
+        print(occ_map.collision_free(mp, np.array([0, 0, 0]), plot=True))
 
     plt.show()

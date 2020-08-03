@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from motion_primitive_lattice import *
+from occupancy_map import OccupancyMap
 from heapq import heappush, heappop, heapify  # Recommended.
 from scipy import spatial
 from enum import Enum
@@ -39,23 +40,28 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive_graph, start_state, goal_state, goal_tolerance, map_size=[-1, -1, -1, 1, 1, 1], plot=False):
+    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, plot=False):
+        # Save arguments as parameters
         self.motion_primitive_graph = motion_primitive_graph
+        self.map = occupancy_map
         self.start_state = np.array(start_state)
         self.goal_state = np.array(goal_state)
         self.goal_tolerance = np.array(goal_tolerance)
-        self.map_size = np.array(map_size)
         self.plot = plot
 
+        # Dimensionality parameters
         self.num_dims = self.motion_primitive_graph.num_dims
         self.control_space_q = self.motion_primitive_graph.control_space_q
         self.n = self.motion_primitive_graph.n
 
+        # Create comparators for extreme states
+        map_size = self.map.get_bounds()
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
                                               [np.repeat(-i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
                                               [np.repeat(i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
 
+        # Parameter used in min time heuristic from Sikang's paper
         self.rho = 0.0
 
         # TODO I don't really think this is optimal stylistically/pythonically
@@ -70,11 +76,10 @@ class GraphSearch:
             MIN_DISPERSION = self.get_neighbors_min_dispersion
             EVENLY_SPACED = self.get_neighbors_evenly_spaced
             LATTICE = self.get_neighbors_lattice
-
         self.neighbor_type = NeighborType
         self.get_neighbors = NeighborType.MIN_DISPERSION
+        
         self.start_position_offset = np.hstack((self.start_state[:self.num_dims], np.zeros_like(self.start_state[self.num_dims:])))
-
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
     def is_valid_state(self, state):
@@ -139,17 +144,17 @@ class GraphSearch:
     def get_neighbors_lattice(self, node):
         neighbors = []
         for i, mp in self.motion_primitive_graph.get_neighbors(node.index):
-            state = deepcopy(node.state)
-            state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
-            state[self.num_dims:] = mp.end_state[self.num_dims:]
-            g = mp.cost + node.g
-            dt = mp.cost
-            h = self.heuristic(state)
-            parent = node.state
-            index = i
-            parent_index = node.index
-            neighbor_node = Node(g, h, None, dt, state, parent, index, parent_index)
-            neighbors.append(neighbor_node)
+            if self.map.collision_free(mp, node.state[:self.num_dims]):
+                state = deepcopy(node.state)
+                state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
+                state[self.num_dims:] = mp.end_state[self.num_dims:]
+                g = mp.cost + node.g
+                dt = mp.cost
+                h = self.heuristic(state)
+                parent = node.state
+                parent_index = node.index
+                neighbor_node = Node(g, h, None, dt, state, parent, i, parent_index)
+                neighbors.append(neighbor_node)
         node.is_closed = True
         return neighbors
 
@@ -163,18 +168,17 @@ class GraphSearch:
             starting_neighbors = self.motion_primitive_graph.find_mps_to_lattice(deepcopy(self.start_state) - self.start_position_offset)
             self.start_edges = []
             for i, mp in starting_neighbors:
-                state = mpl.vertices[i] + self.start_position_offset
-                g = mp.cost
-                dt = mp.cost
-                h = self.heuristic(state)
-                parent = self.start_state
-                index = i
-                parent_index = None
-                node = Node(g, h, None, dt, state, parent, index, parent_index)
-                heappush(self.queue, node)
-                self.start_edges.append(mp)
-                self.node_dict[node.state.tobytes()] = node
-
+                if self.map.collision_free(mp, self.start_position_offset):
+                    state = mp.start_state + self.start_position_offset
+                    g = mp.cost
+                    dt = mp.cost
+                    h = self.heuristic(state)
+                    parent = self.start_state
+                    parent_index = None
+                    node = Node(g, h, None, dt, state, parent, i , parent_index)
+                    heappush(self.queue, node)
+                    self.start_edges.append(mp)
+                    self.node_dict[node.state.tobytes()] = node
         else:
             node = Node(0, 0, 0, 0, self.start_state, None)
             heappush(self.queue, node)
@@ -182,7 +186,7 @@ class GraphSearch:
     def run_graph_search(self):
         self.reset_graph_search()
 
-        # # While queue is not empty, pop the next smallest total cost f node.
+        # While queue is not empty, pop the next smallest total cost f node
         path = None
         sampled_path = None
         nodes_expanded = 0
@@ -253,7 +257,7 @@ class GraphSearch:
         return self.lines
 
     def make_graph_search_animation(self):
-        save_animation = True
+        save_animation = False
         if save_animation:
             import matplotlib
             normal_backend = matplotlib.get_backend()
@@ -291,7 +295,7 @@ class GraphSearch:
 if __name__ == "__main__":
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
     mpl.limit_connections(2*mpl.dispersion)
-    map_size = [-2, -2, 2, 2]
+    occ_map = OccupancyMap('trees_dispersion_0.6_1.bag', 0)
     start_state = np.ones((mpl.n))
     goal_state = np.ones_like(start_state)
     # plt.plot(mpl.vertices[:, 0] + start_state[0], mpl.vertices[:, 1] + start_state[1], '*k')
@@ -301,7 +305,7 @@ if __name__ == "__main__":
     goal_state[2] = 0
     goal_tolerance = np.ones_like(start_state)*mpl.dispersion
     plot = True
-    gs = GraphSearch(mpl, start_state, goal_state, goal_tolerance, map_size, plot)
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot)
     gs.get_neighbors = gs.neighbor_type.LATTICE
     gs.heuristic = gs.heuristic_type.EUCLIDEAN
     path, sampled_path, path_cost = gs.run_graph_search()
