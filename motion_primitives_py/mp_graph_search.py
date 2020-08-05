@@ -56,6 +56,7 @@ class GraphSearch:
 
         # Create comparators for extreme states
         map_size = self.map.get_bounds()
+        print(map_size)
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
                                               [np.repeat(-i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
@@ -169,13 +170,13 @@ class GraphSearch:
             self.start_edges = []
             for i, mp in starting_neighbors:
                 if self.map.collision_free(mp, self.start_position_offset):
-                    state = mp.start_state + self.start_position_offset
+                    state = mp.end_state + self.start_position_offset
                     g = mp.cost
                     dt = mp.cost
                     h = self.heuristic(state)
                     parent = self.start_state
                     parent_index = None
-                    node = Node(g, h, None, dt, state, parent, i , parent_index)
+                    node = Node(g, h, None, dt, state, parent, i, parent_index)
                     heappush(self.queue, node)
                     self.start_edges.append(mp)
                     self.node_dict[node.state.tobytes()] = node
