@@ -83,12 +83,20 @@ class OccupancyMap():
                     self.get_voxel_center(indices)
                 return False
             if plot:
-                plt.plot(indices[0], indices[1], 'og')
+                plt.plot(indices[0], indices[1], 'og') 
         return True
 
-    def plot(self):
+    def plot(self, bounds=None):
         if len(self.dims) == 2:
-            plt.imshow(self.voxels.T, cmap=plt.cm.gray_r)
+            if bounds:
+                upper_l = self.get_indices(np.array([bounds[0], bounds[3]]))
+                lower_r = self.get_indices(np.array([bounds[1], bounds[2]]))
+                print(upper_l)
+                print(lower_r)
+                im = self.voxels[upper_l[0]:lower_r[0], upper_l[1]:lower_r[1]].T
+            else:
+                im = self.voxels.T
+            plt.imshow(im, cmap=plt.cm.gray_r, extent=bounds)
 
     # ----------------------  PRIVATE FUNCTIONS ----------------------------- 
 

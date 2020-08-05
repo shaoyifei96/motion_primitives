@@ -265,8 +265,13 @@ class GraphSearch:
             matplotlib.use("Agg")
 
         f, ax = plt.subplots(1, 1)
-        ax.set_xlim(min(self.start_state[0], self.goal_state[0]) - 1, max(self.start_state[0], self.goal_state[0]) + 1)
-        ax.set_ylim(min(self.start_state[1], self.goal_state[1]) - 1, max(self.start_state[1], self.goal_state[1]) + 1)
+        bounds = (min(self.start_state[0], self.goal_state[0]) - 1, 
+                  max(self.start_state[0], self.goal_state[0]) + 1,
+                  min(self.start_state[1], self.goal_state[1]) - 1, 
+                  max(self.start_state[1], self.goal_state[1]) + 1)
+        ax.set_xlim(bounds[0], bounds[1])
+        ax.set_ylim(bounds[2], bounds[3])
+        self.map.plot(bounds=bounds)
         ax.axis('equal')
 
         mp_lines = []
@@ -300,8 +305,10 @@ if __name__ == "__main__":
     start_state = np.ones((mpl.n))
     goal_state = np.ones_like(start_state)
     # plt.plot(mpl.vertices[:, 0] + start_state[0], mpl.vertices[:, 1] + start_state[1], '*k')
-
-    goal_state[0] = 5
+    start_state[0] = 30
+    start_state[1] = 5
+    start_state[2] = 0
+    goal_state[0] = 35
     goal_state[1] = 5.4
     goal_state[2] = 0
     goal_tolerance = np.ones_like(start_state)*mpl.dispersion
