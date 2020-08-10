@@ -4,6 +4,7 @@ from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
 from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
 from motion_primitives_py.reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 from motion_primitives_py.motion_primitive_lattice import MotionPrimitiveLattice
+from motion_primitives_py.occupancy_map import OccupancyMap
 import tempfile
 import os
 
@@ -82,6 +83,39 @@ class TestMotionPrimitive(unittest.TestCase):
         assert((mpl1.max_state == mpl2.max_state).all())
         assert(mpl1.motion_primitive_type == mpl2.motion_primitive_type)
         assert(mpl1.num_tiles == mpl2.num_tiles)
+
+    def test_occ_map(self):
+        import matplotlib.pyplot as plt
+
+        resolution = 1
+        origin = [0, 0]
+        dims = [10, 20]
+        data = np.zeros(dims)
+        data[5:10, 10:15] = 100
+        data = data.flatten('F')
+        om = OccupancyMap(resolution, origin, dims, data)
+        om.plot()
+        plt.show()
+
+        occupied_valid_position = np.array([6, 6])
+        invalid_position = np.array([11, 11])
+        unoccupied_valid_position = np.array([1, 1])
+
+        assert(om.is_free_and_valid_position(occupied_valid_position) == False)
+        assert(om.is_valid_position(occupied_valid_position) == True)
+
+        assert(om.is_free_and_valid_position(invalid_position) == False)
+        assert(om.is_valid_position(invalid_position) == False)
+
+        assert(om.is_free_and_valid_position(unoccupied_valid_position) == True)
+        assert(om.is_valid_position(unoccupied_valid_position) == True)
+
+        mp = PolynomialMotionPrimitive([7, 7, 0, 0], [7, 18, 0, 0], len(om.dims), [100, 100, 100, 100])
+        assert(not om.is_mp_collision_free(mp))
+
+        om.plot()
+        mp.plot(position_only=True)
+        plt.show()
 
 
 if __name__ == '__main__':

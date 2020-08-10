@@ -322,7 +322,7 @@ if __name__ == "__main__":
     # define parameters
     control_space_q = 2
     num_dims = 2
-    max_state = [.2, 2*np.pi, 2*np.pi, 100, 1, 1]
+    max_state = [1, 2*np.pi, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
     tiling = True
     plot = True
@@ -339,20 +339,21 @@ if __name__ == "__main__":
     # max_state = [1, 1, 1, 100, 1, 1]
 
     # build lattice
-    # mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
+    mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
     # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    # mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.05, .05, np.inf, 25, 1, 1], animate=animate)
+    mpl.compute_min_dispersion_space(num_output_pts=20, resolution=[.2, .2, np.inf, 25, 1, 1], animate=animate)
     # # # print(mpl.vertices)
     # # mpl.limit_connections(2 * mpl.dispersion)
-    # mpl.save("lattice_test.json")
-    mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    mpl.save("lattice_test.json")
+    # mpl = MotionPrimitiveLattice.load("lattice_test.json")
     # mpl.plot = True
     # fig, mpl.ax = plt.subplots()
     # fig_3d, ax_3d = plt.subplots()
     # mpl.ax_3d = fig_3d.add_subplot(111, projection='3d')
     # print(mpl.dispersion)
     mpl.limit_connections(2*mpl.dispersion)
-    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None]))
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+
 
     # plot
     if mpl.plot:

@@ -56,7 +56,6 @@ class GraphSearch:
 
         # Create comparators for extreme states
         map_size = self.map.get_bounds()
-        print(map_size)
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
                                               [np.repeat(-i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
@@ -79,7 +78,7 @@ class GraphSearch:
             LATTICE = self.get_neighbors_lattice
         self.neighbor_type = NeighborType
         self.get_neighbors = NeighborType.MIN_DISPERSION
-        
+
         self.start_position_offset = np.hstack((self.start_state[:self.num_dims], np.zeros_like(self.start_state[self.num_dims:])))
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
@@ -96,7 +95,7 @@ class GraphSearch:
         return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state_derivs[0]
 
     def euclidean_distance_heuristic(self, state):
-        return np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims])
+        return np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims])  # /self.motion_primitive_graph.max_state[1]
 
     def build_path(self, node):
         """
@@ -145,7 +144,7 @@ class GraphSearch:
     def get_neighbors_lattice(self, node):
         neighbors = []
         for i, mp in self.motion_primitive_graph.get_neighbors(node.index):
-            if self.map.collision_free(mp, node.state[:self.num_dims]):
+            if self.map.is_mp_collision_free(mp, node.state[:self.num_dims]):
                 state = deepcopy(node.state)
                 state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
                 state[self.num_dims:] = mp.end_state[self.num_dims:]
@@ -165,20 +164,29 @@ class GraphSearch:
         self.neighbor_list = []
         self.closed_nodes = []
 
+        if not self.map.is_free_and_valid_position(self.start_state[:self.num_dims]):
+            print("start invalid")
+            self.queue = None
+            return
+        if not self.map.is_free_and_valid_position(self.goal_state[:self.num_dims]):
+            print("goal invalid")
+            self.queue = None
+            return
+
         if self.neighbor_type.LATTICE == self.get_neighbors:
             starting_neighbors = self.motion_primitive_graph.find_mps_to_lattice(deepcopy(self.start_state) - self.start_position_offset)
             self.start_edges = []
             for i, mp in starting_neighbors:
-                if self.map.collision_free(mp, self.start_position_offset):
-                    state = mp.end_state + self.start_position_offset
-                    g = mp.cost
-                    dt = mp.cost
-                    h = self.heuristic(state)
-                    parent = self.start_state
-                    parent_index = None
-                    node = Node(g, h, None, dt, state, parent, i, parent_index)
+                state = mp.end_state + self.start_position_offset
+                g = mp.cost
+                dt = mp.cost
+                h = self.heuristic(state)
+                parent = self.start_state
+                parent_index = None
+                node = Node(g, h, None, dt, state, parent, i, parent_index)
+                self.start_edges.append(mp)
+                if self.map.is_mp_collision_free(mp, self.start_position_offset):
                     heappush(self.queue, node)
-                    self.start_edges.append(mp)
                     self.node_dict[node.state.tobytes()] = node
         else:
             node = Node(0, 0, 0, 0, self.start_state, None)
@@ -190,7 +198,9 @@ class GraphSearch:
         # While queue is not empty, pop the next smallest total cost f node
         path = None
         sampled_path = None
+        path_cost = None
         nodes_expanded = 0
+
         while self.queue:
             node = heappop(self.queue)
             # If node has been closed already, skip.
@@ -221,16 +231,17 @@ class GraphSearch:
                     old_neighbor.is_closed = True
                 self.neighbor_list.append(neighbor_node.state)  # for plotting
 
-        print()
-        print(f"Nodes in queue at finish: {len(self.queue)}")
-        print(f"Closed nodes in queue at finish: {sum(node.is_closed for node in self.queue)}")
-        print()
-        print(f"Nodes expanded: {nodes_expanded}")
+        if self.queue is not None:
+            print()
+            print(f"Nodes in queue at finish: {len(self.queue)}")
+            print(f"Closed nodes in queue at finish: {sum(node.is_closed for node in self.queue)}")
+            print()
+            print(f"Nodes expanded: {nodes_expanded}")
+            self.neighbor_list = np.array(self.neighbor_list)
+            self.closed_nodes = np.array(self.closed_nodes)
 
         if path is None:
             print("No path found")
-        self.neighbor_list = np.array(self.neighbor_list)
-        self.closed_nodes = np.array(self.closed_nodes)
         return path, sampled_path, path_cost
 
     def animation_helper(self, i, closed_set_states):
@@ -265,13 +276,13 @@ class GraphSearch:
             matplotlib.use("Agg")
 
         f, ax = plt.subplots(1, 1)
-        bounds = (min(self.start_state[0], self.goal_state[0]) - 1, 
+        bounds = (min(self.start_state[0], self.goal_state[0]) - 1,
                   max(self.start_state[0], self.goal_state[0]) + 1,
-                  min(self.start_state[1], self.goal_state[1]) - 1, 
+                  min(self.start_state[1], self.goal_state[1]) - 1,
                   max(self.start_state[1], self.goal_state[1]) + 1)
         ax.set_xlim(bounds[0], bounds[1])
         ax.set_ylim(bounds[2], bounds[3])
-        self.map.plot(bounds=bounds)
+        self.map.plot()
         ax.axis('equal')
 
         mp_lines = []
@@ -300,17 +311,24 @@ class GraphSearch:
 
 if __name__ == "__main__":
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    print(mpl.num_dims)
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+
     mpl.limit_connections(2*mpl.dispersion)
-    occ_map = OccupancyMap('trees_dispersion_0.6_1.bag', 0)
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+
+    # occ_map = OccupancyMap.fromVoxelMapBag('/home/laura/mpl_ws/src/mpl_ros/mpl_test_node/maps/simple/simple.bag', 0)
+    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_0.6_1.bag', 0)
+    occ_map.plot()
     start_state = np.ones((mpl.n))
-    goal_state = np.ones_like(start_state)
-    # plt.plot(mpl.vertices[:, 0] + start_state[0], mpl.vertices[:, 1] + start_state[1], '*k')
-    start_state[0] = 30
-    start_state[1] = 5
-    start_state[2] = 0
-    goal_state[0] = 35
-    goal_state[1] = 5.4
-    goal_state[2] = 0
+    start_state[0:2] = [0, -15]
+    goal_state = np.ones_like(start_state)*20
+    goal_state[0:2] = [0, 0]
+    plt.plot(start_state[0], start_state[1], 'og')
+    plt.plot(goal_state[0], goal_state[1], 'or')
+    plt.show()
+
     goal_tolerance = np.ones_like(start_state)*mpl.dispersion
     plot = True
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot)
@@ -318,7 +336,8 @@ if __name__ == "__main__":
     gs.heuristic = gs.heuristic_type.EUCLIDEAN
     path, sampled_path, path_cost = gs.run_graph_search()
 
-    gs.make_graph_search_animation()
+    if gs.queue is not None:
+        gs.make_graph_search_animation()
 
     # plt.figure()
     # plt.plot(gs.start_state[0], gs.start_state[1], 'og')
@@ -336,4 +355,4 @@ if __name__ == "__main__":
 
     #     plt.plot(sp[0, :], sp[1, :])
 
-    plt.show()
+    # plt.show()
