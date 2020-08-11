@@ -67,9 +67,9 @@ class JerksMotionPrimitive(MotionPrimitive):
                                                                                                 self.num_dims], self.start_state[2*self.num_dims:3*self.num_dims], self.switch_times, self.jerks, t)
         return np.squeeze(np.concatenate([sp, sv, sa]))  # TODO concatenate may be slow because allocates new memory
 
-    def get_sampled_states(self):
+    def get_sampled_states(self, resolution=0.001):
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
-        st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=0.001)
+        st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=resolution)
         return st, sp, sv, sa, sj
 
 

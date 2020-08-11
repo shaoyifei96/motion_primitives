@@ -41,12 +41,11 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
     def get_state(self, t):
         pass
 
-    def get_sampled_states(self):
-        step_size = 0.1
-        ps = np.array(reeds_shepp.path_sample(self.start_state, self.end_state, self.turning_radius, step_size)).T
+    def get_sampled_states(self, resolution=0.1):
+        ps = np.array(reeds_shepp.path_sample(self.start_state, self.end_state, self.turning_radius, resolution)).T
         p = ps[:2, :]
         v = ps[2, :][np.newaxis, :]
-        ts = np.arange(0, self.cost + step_size, step_size)
+        ts = np.arange(0, self.cost + resolution, resolution)
         return ts, p, v, None, None
 
 
