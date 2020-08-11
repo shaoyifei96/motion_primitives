@@ -55,7 +55,7 @@ class GraphSearch:
         self.n = self.motion_primitive_graph.n
 
         # Create comparators for extreme states
-        map_size = self.map.get_bounds()
+        map_size = self.map.extent
         self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
                                               [np.repeat(-i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
         self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
@@ -255,6 +255,7 @@ class GraphSearch:
             path, sampled_path, path_cost = self.build_path(node)
             self.lines[0][0].set_data(sampled_path[0, :], sampled_path[1, :])
             self.lines[0][0].set_linewidth(2)
+            self.lines[0][0].set_zorder(11)
         else:
             node = self.closed_nodes[i]
             open_list = []
@@ -282,7 +283,11 @@ class GraphSearch:
                   max(self.start_state[1], self.goal_state[1]) + 1)
         ax.set_xlim(bounds[0], bounds[1])
         ax.set_ylim(bounds[2], bounds[3])
-        self.map.plot()
+
+        transparent_map = np.zeros(self.map.voxels.T.shape + (4,))
+        transparent_map[self.map.voxels.T > 0, :] = (0, 0, 0, 1)
+        plt.imshow(transparent_map, origin='lower', extent=self.map.extent, zorder=10)
+
         ax.axis('equal')
 
         mp_lines = []
@@ -298,7 +303,7 @@ class GraphSearch:
         closed_set = np.array([node.state for node in self.closed_nodes])
         self.open_list_states_animation = self.start_state[:self.num_dims]
         ani = animation.FuncAnimation(f, self.animation_helper, len(self.closed_nodes)+10,
-                                      interval=300, fargs=(closed_set,), repeat=False)
+                                      interval=100, fargs=(closed_set,), repeat=False)
 
         if save_animation:
             print("Saving animation to disk")
@@ -320,14 +325,12 @@ if __name__ == "__main__":
     # occ_map = OccupancyMap.fromVoxelMapBag('/home/laura/mpl_ws/src/mpl_ros/mpl_test_node/maps/simple/simple.bag', 0)
     occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
     # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_0.6_1.bag', 0)
-    occ_map.plot()
     start_state = np.ones((mpl.n))
     start_state[0:2] = [0, -15]
     goal_state = np.ones_like(start_state)*20
     goal_state[0:2] = [0, 0]
     plt.plot(start_state[0], start_state[1], 'og')
     plt.plot(goal_state[0], goal_state[1], 'or')
-    plt.show()
 
     goal_tolerance = np.ones_like(start_state)*mpl.dispersion
     plot = True

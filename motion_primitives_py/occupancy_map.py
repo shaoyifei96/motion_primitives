@@ -71,7 +71,7 @@ class OccupancyMap():
         if offset is None:
             offset = np.zeros(mp.num_dims)
         # TODO make number of points a parameter to pass in here
-        _, samples, _, _, _, = mp.get_sampled_states()
+        _, samples, _, _, _, = mp.get_sampled_states(self.resolution)
         for sample in samples.T + offset[:len(self.dims)]:
             if not self.is_free_and_valid_position(sample):
                 return False
@@ -82,11 +82,12 @@ class OccupancyMap():
             if bounds:
                 upper_l = self.get_indices_from_position(np.array([bounds[0], bounds[3]]))
                 lower_r = self.get_indices_from_position(np.array([bounds[1], bounds[2]]))
-                im = self.voxels[upper_l[0]:lower_r[0], upper_l[1]:lower_r[1]].T
+                im = self.voxels[upper_l[0]:lower_r[0], upper_l[1]:lower_r[1]]
             else:
-                im = self.voxels.T
+                im = self.voxels
                 bounds = self.extent
-            plt.imshow(im, cmap=plt.cm.gray_r, origin='lower', extent=bounds)
+            image = plt.imshow(im.T, cmap=plt.cm.gray_r, origin='lower', extent=bounds)
+            return image
 
 
 
