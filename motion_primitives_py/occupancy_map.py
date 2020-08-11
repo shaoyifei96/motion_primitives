@@ -86,7 +86,8 @@ class OccupancyMap():
             else:
                 im = self.voxels.T
                 bounds = self.extent
-            plt.imshow(im, cmap=plt.cm.gray_r, extent=bounds)
+            plt.imshow(im, cmap=plt.cm.gray_r, origin='lower', extent=bounds)
+
 
 
 if __name__ == "__main__":
