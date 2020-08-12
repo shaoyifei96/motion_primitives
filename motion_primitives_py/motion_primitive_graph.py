@@ -17,7 +17,7 @@ from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
 from motion_primitives_py.reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 import itertools
 from py_opt_control import min_time_bvp
-import json
+import ujson as json
 import sys
 
 # TODO a lot of cleanup of this file needed to reflect updates to MotionPrimitiveLattice. Some code could be moved to MotionPrimitiveTree, PolynomialMotionPrimitive
@@ -86,10 +86,9 @@ class MotionPrimitiveGraph():
         self.dispersion = None
         self.dispersion_list = []
 
-        if self.plot:
-            fig, self.ax = plt.subplots()
-            fig_3d, ax_3d = plt.subplots()
-            self.ax_3d = fig_3d.add_subplot(111, projection='3d')
+        fig, self.ax = plt.subplots()
+        fig_3d, ax_3d = plt.subplots()
+        self.ax_3d = fig_3d.add_subplot(111, projection='3d')
 
     def pickle_self(self):
         file_path = Path("pickle/dimension_" + str(self.num_dims) + "/control_space_" +

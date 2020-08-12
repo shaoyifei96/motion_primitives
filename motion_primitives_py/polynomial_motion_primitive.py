@@ -145,8 +145,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish. TODO: only checking input constraint at start, middle, and end at the moment
         """
         # TODO make parameters
-        dt = .2
-        max_t = 2
+        dt = .1
+        max_t = 1
         t = 0
         u_max = np.inf
         polys = None

@@ -92,10 +92,10 @@ class GraphSearch:
 
     def min_time_heuristic(self, state):
         # sikang heuristic 1
-        return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state_derivs[0]
+        return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state[1]
 
     def euclidean_distance_heuristic(self, state):
-        return np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims])  # /self.motion_primitive_graph.max_state[1]
+        return np.linalg.norm(state[:self.num_dims] - self.goal_state[:self.num_dims])  # /self.motion_primitive_graph.max_state[1]
 
     def build_path(self, node):
         """
@@ -264,13 +264,14 @@ class GraphSearch:
                 shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
                 open_list.append(shifted_sp[:, -1])
                 self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
-            self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
+            if open_list != []:
+                self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
         self.lines[3].set_data(closed_set_states[:i+1, 0], closed_set_states[:i+1, 1])
         self.lines[4].set_data(self.open_list_states_animation[:, 0], self.open_list_states_animation[:, 1])
         return self.lines
 
-    def make_graph_search_animation(self):
-        save_animation = False
+    def make_graph_search_animation(self, save_animation=False):
+        plt.close('all')
         if save_animation:
             import matplotlib
             normal_backend = matplotlib.get_backend()
@@ -295,7 +296,7 @@ class GraphSearch:
             mp_lines.append(ax.plot([], [], linewidth=.4)[0])
         start_line, = ax.plot(self.start_state[0], self.start_state[1], 'og')
         goal_line, = ax.plot(self.goal_state[0], self.goal_state[1], 'or')
-        closed_set_line, = ax.plot([], [], 'k*')
+        closed_set_line, = ax.plot([], [], 'm*')
         open_set_line, = ax.plot([], [], '.', color=('.8'),  zorder=1)
         circle = plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
         circle_patch = ax.add_artist(circle)
@@ -316,27 +317,36 @@ class GraphSearch:
 
 if __name__ == "__main__":
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
-    print(mpl.num_dims)
+    plt.close('all')
+    print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
     mpl.limit_connections(2*mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
+    start_state = np.zeros((mpl.n))
+    goal_state = np.zeros_like(start_state)
+
     # occ_map = OccupancyMap.fromVoxelMapBag('/home/laura/mpl_ws/src/mpl_ros/mpl_test_node/maps/simple/simple.bag', 0)
     occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    start_state[0:2] = [2, -14]
+    goal_state[0:2] = [4, 2]
+
     # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_0.6_1.bag', 0)
-    start_state = np.ones((mpl.n))
-    start_state[0:2] = [0, -15]
-    goal_state = np.ones_like(start_state)*20
-    goal_state[0:2] = [0, 0]
+    # start_state[0:2] = [10, 6]
+    # goal_state[0:2] = [70, 6]
+
+    occ_map.plot()
     plt.plot(start_state[0], start_state[1], 'og')
     plt.plot(goal_state[0], goal_state[1], 'or')
+    plt.show()
 
     goal_tolerance = np.ones_like(start_state)*mpl.dispersion
     plot = True
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot)
     gs.get_neighbors = gs.neighbor_type.LATTICE
     gs.heuristic = gs.heuristic_type.EUCLIDEAN
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     path, sampled_path, path_cost = gs.run_graph_search()
 
     if gs.queue is not None:
