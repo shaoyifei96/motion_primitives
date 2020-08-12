@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-from motion_primitive_lattice import *
-from occupancy_map import OccupancyMap
+from motion_primitives_py.motion_primitive_lattice import *
+from motion_primitives_py.occupancy_map import OccupancyMap
 from heapq import heappush, heappop, heapify  # Recommended.
 from scipy import spatial
 from enum import Enum
@@ -297,7 +297,7 @@ class GraphSearch:
         goal_line, = ax.plot(self.goal_state[0], self.goal_state[1], 'or')
         closed_set_line, = ax.plot([], [], 'k*')
         open_set_line, = ax.plot([], [], '.', color=('.8'),  zorder=1)
-        circle = plt.Circle(goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
+        circle = plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
         circle_patch = ax.add_artist(circle)
         self.lines = [mp_lines, start_line, goal_line, closed_set_line, open_set_line, circle_patch]
         closed_set = np.array([node.state for node in self.closed_nodes])

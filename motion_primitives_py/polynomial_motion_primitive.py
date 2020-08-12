@@ -57,11 +57,10 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         return np.vstack([self.evaluate_polynomial_at_derivative(i, [t]) for i in range(self.control_space_q)])
 
-    def get_sampled_states(self, step_size=None):
-        # TODO implement step sizing based off of resolution
+    def get_sampled_states(self, step_size=0.001):
         # TODO connect w/ get_state
         if self.is_valid:
-            st = np.linspace(0, self.cost, 100)
+            st = np.arange(self.cost, step=step_size)
             sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)

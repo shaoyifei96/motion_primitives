@@ -32,7 +32,9 @@ class TestOccupancyMap(unittest.TestCase):
 
     def test_plot(self):
         self.om.plot()
-        plt.show()
+        plt.show(block=False)
+        plt.pause(1)
+        plt.close()
 
     def test_is_free_and_valid_position(self):
         assert(not self.om.is_free_and_valid_position(self.occupied_valid_pos))

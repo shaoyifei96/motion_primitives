@@ -36,7 +36,7 @@ class OccupancyMap():
         return self.resolution * (indices + .5) + self.origin
 
     def is_valid_indices(self, indices):
-        if np.any(indices < 0) or np.any((self.dims - indices) < 0):
+        if np.any(indices < 0) or np.any((self.dims - indices) <= 0):
             return False
         else:
             return True
@@ -71,7 +71,7 @@ class OccupancyMap():
         if offset is None:
             offset = np.zeros(mp.num_dims)
         # TODO make number of points a parameter to pass in here
-        _, samples, _, _, _, = mp.get_sampled_states(self.resolution)
+        _, samples, _, _, _, = mp.get_sampled_states()
         for sample in samples.T + offset[:len(self.dims)]:
             if not self.is_free_and_valid_position(sample):
                 return False
