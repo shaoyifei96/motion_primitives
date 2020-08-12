@@ -36,14 +36,14 @@ class TestGraphSearch(unittest.TestCase):
         self.goal_tol = np.ones_like(self.goal_state) * self.mpl.dispersion
 
     def test_search(self):
-        plt.plot(self.start_state[0], self.start_state[1], 'og')
-        plt.plot(self.goal_state[0], self.goal_state[1], 'or')
         gs = GraphSearch(self.mpl, self.om, self.start_state, self.goal_state, 
                          self.goal_tol)
         gs.get_neighbors = gs.neighbor_type.LATTICE
         gs.heuristic = gs.heuristic_type.EUCLIDEAN
         path, sampled_path, path_cost = gs.run_graph_search()
         assert(gs.queue)
+        gs.make_graph_search_animation()
+
 
 if __name__ == '__main__':
     unittest.main()
