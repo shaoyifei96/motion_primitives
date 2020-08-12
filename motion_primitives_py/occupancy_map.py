@@ -71,7 +71,7 @@ class OccupancyMap():
         if offset is None:
             offset = np.zeros(mp.num_dims)
         # TODO make number of points a parameter to pass in here
-        _, samples, _, _, _, = mp.get_sampled_states()
+        _, samples, _, _, _, = mp.get_sampled_states(resolution=self.resolution)
         for sample in samples.T + offset[:len(self.dims)]:
             if not self.is_free_and_valid_position(sample):
                 return False
