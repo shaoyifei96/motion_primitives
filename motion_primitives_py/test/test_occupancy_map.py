@@ -1,9 +1,7 @@
 import unittest
 import numpy as np
 import matplotlib.pyplot as plt
-from motion_primitives_py.occupancy_map import OccupancyMap
-from motion_primitives_py.polynomial_motion_primitive \
-    import PolynomialMotionPrimitive
+from motion_primitives_py import *
 
 
 class TestOccupancyMap(unittest.TestCase):
@@ -24,12 +22,12 @@ class TestOccupancyMap(unittest.TestCase):
         cls.unoccupied_valid_pos = np.array([1, 1])
 
         # define some test motion primitives
-        cls.bad_mp = PolynomialMotionPrimitive([7, 7, 0, 0], [7, 18, 0, 0], 
-                                                len(cls.om.dims), 
+        cls.bad_mp = PolynomialMotionPrimitive([7, 7, 0, 0], [7, 18, 0, 0],
+                                               len(cls.om.dims),
+                                               [100, 100, 100, 100])
+        cls.good_mp = PolynomialMotionPrimitive([3, 7, 0, 0], [3, 18, 0, 0],
+                                                len(cls.om.dims),
                                                 [100, 100, 100, 100])
-        cls.good_mp = PolynomialMotionPrimitive([3, 7, 0, 0], [3, 18, 0, 0], 
-                                                 len(cls.om.dims), 
-                                                 [100, 100, 100, 100])
 
     def test_plot(self):
         self.om.plot()

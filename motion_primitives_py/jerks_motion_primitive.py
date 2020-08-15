@@ -1,8 +1,9 @@
 
-from py_opt_control import min_time_bvp
+from motion_primitives_py import MotionPrimitive
 from motion_primitives_py import c_output_redirector
 import io
-from motion_primitives_py.motion_primitive import *
+import numpy as np
+from py_opt_control import min_time_bvp
 
 
 class JerksMotionPrimitive(MotionPrimitive):

@@ -1,6 +1,6 @@
-from motion_primitive_graph import *
-
-
+from motion_primitives_py import MotionPrimitiveGraph
+import numpy as np
+import matplotlib.pyplot as plt
 class MotionPrimitiveTree(MotionPrimitiveGraph):
     """
     """
@@ -121,7 +121,11 @@ if __name__ == "__main__":
     num_u_per_dimension = 9
     max_state = [1, 1, 1, 100, 1, 1]
     num_state_deriv_pts = 11
+    from motion_primitives_py import InputsMotionPrimitive
     mpt = MotionPrimitiveTree(control_space_q, num_dims,  max_state, InputsMotionPrimitive, plot=True)
     start_pt = np.ones((mpt.n))
-    mpt.create_evenly_spaced_mps(start_pt, 1, num_u_per_dimension)
+    mps = mpt.create_evenly_spaced_mps(start_pt, 1, num_u_per_dimension)
+    for mp in mps:
+        mp.plot(position_only=True,ax=mpt.ax)
+
     plt.show()

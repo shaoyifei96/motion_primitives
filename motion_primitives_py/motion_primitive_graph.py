@@ -1,28 +1,8 @@
 #!/usr/bin/python3
+from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive
 import numpy as np
-from scipy.linalg import expm
-import scipy.integrate as integrate
 import matplotlib.pyplot as plt
-import cProfile
-from pycallgraph import PyCallGraph, Config
-from pycallgraph.output import GraphvizOutput
-import time
-import pickle
-import sympy as sym
-from pathlib import Path
-from mpl_toolkits.mplot3d import Axes3D
-from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
-from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
-from motion_primitives_py.reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
-from motion_primitives_py.inputs_motion_primitive import InputsMotionPrimitive
-import itertools
-from py_opt_control import min_time_bvp
-import ujson as json
-import sys
-from copy import deepcopy
-
-# TODO a lot of cleanup of this file needed to reflect updates to MotionPrimitiveLattice. Some code could be moved to MotionPrimitiveTree, PolynomialMotionPrimitive
-# TODO MotionPrimitiveTree should take the motion_primitive_type parameter
+# from mpl_toolkits.mplot3d import Axes3D
 
 
 class MotionPrimitiveGraph():
@@ -68,10 +48,10 @@ class MotionPrimitiveGraph():
 
         # Setup specific to motion primitive being used TODO move elsewhere
         if self.motion_primitive_type == PolynomialMotionPrimitive:
-            self.A, self.B = self.A_and_B_matrices_quadrotor()
             self.mp_subclass_specific_data['x_derivs'] = self.motion_primitive_type.get_dynamics_polynomials(self.control_space_q)
         elif self.motion_primitive_type == InputsMotionPrimitive:
-            self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(self.control_space_q, self.num_dims)
+            self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(
+                self.control_space_q, self.num_dims)
         elif self.motion_primitive_type == ReedsSheppMotionPrimitive:
             self.n = 3
 
@@ -153,54 +133,20 @@ class MotionPrimitiveGraph():
         single_u_set = np.linspace(-max_u, max_u, num_u_per_dimension)
         u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
         u_set = np.dstack(([x.flatten() for x in u_grid]))[0]
-        
+
         # convert into motion primitives
         dynamics = self.mp_subclass_specific_data['dynamics']
         mps = []
         for u in u_set:
             mp_subclass_specific_data = {'u': u, 'dt': dt, 'dynamics': dynamics}
-            mps.append(self.motion_primitive_type(start_pt, None, self.num_dims, 
-                                                  self.max_state, 
+            mps.append(self.motion_primitive_type(start_pt, None, self.num_dims,
+                                                  self.max_state,
                                                   mp_subclass_specific_data))
         return mps
-
-    def A_and_B_matrices_quadrotor(self):
-        """
-        Generate constant A, B matrices for integrator of order control_space_q
-        in configuration dimension num_dims. Linear approximation of quadrotor dynamics
-        that work (because differential flatness or something)
-        """
-        n = self.n
-        num_dims = self.num_dims
-        control_space_q = self.control_space_q
-
-        A = np.zeros((n, n))
-        B = np.zeros((n, num_dims))
-        for p in range(1, control_space_q):
-            A[(p-1)*num_dims: (p-1)*num_dims+num_dims, p*num_dims: p*num_dims+num_dims] = np.eye(num_dims)
-        B[-num_dims:, :] = np.eye(num_dims)
-        return A, B
-
-    def quad_dynamics_integral(self, sigma, dt):
-        """
-        Helper function to integrate A and B matrices to get G(t) term
-        """
-        return expm(self.A*(dt-sigma))@self.B
-
-    def quad_dynamics_integral_wrapper(self, dt):
-        def fn(sigma): return self.quad_dynamics_integral(sigma, dt)
-        return fn
-
-    def quad_dynamics(self, start_pt, u, dt):
-        """
-        Computes the state transition map given a starting state, control u, and
-        time dt. Slow because of integration and exponentiation
-        """
-        return expm(self.A*dt)@start_pt + integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]@u
 
 
 if __name__ == "__main__":
     control_space_q = 3
     num_dims = 2
     max_state = [3, 1, 1, 100, 1, 1]
-    mpg = MotionPrimitive(control_space_q, num_dims, max_state, True)
+    mpg = MotionPrimitiveGraph(control_space_q, num_dims, max_state, True)

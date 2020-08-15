@@ -1,8 +1,7 @@
-from motion_primitives_py.motion_primitive import MotionPrimitive
+from motion_primitives_py import MotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
 import reeds_shepp
-
 
 class ReedsSheppMotionPrimitive(MotionPrimitive):
     """

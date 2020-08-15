@@ -1,6 +1,9 @@
-from motion_primitives_py.motion_primitive import *
+from motion_primitives_py import MotionPrimitive
+import numpy as np
+import matplotlib.pyplot as plt
 import sympy as sym
-
+from scipy.linalg import expm
+import scipy.integrate as integrate
 
 
 class PolynomialMotionPrimitive(MotionPrimitive):
@@ -8,10 +11,10 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     A motion primitive constructed from polynomial coefficients
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state, 
+    def __init__(self, start_state, end_state, num_dims, max_state,
                  subclass_specific_data={}):
         # Initialize class
-        super().__init__(start_state, end_state, num_dims, max_state, 
+        super().__init__(start_state, end_state, num_dims, max_state,
                          subclass_specific_data)
         # TODO this code is duplicated
         if not self.subclass_specific_data.get('x_derivs'):
@@ -21,7 +24,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
         # Solve boundary value problem
         self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
-            self.start_state, self.end_state, self.num_dims, 
+            self.start_state, self.end_state, self.num_dims,
             self.max_state, self.x_derivs)
         if self.polys is not None:
             self.is_valid = True
@@ -93,17 +96,17 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return sampled
 
     @staticmethod
-    def get_dynamics_polynomials(control_space_q, coefficients=None):
+    def get_dynamics_polynomials(control_space_q):
         """
         Returns an array of lambda functions that evaluate the derivatives of 
         a polynomial of specified order with coefficients all set to 1
-        
+
         Example for polynomial order 5:
         time_derivatives[0] = lambda t: [t**5, t**4, t**3, t**2, t, 1]
         time_derivatives[1] = lambda t: [5*t**4, 4*t**3, 3*t**2, 2*t, 1, 0]
         time_derivatives[2] = lambda t: [20*t**3, 12*t**2, 6*t, 2, 0, 0]
         time_derivatives[3] = lambda t: [60*t**2, 24*t, 6, 0, 0, 0]
-        
+
         Input:
             control_space_q, derivative of configuration which is control input
                 infer order from this using equation: 2 * control_space_q - 1,
@@ -123,7 +126,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         time_derivatives = []
         for i in range(control_space_q + 1):
             time_derivatives.append(sym.lambdify([t], x))
-            x = sym.diff(x)  
+            x = sym.diff(x)
         return time_derivatives
 
     @staticmethod
@@ -179,6 +182,43 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             u_max = max(u_max, max(abs(np.sum(polys*x_derivs[-1](0), axis=1))))
         return polys, t
 
+    def A_and_B_matrices_quadrotor(self):
+        """
+        Generate constant A, B matrices for integrator of order control_space_q
+        in configuration dimension num_dims. Linear approximation of quadrotor dynamics
+        that work (because differential flatness or something)
+        """
+        # TODO possibly delete
+        num_dims = self.num_dims
+        control_space_q = self.control_space_q
+        n = num_dims*control_space_q
+
+        A = np.zeros((n, n))
+        B = np.zeros((n, num_dims))
+        for p in range(1, control_space_q):
+            A[(p-1)*num_dims: (p-1)*num_dims+num_dims, p*num_dims: p*num_dims+num_dims] = np.eye(num_dims)
+        B[-num_dims:, :] = np.eye(num_dims)
+        return A, B
+
+    def quad_dynamics_integral(self, sigma, dt):
+        """
+        Helper function to integrate A and B matrices to get G(t) term
+        """
+        # TODO possibly delete
+        return expm(self.A*(dt-sigma))@self.B
+
+    def quad_dynamics_integral_wrapper(self, dt):
+        # TODO possibly delete
+        def fn(sigma): return self.quad_dynamics_integral(sigma, dt)
+        return fn
+
+    def quad_dynamics(self, start_pt, u, dt):
+        """
+        Computes the state transition map given a starting state, control u, and
+        time dt. Slow because of integration and exponentiation
+        """
+        # TODO possibly delete
+        return expm(self.A*dt)@start_pt + integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]@u
 
 if __name__ == "__main__":
     # problem parameters

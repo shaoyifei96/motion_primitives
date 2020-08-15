@@ -1,5 +1,5 @@
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class MotionPrimitive():
@@ -16,7 +16,7 @@ class MotionPrimitive():
         self.start_state = np.array(start_state)
         self.end_state = np.array(end_state)
         self.num_dims = np.array(num_dims)
-        self.max_state =np.array(max_state)
+        self.max_state = np.array(max_state)
         # TODO probably cleaner to do this with kwargs
         self.subclass_specific_data = subclass_specific_data
         self.control_space_q = int(self.start_state.shape[0]/num_dims)
@@ -77,11 +77,11 @@ class MotionPrimitive():
             axes[3].set_xlabel('time')
             fig.suptitle('Full State over Time')
         else:
-            if ax==None:
+            if ax == None:
                 axes = [plt.gca()]
             else:
                 axes = [ax]
-            samples = [sp[0,:],sp[1,:]]
+            samples = [sp[0, :], sp[1, :]]
         for i in range(sp.shape[0]):
             for ax, s, l in zip(axes, samples, ('pos', 'vel', 'acc', 'jerk')):
                 if s is not None:

@@ -1,6 +1,11 @@
-from motion_primitives_py.motion_primitive_graph import *
+from motion_primitives_py import MotionPrimitiveGraph
+import motion_primitives_py
+import numpy as np
+import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-
+import itertools
+import ujson as json
+import sys
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
@@ -21,7 +26,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mpl = cls(control_space_q=data["control_space_q"],
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
-                  motion_primitive_type=getattr(sys.modules[__name__], data["mp_type"]),
+                  motion_primitive_type=getattr(motion_primitives_py, data["mp_type"]),
                   tiling=data["tiling"], plot=plot)
         mpl.dispersion = data["dispersion"]
         mpl.vertices = np.array(data["vertices"])
@@ -29,8 +34,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for i in range(len(mpl.edges)):
             for j in range(len(mpl.vertices)):
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(
-                    data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, 
-                    mpl.max_state, mp.mp_subclass_specific_data)
+                    data["edges"][i * len(mpl.vertices) + j], mpl.num_dims,
+                    mpl.max_state, mpl.mp_subclass_specific_data)
         print("Lattice successfully read")
         return mpl
 
@@ -324,11 +329,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 if __name__ == "__main__":
     # %%
-    from motion_primitive_lattice import *
+    from motion_primitives_py import *
     tiling = True
     plot = True
     animate = False
-    check_backwards_dispersion=True
+    check_backwards_dispersion = True
 
     # %%
     # define parameters
@@ -336,6 +341,7 @@ if __name__ == "__main__":
     num_dims = 2
     max_state = [.5, np.pi/4, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
+    resolution = [.21, .2]
 
     # # %%
     # motion_primitive_type = PolynomialMotionPrimitive
@@ -353,7 +359,8 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
     # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=30, resolution=[.51, .2, .2, 25, 1, 1], check_backwards_dispersion=check_backwards_dispersion, animate=animate)
+    mpl.compute_min_dispersion_space(
+        num_output_pts=30, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
     print(mpl.vertices)
     mpl.limit_connections(2*mpl.dispersion)
     mpl.save("lattice_test.json")

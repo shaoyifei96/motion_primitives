@@ -1,9 +1,10 @@
-from motion_primitives_py.motion_primitive import *
+from motion_primitives_py import MotionPrimitive
 from scipy.special import factorial
 import sympy as sym
+import numpy as np
 
 class InputsMotionPrimitive(MotionPrimitive):
-    def __init__(self, start_state, end_state, num_dims, max_state, 
+    def __init__(self, start_state, end_state, num_dims, max_state,
                  subclass_specific_data={}):
         # Unpack and parse subclass specific data
         assert('u' in subclass_specific_data), "Must provide parameter 'u'"
@@ -14,11 +15,11 @@ class InputsMotionPrimitive(MotionPrimitive):
             self.dynamics = subclass_specific_data['dynamics']
         else:
             control_space_q = int(len(start_state) / num_dims)
-            self.dynamics = self.get_dynamics_polynomials(control_space_q, 
+            self.dynamics = self.get_dynamics_polynomials(control_space_q,
                                                           num_dims)
 
         # Initialize superclass
-        super().__init__(start_state, self.dynamics(start_state, self.u, cost), 
+        super().__init__(start_state, self.dynamics(start_state, self.u, cost),
                          num_dims, max_state, subclass_specific_data)
         self.is_valid = True
         self.cost = cost
@@ -56,7 +57,7 @@ class InputsMotionPrimitive(MotionPrimitive):
         else:
             sa = None
         return st, sp, sv, sa, None
-        
+
     @staticmethod
     def get_dynamics_polynomials(control_space_q, num_dims):
         start_pt = sym.Matrix([sym.symbols(f'start_pt{i}') for i in range(control_space_q * num_dims)])

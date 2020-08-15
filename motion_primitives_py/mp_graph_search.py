@@ -1,15 +1,9 @@
 #!/usr/bin/python3
-
-from motion_primitives_py.motion_primitive_lattice import *
-from motion_primitives_py.occupancy_map import OccupancyMap
-from heapq import heappush, heappop, heapify  # Recommended.
-from scipy import spatial
-from enum import Enum
+import numpy as np
+import matplotlib.pyplot as plt
+from heapq import heappush, heappop, heapify
 from copy import deepcopy
-# # from pycallgraph import PyCallGraph
-# # from pycallgraph.output import GraphvizOutput
-# from pathlib import Path
-
+import matplotlib.animation as animation
 
 class Node:
     """
@@ -94,8 +88,9 @@ class GraphSearch:
         return np.linalg.norm(state[:self.num_dims] - self.goal_state[:self.num_dims])
 
     def bvp_heuristic(self, state):
-        cost = self.motion_primitive_graph.motion_primitive_type(state, self.goal_state, self.motion_primitive_graph.num_dims, self.motion_primitive_graph.max_state, self.motion_primitive_graph.mp_subclass_specific_data).cost
-        if cost==None:
+        cost = self.motion_primitive_graph.motion_primitive_type(
+            state, self.goal_state, self.motion_primitive_graph.num_dims, self.motion_primitive_graph.max_state, self.motion_primitive_graph.mp_subclass_specific_data).cost
+        if cost == None:
             return np.inf
         return cost
 
@@ -138,7 +133,7 @@ class GraphSearch:
     def get_neighbors_evenly_spaced(self, node):
         # TODO change neighbors to nodes
         dt = .5
-        num_u_per_dimension = 5  # self.motion_primitive_graph.motion_primitives_list[0].shape[1]
+        num_u_per_dimension = 5
         s = np.reshape(np.array(node.state), (self.n, 1))
         neighbor_states = self.motion_primitive_graph.create_evenly_spaced_mps(s, dt, num_u_per_dimension)
         neighbors = []
@@ -217,7 +212,7 @@ class GraphSearch:
                 path, sampled_path, path_cost = self.build_path(node)
                 break
 
-            ###JUST FOR TESTING
+            # JUST FOR TESTING
             # if (nodes_expanded) > 100:
             #     break
 
@@ -317,6 +312,7 @@ class GraphSearch:
 
 
 if __name__ == "__main__":
+    from motion_primitives_py import *
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
     print(mpl.vertices)
     print(mpl.dispersion)
@@ -359,7 +355,10 @@ if __name__ == "__main__":
 
     goal_tolerance = np.ones_like(start_state)
     plot = True
-    gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot=plot, heuristic='euclidean', neighbors='lattice')
+
+    # mpt = MotionPrimitiveTree(control_space_q, num_dims,  max_state, InputsMotionPrimitive, plot=True)
+
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot=plot, heuristic='euclidean', neighbors='evenly_spaced')
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     import time
     tic = time.time()

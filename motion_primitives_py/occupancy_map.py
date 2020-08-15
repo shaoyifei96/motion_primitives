@@ -19,10 +19,9 @@ class OccupancyMap():
         self.margin = margin
 
         fig, self.ax = plt.subplots()
-        if len(self.dims)==3:
+        if len(self.dims) == 3:
             fig_3d, ax_3d = plt.subplots()
             self.ax_3d = fig_3d.add_subplot(111, projection='3d')
-
 
     @classmethod
     def fromVoxelMapBag(cls, filename, topic=None, margin=0):
@@ -83,9 +82,9 @@ class OccupancyMap():
                 return False
         return True
 
-    def plot(self, bounds=None, ax=None):            
+    def plot(self, bounds=None, ax=None):
         if len(self.dims) == 2:
-            if ax==None:
+            if ax == None:
                 ax = self.ax
             if bounds:
                 upper_l = self.get_indices_from_position(np.array([bounds[0], bounds[3]]))
@@ -98,8 +97,9 @@ class OccupancyMap():
             return image
 
 
-
 if __name__ == "__main__":
+    from motion_primitives_py import *
+
     # problem parameters
     num_dims = 2
     control_space_q = 3
@@ -115,7 +115,6 @@ if __name__ == "__main__":
     end_state = np.zeros((num_dims * control_space_q,))
     end_state[:2] = [10, 8]
     max_state = 1000 * np.ones((num_dims * control_space_q,))
-    from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
     mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
     mp.plot(position_only=True, ax=occ_map.ax)
 

@@ -1,9 +1,6 @@
 import unittest
 import numpy as np
-from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
-from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
-from motion_primitives_py.reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
-from motion_primitives_py.motion_primitive_lattice import MotionPrimitiveLattice
+from motion_primitives_py import *
 import tempfile
 import os
 
@@ -16,11 +13,11 @@ class TestMotionPrimitive(unittest.TestCase):
         cls.num_dims = 2
         cls.max_state = 100 * np.ones((6,))
         cls.polynomial_mp = PolynomialMotionPrimitive(cls.start_state,
-                                                       cls.end_state,
-                                                       cls.num_dims,
-                                                       cls.max_state)
+                                                      cls.end_state,
+                                                      cls.num_dims,
+                                                      cls.max_state)
         cls.jerk_mp = JerksMotionPrimitive(cls.start_state, cls.end_state,
-                                            cls.num_dims, cls.max_state)
+                                           cls.num_dims, cls.max_state)
 
     def test_polynomial_initial_state(self):
         s0 = self.polynomial_mp.get_state(np.array([0]))
