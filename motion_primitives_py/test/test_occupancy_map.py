@@ -7,7 +7,8 @@ from motion_primitives_py.polynomial_motion_primitive \
 
 
 class TestOccupancyMap(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         # setup occupancy map
         resolution = 1
         origin = [0, 0]
@@ -15,19 +16,19 @@ class TestOccupancyMap(unittest.TestCase):
         data = np.zeros(dims)
         data[5:10, 10:15] = 100
         data = data.flatten('F')
-        self.om = OccupancyMap(resolution, origin, dims, data)
+        cls.om = OccupancyMap(resolution, origin, dims, data)
 
         # define some test points
-        self.occupied_valid_pos = np.array([6, 11])
-        self.invalid_pos = np.array([11, 11])
-        self.unoccupied_valid_pos = np.array([1, 1])
+        cls.occupied_valid_pos = np.array([6, 11])
+        cls.invalid_pos = np.array([11, 11])
+        cls.unoccupied_valid_pos = np.array([1, 1])
 
         # define some test motion primitives
-        self.bad_mp = PolynomialMotionPrimitive([7, 7, 0, 0], [7, 18, 0, 0], 
-                                                len(self.om.dims), 
+        cls.bad_mp = PolynomialMotionPrimitive([7, 7, 0, 0], [7, 18, 0, 0], 
+                                                len(cls.om.dims), 
                                                 [100, 100, 100, 100])
-        self.good_mp = PolynomialMotionPrimitive([3, 7, 0, 0], [3, 18, 0, 0], 
-                                                 len(self.om.dims), 
+        cls.good_mp = PolynomialMotionPrimitive([3, 7, 0, 0], [3, 18, 0, 0], 
+                                                 len(cls.om.dims), 
                                                  [100, 100, 100, 100])
 
     def test_plot(self):

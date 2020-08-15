@@ -9,17 +9,18 @@ import os
 
 
 class TestMotionPrimitive(unittest.TestCase):
-    def setUp(self):
-        self.start_state = np.array([0, 0, 0, 0, 0, 0])
-        self.end_state = np.array([1, 1, 0, 0, 0, 0])
-        self.num_dims = 2
-        self.max_state = 100 * np.ones((6,))
-        self.polynomial_mp = PolynomialMotionPrimitive(self.start_state,
-                                                       self.end_state,
-                                                       self.num_dims,
-                                                       self.max_state)
-        self.jerk_mp = JerksMotionPrimitive(self.start_state, self.end_state,
-                                            self.num_dims, self.max_state)
+    @classmethod
+    def setUpClass(cls):
+        cls.start_state = np.array([0, 0, 0, 0, 0, 0])
+        cls.end_state = np.array([1, 1, 0, 0, 0, 0])
+        cls.num_dims = 2
+        cls.max_state = 100 * np.ones((6,))
+        cls.polynomial_mp = PolynomialMotionPrimitive(cls.start_state,
+                                                       cls.end_state,
+                                                       cls.num_dims,
+                                                       cls.max_state)
+        cls.jerk_mp = JerksMotionPrimitive(cls.start_state, cls.end_state,
+                                            cls.num_dims, cls.max_state)
 
     def test_polynomial_initial_state(self):
         s0 = self.polynomial_mp.get_state(np.array([0]))
@@ -82,6 +83,7 @@ class TestMotionPrimitive(unittest.TestCase):
         assert((mpl1.max_state == mpl2.max_state).all())
         assert(mpl1.motion_primitive_type == mpl2.motion_primitive_type)
         assert(mpl1.num_tiles == mpl2.num_tiles)
+        import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
