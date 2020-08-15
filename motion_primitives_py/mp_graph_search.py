@@ -38,13 +38,14 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, plot=False):
+    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic='euclidean', neighbors='lattice', plot=False):
         # Save arguments as parameters
         self.motion_primitive_graph = motion_primitive_graph
         self.map = occupancy_map
         self.start_state = np.array(start_state)
         self.goal_state = np.array(goal_state)
         self.goal_tolerance = np.array(goal_tolerance)
+        self.mp_sampling_step_size = mp_sampling_step_size
         self.plot = plot
 
         # Dimensionality parameters
@@ -60,22 +61,19 @@ class GraphSearch:
                                               [np.repeat(i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
 
         # Parameter used in min time heuristic from Sikang's paper
-        self.rho = 0.0
+        self.rho = 1.0
+        self.heuristic_dict = {
+            'zero': self.zero_heuristic,
+            'euclidean': self.euclidean_distance_heuristic,
+            'min_time': self.min_time_heuristic,
+            'bvp': self.bvp_heuristic, }
+        self.heuristic = self.heuristic_dict[heuristic]
 
-        # TODO I don't really think this is optimal stylistically/pythonically
-        class HeuristicType(Enum):
-            ZERO = self.zero_heuristic
-            EUCLIDEAN = self.euclidean_distance_heuristic
-            MIN_TIME = self.min_time_heuristic
-        self.heuristic_type = HeuristicType
-        self.heuristic = HeuristicType.EUCLIDEAN
-
-        class NeighborType(Enum):
-            MIN_DISPERSION = self.get_neighbors_min_dispersion
-            EVENLY_SPACED = self.get_neighbors_evenly_spaced
-            LATTICE = self.get_neighbors_lattice
-        self.neighbor_type = NeighborType
-        self.get_neighbors = NeighborType.MIN_DISPERSION
+        self.neighbor_dict = {
+            # 'min_dispersion' : self.get_neighbors_min_dispersion,
+            'evenly_spaced': self.get_neighbors_evenly_spaced,
+            'lattice': self.get_neighbors_lattice, }
+        self.get_neighbors = self.neighbor_dict[neighbors]
 
         self.start_position_offset = np.hstack((self.start_state[:self.num_dims], np.zeros_like(self.start_state[self.num_dims:])))
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
@@ -93,7 +91,13 @@ class GraphSearch:
         return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state[1]
 
     def euclidean_distance_heuristic(self, state):
-        return np.linalg.norm(state[:self.num_dims] - self.goal_state[:self.num_dims])  # /self.motion_primitive_graph.max_state[1]
+        return np.linalg.norm(state[:self.num_dims] - self.goal_state[:self.num_dims])
+
+    def bvp_heuristic(self, state):
+        cost = self.motion_primitive_graph.motion_primitive_type(state, self.goal_state, self.motion_primitive_graph.num_dims, self.motion_primitive_graph.max_state, self.motion_primitive_graph.mp_subclass_specific_data).cost
+        if cost==None:
+            return np.inf
+        return cost
 
     def build_path(self, node):
         """
@@ -149,7 +153,7 @@ class GraphSearch:
         neighbors = []
         reset_map_index = int(np.floor(node.index / self.motion_primitive_graph.num_tiles))
         for i, mp in enumerate(self.motion_primitive_graph.edges[:, reset_map_index]):
-            if mp is not None and mp.is_valid and self.map.is_mp_collision_free(mp, node.state[:self.num_dims]):
+            if mp is not None and mp.is_valid and self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, offset=node.state[:self.num_dims]):
                 state = deepcopy(node.state)
                 state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
                 state[self.num_dims:] = mp.end_state[self.num_dims:]
@@ -173,14 +177,14 @@ class GraphSearch:
             self.queue = None
             return
 
-        if self.neighbor_type.LATTICE == self.get_neighbors:
+        if self.get_neighbors.__name__ == 'get_neighbors_lattice':
             starting_neighbors = self.motion_primitive_graph.find_mps_to_lattice(deepcopy(self.start_state) - self.start_position_offset)
             self.start_edges = []
             for i, mp in starting_neighbors:
                 state = mp.end_state + self.start_position_offset
                 node = Node(mp.cost, self.heuristic(state), state, None, i, None)
                 self.start_edges.append(mp)
-                if self.map.is_mp_collision_free(mp, self.start_position_offset):
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, offset=self.start_position_offset):
                     heappush(self.queue, node)
                     self.node_dict[node.state.tobytes()] = node
         else:
@@ -213,8 +217,8 @@ class GraphSearch:
                 path, sampled_path, path_cost = self.build_path(node)
                 break
 
-            # JUST FOR TESTING
-            # if (nodes_expanded) > 20:
+            ###JUST FOR TESTING
+            # if (nodes_expanded) > 100:
             #     break
 
             neighbors = self.get_neighbors(node)
@@ -241,7 +245,7 @@ class GraphSearch:
         return path, sampled_path, path_cost
 
     def animation_helper(self, i, closed_set_states):
-        print(f"frame {i+1}/{len(self.closed_nodes)+10}")
+        # print(f"frame {i+1}/{len(self.closed_nodes)+10}")
         for k in range(len(self.lines[0])):
             self.lines[0][k].set_data([], [])
 
@@ -283,7 +287,7 @@ class GraphSearch:
 
         transparent_map = np.zeros(self.map.voxels.T.shape + (4,))
         transparent_map[self.map.voxels.T > 0, :] = (0, 0, 0, 1)
-        plt.imshow(transparent_map, origin='lower', extent=self.map.extent, zorder=10)
+        plt.imshow(transparent_map, origin='lower', extent=self.map.extent, zorder=2)
 
         ax.axis('equal')
 
@@ -292,7 +296,7 @@ class GraphSearch:
             mp_lines.append(ax.plot([], [], linewidth=.4)[0])
         start_line, = ax.plot(self.start_state[0], self.start_state[1], 'og')
         goal_line, = ax.plot(self.goal_state[0], self.goal_state[1], 'or')
-        closed_set_line, = ax.plot([], [], 'm*')
+        closed_set_line, = ax.plot([], [], 'm*', zorder=3)
         open_set_line, = ax.plot([], [], '.', color=('.8'),  zorder=1)
         circle = plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False)
         circle_patch = ax.add_artist(circle)
@@ -308,12 +312,15 @@ class GraphSearch:
             print("Finished saving animation")
             matplotlib.use(normal_backend)
         else:
-            plt.show()
+            plt.show(block=False)
+            plt.pause((len(self.closed_nodes)+10)/10)
 
 
 if __name__ == "__main__":
-    # mpl = MotionPrimitiveLattice.load("lattice_jerks_faster.json")
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    print(mpl.vertices)
+    print(mpl.dispersion)
+
     # mpl = MotionPrimitiveLattice(2, 2, mpl.max_state, PolynomialMotionPrimitive)
 
     plt.close('all')
@@ -327,9 +334,19 @@ if __name__ == "__main__":
     goal_state = np.zeros_like(start_state)
 
     # occ_map = OccupancyMap.fromVoxelMapBag('/home/laura/mpl_ws/src/mpl_ros/mpl_test_node/maps/simple/simple.bag', 0)
-    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
-    start_state[0:2] = [2, -14]
-    goal_state[0:2] = [4, 2]
+    # occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    # start_state[0:2] = [2, -14]
+    # goal_state[0:2] = [4, 2]
+
+    resolution = 1
+    origin = [0, 0]
+    dims = [10, 100]
+    data = np.zeros(dims)
+    data[5:10, 10:15] = 100
+    data = data.flatten('F')
+    occ_map = OccupancyMap(resolution, origin, dims, data)
+    start_state[0:3] = [8, 2, 0]
+    goal_state[0:3] = [1, 90, 0]
 
     # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_0.6_1.bag', 0)
     # start_state[0:2] = [10, 6]
@@ -342,10 +359,7 @@ if __name__ == "__main__":
 
     goal_tolerance = np.ones_like(start_state)
     plot = True
-    gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot)
-    # gs.get_neighbors = gs.neighbor_type.EVENLY_SPACED
-    gs.get_neighbors = gs.neighbor_type.LATTICE
-    gs.heuristic = gs.heuristic_type.EUCLIDEAN
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, goal_tolerance, plot=plot, heuristic='euclidean', neighbors='lattice')
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     import time
     tic = time.time()
@@ -353,24 +367,24 @@ if __name__ == "__main__":
     toc = time.time()
     print(f"Planning time: {toc - tic}s")
 
-    # if gs.queue is not None:
-    #     gs.make_graph_search_animation()
+    if gs.queue is not None:
+        gs.make_graph_search_animation(True)
 
     plt.figure()
+    gs.map.plot()
     plt.plot(gs.start_state[0], gs.start_state[1], 'og')
     plt.plot(gs.goal_state[0], gs.goal_state[1], 'or')
-    gs.map.plot()
     # # plt.plot(gs.neighbor_list[:, 0], gs.neighbor_list[:, 1], 'k.')
     # # plt.plot(gs.expanded_nodes_list[:, 0], gs.expanded_nodes_list[:, 1], 'k.')
 
     if sampled_path is not None:
+        print(path.T)
         plt.plot(sampled_path[0, :], sampled_path[1, :])
         print(f'cost: {path_cost}')
         plt.plot(path[0, :], path[1, :], '*m')
-        mp = mpl.motion_primitive_type(start_state, goal_state, mpl.num_dims, mpl.max_state)
-        st, sp, sv, sa, sj = mp.get_sampled_states()
-        print(f'optimal path cost: {mp.cost}')
-
-        plt.plot(sp[0, :], sp[1, :])
+        # mp = mpl.motion_primitive_type(start_state, goal_state, mpl.num_dims, mpl.max_state)
+        # st, sp, sv, sa, sj = mp.get_sampled_states()
+        # print(f'optimal path cost: {mp.cost}')
+        # plt.plot(sp[0, :], sp[1, :])
 
     plt.show()
