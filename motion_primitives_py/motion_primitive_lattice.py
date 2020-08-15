@@ -8,7 +8,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     points in the state space connected by feasible trajectories
     """
     @classmethod
-    def load(cls, filename):
+    def load(cls, filename, plot=False):
         """
         create a motion primitive lattice from a given json file
         """
@@ -22,7 +22,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                   num_dims=data["num_dims"],
                   max_state=data["max_state"],
                   motion_primitive_type=getattr(sys.modules[__name__], data["mp_type"]),
-                  tiling=data["tiling"])
+                  tiling=data["tiling"], plot=plot)
         mpl.dispersion = data["dispersion"]
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
@@ -82,7 +82,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     score[i, j] = mp.cost
         return score, mp_list
 
-    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, animate=False):
+    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, animate=False):
         # overloaded from motion_primitive_graph for the moment
         # TODO maybe unify with original version used in tree
 
@@ -110,11 +110,12 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             else:
                 end_pts = potential_sample_pts[index, :][np.newaxis, :]
             min_score_fwd, mp_list_fwd = self.dispersion_distance_fn(potential_sample_pts, end_pts)
-            min_score_bwd, mp_list_bwd = self.dispersion_distance_fn(end_pts, potential_sample_pts)
-            # min_score[:, 1:] = min_score_fwd
-            min_score[:, 1:] = np.maximum(min_score_fwd, min_score_bwd.T)
+            if check_backwards_dispersion:
+                min_score_bwd, mp_list_bwd = self.dispersion_distance_fn(end_pts, potential_sample_pts)
+                min_score[:, 1:] = np.maximum(min_score_fwd, min_score_bwd.T)
+            else:
+                min_score[:, 1:] = min_score_fwd
             min_score[:, 0] = np.amin(min_score, axis=1)
-
 
             # take the new point with the maximum distance to its closest node
             index = np.argmax(min_score[:, 0])
@@ -143,7 +144,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                                                       potential_sample_pts)
         return vertices, edges
 
-    def compute_min_dispersion_space(self, num_output_pts, resolution, animate=False):
+    def compute_min_dispersion_space(self, num_output_pts, resolution, check_backwards_dispersion=False, animate=False):
         """
         Using the bounds on the state space, compute a set of minimum dispersion
         points (similar to original Dispertio paper) and save the resulting
@@ -158,7 +159,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
         potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=False)
-        self.vertices, self.edges = self.compute_min_dispersion_points(num_output_pts, potential_sample_pts, animate)
+        self.vertices, self.edges = self.compute_min_dispersion_points(
+            num_output_pts, potential_sample_pts, check_backwards_dispersion, animate)
         if self.plot:
             if self.num_dims == 2:
                 self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
@@ -326,6 +328,7 @@ if __name__ == "__main__":
     tiling = True
     plot = True
     animate = False
+    check_backwards_dispersion=True
 
     # %%
     # define parameters
@@ -334,29 +337,28 @@ if __name__ == "__main__":
     max_state = [.5, np.pi/4, 2*np.pi, 100, 1, 1]
     motion_primitive_type = ReedsSheppMotionPrimitive
 
-    # %%
+    # # %%
     # motion_primitive_type = PolynomialMotionPrimitive
     # control_space_q = 2
     # num_dims = 2
-    # max_state = [.5, .5, 100, 100, 1, 1]
+    # max_state = [.51, 1.51, 15, 100, 1, 1]
 
     # %%
-    motion_primitive_type = JerksMotionPrimitive
-    control_space_q = 3
-    num_dims = 2
-    max_state = [.51, 1.51, .51, 100, 1, 1]
+    # motion_primitive_type = JerksMotionPrimitive
+    # control_space_q = 3
+    # num_dims = 2
+    # max_state = [.51, 1.51, .51, 100, 1, 1]
 
     # %%
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
     # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    mpl.compute_min_dispersion_space(num_output_pts=10, resolution=[np.inf, .2, .2, 25, 1, 1], animate=animate)
+    mpl.compute_min_dispersion_space(num_output_pts=30, resolution=[.51, .2, .2, 25, 1, 1], check_backwards_dispersion=check_backwards_dispersion, animate=animate)
     print(mpl.vertices)
     mpl.limit_connections(2*mpl.dispersion)
     mpl.save("lattice_test.json")
     # %%
-    mpl = MotionPrimitiveLattice.load("lattice_test.json")
-    mpl.plot = True
+    mpl = MotionPrimitiveLattice.load("lattice_test.json", plot)
     print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
     mpl.limit_connections(2*mpl.dispersion)
@@ -365,8 +367,7 @@ if __name__ == "__main__":
 
     # %%
     # plot
-    if mpl.plot:
-        plt.show()
+    plt.show()
 
 
 # %%

@@ -18,6 +18,12 @@ class OccupancyMap():
         # distance margin to inflate obstacles by
         self.margin = margin
 
+        fig, self.ax = plt.subplots()
+        if len(self.dims)==3:
+            fig_3d, ax_3d = plt.subplots()
+            self.ax_3d = fig_3d.add_subplot(111, projection='3d')
+
+
     @classmethod
     def fromVoxelMapBag(cls, filename, topic=None, margin=0):
         # load messages from bagfile
@@ -54,7 +60,7 @@ class OccupancyMap():
         indices = self.get_indices_from_position(position)
         return self.is_free_and_valid_indices(indices)
 
-    def is_mp_collision_free(self, mp, offset=None):
+    def is_mp_collision_free(self, mp, step_size=0.1, offset=None):
         """
         Function to check if there is a collision between a motion primitive
         trajectory and the occupancy map
@@ -71,14 +77,16 @@ class OccupancyMap():
         if offset is None:
             offset = np.zeros(mp.num_dims)
         # TODO make number of points a parameter to pass in here
-        _, samples, _, _, _, = mp.get_sampled_states()
+        _, samples, _, _, _, = mp.get_sampled_states(step_size)
         for sample in samples.T + offset[:len(self.dims)]:
             if not self.is_free_and_valid_position(sample):
                 return False
         return True
 
-    def plot(self, bounds=None):
+    def plot(self, bounds=None, ax=None):            
         if len(self.dims) == 2:
+            if ax==None:
+                ax = self.ax
             if bounds:
                 upper_l = self.get_indices_from_position(np.array([bounds[0], bounds[3]]))
                 lower_r = self.get_indices_from_position(np.array([bounds[1], bounds[2]]))
@@ -86,7 +94,7 @@ class OccupancyMap():
             else:
                 im = self.voxels
                 bounds = self.extent
-            image = plt.imshow(im.T, cmap=plt.cm.gray_r, origin='lower', extent=bounds)
+            image = ax.imshow(im.T, cmap=plt.cm.gray_r, origin='lower', extent=bounds)
             return image
 
 
@@ -109,7 +117,7 @@ if __name__ == "__main__":
     max_state = 1000 * np.ones((num_dims * control_space_q,))
     from motion_primitives_py.polynomial_motion_primitive import PolynomialMotionPrimitive
     mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
-    mp.plot(position_only=True)
+    mp.plot(position_only=True, ax=occ_map.ax)
 
     print(occ_map.is_free_and_valid_position([70, 5]))
     plt.show()
