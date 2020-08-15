@@ -2,38 +2,42 @@ from motion_primitives_py.motion_primitive import *
 import sympy as sym
 
 
+
 class PolynomialMotionPrimitive(MotionPrimitive):
     """
     A motion primitive constructed from polynomial coefficients
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
+    def __init__(self, start_state, end_state, num_dims, max_state, 
+                 subclass_specific_data={}):
         # Initialize class
-        super().__init__(start_state, end_state, num_dims, max_state, subclass_specific_data)
-        # TODO: figure out another way to accomplish this - code is duplicated
-        if self.subclass_specific_data.get('x_derivs') is None:
-            self.x_derivs = self.setup_bvp_meam_620_style(self.control_space_q)
+        super().__init__(start_state, end_state, num_dims, max_state, 
+                         subclass_specific_data)
+        # TODO this code is duplicated
+        if not self.subclass_specific_data.get('x_derivs'):
+            self.x_derivs = self.get_dynamics_polynomials(self.control_space_q)
         else:
             self.x_derivs = self.subclass_specific_data.get('x_derivs')
 
         # Solve boundary value problem
         self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
-            self.start_state, self.end_state, self.num_dims, self.max_state, self.x_derivs)
+            self.start_state, self.end_state, self.num_dims, 
+            self.max_state, self.x_derivs)
         if self.polys is not None:
             self.is_valid = True
             self.cost = traj_time
 
     @classmethod
-    def from_dict(cls, dict, num_dims, max_state):
+    def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
-        Load a polynomial representation of the motion primitive from a dictionary 
+        Load a polynomial representation of a motion primitive from a dictionary 
         """
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
             mp.polys = np.array(dict["polys"])
-            # TODO: figure out another way to accomplish this - code is duplicated
-            if mp.subclass_specific_data.get('x_derivs') is None:
-                mp.x_derivs = mp.setup_bvp_meam_620_style(mp.control_space_q)
+            # TODO this code is duplicated
+            if not mp.subclass_specific_data.get('x_derivs'):
+                mp.x_derivs = mp.get_dynamics_polynomials(mp.control_space_q)
             else:
                 mp.x_derivs = mp.subclass_specific_data.get('x_derivs')
         return mp
@@ -89,34 +93,44 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return sampled
 
     @staticmethod
-    def setup_bvp_meam_620_style(control_space_q):
+    def get_dynamics_polynomials(control_space_q, coefficients=None):
         """
-        Create an array of lambda functions that evaluate the derivatives of the univariate polynmial with all 1 coefficient of order (control_space_q)*2-1
-        Example for control_space_q = 3 (polynomials of order 5 minimizing jerk)
-        x_derivs[0] = lambda t: [t**5, t**4, t**3, t**,2 t, 1]
-        x_derivs[1] = lambda t: [5*t**4, 4*t**3, 3*t**2, 2*t, 1, 0]
-        x_derivs[2] = lambda t: [20*t**3, 12*t**2, 6*t, 2, 0, 0]
-        x_derivs[3] = lambda t: [60*t**2, 24*t, 6, 0, 0, 0]
-        Only needs to be computed once for any control_space_q
-        These derivatives are used to construct the constraint matrix to solve the 2-point BVP in solve_bvp_meam_620_style
-        """
-        t = sym.symbols('t')
-        poly_order = (control_space_q)*2-1  # why?
-        x = np.squeeze(sym.Matrix(np.zeros(poly_order+1)))
-        for i in range(poly_order+1):
-            x[i] = t**(poly_order-i)  # Construct polynomial of the form [T**5,    T**4,   T**3, T**2, T, 1]
+        Returns an array of lambda functions that evaluate the derivatives of 
+        a polynomial of specified order with coefficients all set to 1
+        
+        Example for polynomial order 5:
+        time_derivatives[0] = lambda t: [t**5, t**4, t**3, t**2, t, 1]
+        time_derivatives[1] = lambda t: [5*t**4, 4*t**3, 3*t**2, 2*t, 1, 0]
+        time_derivatives[2] = lambda t: [20*t**3, 12*t**2, 6*t, 2, 0, 0]
+        time_derivatives[3] = lambda t: [60*t**2, 24*t, 6, 0, 0, 0]
+        
+        Input:
+            control_space_q, derivative of configuration which is control input
+                infer order from this using equation: 2 * control_space_q - 1,
+                number of derivatives returned will be control_space_q + 1
 
-        x_derivs = []
-        for i in range(control_space_q+1):
-            x_derivs.append(sym.lambdify([t], x))
-            x = sym.diff(x)  # iterate through all the derivatives
-        return x_derivs
+        Output:
+            time_derivatives, an array of length (control_space_q + 1)
+                represents the time derivatives of the specified polynomial with
+                the ith element of the array representing the ith derivative
+        """
+        # construct polynomial of the form [T**5, T**4, T**3, T**2, T, 1]
+        order = 2 * control_space_q - 1
+        t = sym.symbols('t')
+        x = np.squeeze(sym.Matrix([t**(order - i) for i in range(order + 1)]))
+
+        # iterate through relevant derivatives and make function for each
+        time_derivatives = []
+        for i in range(control_space_q + 1):
+            time_derivatives.append(sym.lambdify([t], x))
+            x = sym.diff(x)  
+        return time_derivatives
 
     @staticmethod
     def solve_bvp_meam_620_style(start_state, end_state, num_dims, x_derivs, T):
         """
         Return polynomial coefficients for a trajectory from start_state ((n,) array) to end_state ((n,) array) in time interval [0,T]
-        The array of lambda functions created in setup_bvp_meam_620_style and the dimension of the configuration space are also required.
+        The array of lambda functions created in get_dynamics_polynomials and the dimension of the configuration space are also required.
         """
         control_space_q = int(start_state.shape[0]/num_dims)
         poly_order = (control_space_q)*2-1

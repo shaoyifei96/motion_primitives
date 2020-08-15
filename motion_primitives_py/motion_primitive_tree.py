@@ -121,16 +121,7 @@ if __name__ == "__main__":
     num_u_per_dimension = 9
     max_state = [1, 1, 1, 100, 1, 1]
     num_state_deriv_pts = 11
-    plot = False
-    mp = MotionPrimitiveTree(control_space_q=control_space_q, num_dims=num_dims, max_state=max_state, plot=plot)
-    start_pt = np.ones((mp.n))
-
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=6)):
-        # mp.compute_all_possible_mps(start_pt)
-        # mp.compute_min_dispersion_set(start_pt)
-        mp.create_state_space_MP_lookup_table_tree(num_u_per_dimension=5, num_state_deriv_pts=11,
-                                                   num_u_set=20, num_dts=10, min_dt=0, max_dt=.5)
-
-    # create_many_state_space_lookup_tables(5)
-    if mp.plot:
-        plt.show()
+    mpt = MotionPrimitiveTree(control_space_q, num_dims,  max_state, InputsMotionPrimitive, plot=True)
+    start_pt = np.ones((mpt.n))
+    mpt.create_evenly_spaced_mps(start_pt, 1, num_u_per_dimension)
+    plt.show()
