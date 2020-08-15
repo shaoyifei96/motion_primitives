@@ -33,7 +33,7 @@ class JerksMotionPrimitive(MotionPrimitive):
             self.cost = traj_time
 
     @classmethod
-    def from_dict(cls, dict, num_dims, max_state):
+    def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
         load a jerks representation of the motion primitive from a dictionary 
         """

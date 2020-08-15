@@ -29,8 +29,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for i in range(len(mpl.edges)):
             for j in range(len(mpl.vertices)):
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(
-                    data["edges"][i * len(mpl.vertices) + j],
-                    mpl.num_dims, mpl.max_state)
+                    data["edges"][i * len(mpl.vertices) + j], mpl.num_dims, 
+                    mpl.max_state, mp.mp_subclass_specific_data)
         print("Lattice successfully read")
         return mpl
 

@@ -20,7 +20,7 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
         self.is_valid = True
 
     @classmethod
-    def from_dict(cls, dict, num_dims, max_state):
+    def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
         Load a Reeds-Shepp motion primitive from a dictionary 
         """

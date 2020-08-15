@@ -17,6 +17,7 @@ class MotionPrimitive():
         self.end_state = np.array(end_state)
         self.num_dims = np.array(num_dims)
         self.max_state =np.array(max_state)
+        # TODO probably cleaner to do this with kwargs
         self.subclass_specific_data = subclass_specific_data
         self.control_space_q = int(self.start_state.shape[0]/num_dims)
         self.is_valid = False
