@@ -16,11 +16,10 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         # Initialize class
         super().__init__(start_state, end_state, num_dims, max_state,
                          subclass_specific_data)
-        # TODO this code is duplicated
-        if not self.subclass_specific_data.get('x_derivs'):
-            self.x_derivs = self.get_dynamics_polynomials(self.control_space_q)
+        if "x_derivs" in subclass_specific_data:
+            self.x_derivs = subclass_specific_data['x_derivs']
         else:
-            self.x_derivs = self.subclass_specific_data.get('x_derivs')
+            self.x_derivs = self.get_dynamics_polynomials(self.control_space_q)
 
         # Solve boundary value problem
         self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
@@ -38,11 +37,10 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
             mp.polys = np.array(dict["polys"])
-            # TODO this code is duplicated
-            if not mp.subclass_specific_data.get('x_derivs'):
-                mp.x_derivs = mp.get_dynamics_polynomials(mp.control_space_q)
+            if "x_derivs" in subclass_specific_data:
+                mp.x_derivs = subclass_specific_data['x_derivs']
             else:
-                mp.x_derivs = mp.subclass_specific_data.get('x_derivs')
+                mp.x_derivs = mp.get_dynamics_polynomials(mp.control_space_q)
         return mp
 
     def to_dict(self):
@@ -62,13 +60,15 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Return:
             state, a numpy array of size (num_dims x control_space_q, len(t))
         """
-        return np.vstack([self.evaluate_polynomial_at_derivative(i, [t]) for i in range(self.control_space_q)])
+        return np.vstack([self.evaluate_polynomial_at_derivative(i, [t]) 
+                            for i in range(self.control_space_q)])
 
-    def get_sampled_states(self, step_size=0.1):
+    def get_sampled_states(self, step_size=0.001):
         # TODO connect w/ get_state
         if self.is_valid:
             st = np.arange(self.cost, step=step_size)
-            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) for i in st]) for j in range(self.num_dims)])
+            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) 
+                                for i in st]) for j in range(self.num_dims)])
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
             if self.control_space_q >= 3:
@@ -228,19 +228,19 @@ if __name__ == "__main__":
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
-    max_state = np.ones((num_dims * control_space_q,))*100
+    max_state = 100 * np.ones((num_dims * control_space_q,))
 
     # polynomial
-    mp2 = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
+    mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
 
     # save
-    assert(mp2.is_valid)
-    dictionary2 = mp2.to_dict()
+    assert(mp.is_valid)
+    dictionary = mp.to_dict()
 
     # reconstruct
-    mp2 = PolynomialMotionPrimitive.from_dict(dictionary2, num_dims, max_state)
+    mp = PolynomialMotionPrimitive.from_dict(dictionary, num_dims, max_state)
 
     # plot
-    st, sp, sv, sa, sj = mp2.get_sampled_states()
-    mp2.plot_from_sampled_states(st, sp, sv, sa, sj)
+    st, sp, sv, sa, sj = mp.get_sampled_states()
+    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
     plt.show()

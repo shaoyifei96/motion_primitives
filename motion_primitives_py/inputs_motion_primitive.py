@@ -1,7 +1,8 @@
 from motion_primitives_py import MotionPrimitive
 from scipy.special import factorial
+import matplotlib.pyplot as plt
 import sympy as sym
-import numpy as np
+import numpy as np  
 
 class InputsMotionPrimitive(MotionPrimitive):
     def __init__(self, start_state, end_state, num_dims, max_state,
@@ -29,13 +30,24 @@ class InputsMotionPrimitive(MotionPrimitive):
         """
         Load a inputs representation of a motion primitive from a dictionary 
         """
-        raise NotImplementedError
+        mp = super().from_dict(dict, num_dims, max_state)
+        if mp:
+            mp.u = np.array(dict["u"])
+            if 'dynamics' in subclass_specific_data:
+                mp.dynamics = subclass_specific_data['dynamics']
+            else:
+                mp.dynamics = mp.get_dynamics_polynomials(mp.control_space_q,
+                                                          num_dims)
+        return mp
 
     def to_dict(self):
         """
         Write important attributes of motion primitive to a dictionary
         """
-        raise NotImplementedError
+        dict = super().to_dict()
+        if dict:
+            dict["u"] = self.u
+        return dict
 
     def get_state(self, t):
         """
@@ -72,3 +84,33 @@ class InputsMotionPrimitive(MotionPrimitive):
             x = np.vstack((x, d))
         x = x.T[0]
         return sym.lambdify([start_pt, u, t], x)
+
+
+if __name__ == "__main__":
+    # problem parameters
+    num_dims = 2
+    control_space_q = 3
+
+    # setup problem
+    start_state = np.zeros((num_dims * control_space_q,))
+    end_state = np.random.rand(num_dims * control_space_q,)
+    max_state = 100 * np.ones((num_dims * control_space_q,))
+    u = np.array([1, -1])
+    dt = 1
+
+    # polynomial
+    mp = InputsMotionPrimitive(start_state, end_state, num_dims, max_state, 
+                               subclass_specific_data={"u": u, "dt": dt})
+
+    # save
+    assert(mp.is_valid)
+    dictionary = mp.to_dict()
+
+    # reconstruct
+    mp = InputsMotionPrimitive.from_dict(dictionary, num_dims, max_state)
+
+    # plot
+    st, sp, sv, sa, sj = mp.get_sampled_states()
+    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    plt.show()
+
