@@ -79,7 +79,7 @@ class InputsMotionPrimitive(MotionPrimitive):
         for i in range(control_space_q):
             x += sym.Matrix(start_pt[i * num_dims:(i + 1) * num_dims]) * t**i / factorial(i)
         pos = x
-        for j in range(control_space_q):
+        for j in range(1, control_space_q):
             d = sym.diff(pos, t, j)
             x = np.vstack((x, d))
         x = x.T[0]

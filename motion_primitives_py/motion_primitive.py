@@ -105,3 +105,9 @@ class MotionPrimitive():
         if self.__dict__.keys() != other.__dict__.keys():
             return False
         return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__)
+
+    def __lt__(self, other):
+        return self.cost < other.cost
+    
+    def __gt__(self, other):
+        return self.cost > other.cost
