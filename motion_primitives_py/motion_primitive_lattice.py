@@ -200,7 +200,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 else:
                     self.edges[i, j] = None
 
-    def get_neighbors(self, node_index):
+    def get_neighbor_mps(self, node_index):
         """
         return the indices and costs of nodes that are neighbors of the given
         node index
@@ -217,7 +217,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         reset_map_index = int(np.floor(node_index / self.num_tiles))
         for i, mp in enumerate(self.edges[:, reset_map_index]):
             if mp is not None and mp.is_valid:
-                neighbors.append((i, mp))
+                neighbors.append(mp)
         return neighbors
 
     def find_mps_to_lattice(self, state):

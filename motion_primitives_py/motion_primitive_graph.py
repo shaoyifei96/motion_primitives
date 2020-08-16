@@ -2,8 +2,6 @@
 from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
-
 
 class MotionPrimitiveGraph():
     """
@@ -121,29 +119,6 @@ class MotionPrimitiveGraph():
             min_score[:, 1] = self.dispersion_distance_fn(potential_sample_pts, result_pt)  # new point's score
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
-
-    def create_evenly_spaced_mps(self, start_pt, dt, num_u_per_dimension):
-        """
-        Create motion primitives for a start point by taking an even sampling over the
-        input space at a given dt
-        i.e. old sikang method
-        """
-        # create evenly sampled inputs
-        max_u = self.max_state[self.control_space_q]
-        single_u_set = np.linspace(-max_u, max_u, num_u_per_dimension)
-        u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
-        u_set = np.dstack(([x.flatten() for x in u_grid]))[0]
-
-        # convert into motion primitives
-        dynamics = self.mp_subclass_specific_data['dynamics']
-        mps = []
-        for u in u_set:
-            mp_subclass_specific_data = {'u': u, 'dt': dt, 'dynamics': dynamics}
-            mps.append(self.motion_primitive_type(start_pt, None, self.num_dims,
-                                                  self.max_state,
-                                                  mp_subclass_specific_data))
-        return mps
-
 
 if __name__ == "__main__":
     control_space_q = 3

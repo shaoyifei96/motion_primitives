@@ -4,6 +4,27 @@ import matplotlib.pyplot as plt
 class MotionPrimitiveTree(MotionPrimitiveGraph):
     """
     """
+    def get_neighbor_mps(self, start_pt, dt, num_u_per_dimension):
+        """
+        Create motion primitives for a start point by taking an even sampling over the
+        input space at a given dt
+        i.e. old sikang method
+        """
+        # create evenly sampled inputs
+        max_u = self.max_state[self.control_space_q]
+        single_u_set = np.linspace(-max_u, max_u, num_u_per_dimension)
+        u_grid = np.meshgrid(*[single_u_set for i in range(self.num_dims)])
+        u_set = np.dstack(([x.flatten() for x in u_grid]))[0]
+
+        # convert into motion primitives
+        dynamics = self.mp_subclass_specific_data['dynamics']
+        mps = []
+        for u in u_set:
+            mp_subclass_specific_data = {'u': u, 'dt': dt, 'dynamics': dynamics}
+            mps.append(self.motion_primitive_type(start_pt, None, self.num_dims,
+                                                  self.max_state,
+                                                  mp_subclass_specific_data))
+        return mps
 
     def compute_all_possible_mps(self, start_pt, num_u_set, num_dts, min_dt, max_dt):
         """
