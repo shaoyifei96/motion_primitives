@@ -60,15 +60,15 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Return:
             state, a numpy array of size (num_dims x control_space_q, len(t))
         """
-        return np.vstack([self.evaluate_polynomial_at_derivative(i, [t]) 
-                            for i in range(self.control_space_q)])
+        return np.vstack([self.evaluate_polynomial_at_derivative(i, [t])
+                          for i in range(self.control_space_q)])
 
-    def get_sampled_states(self, step_size=0.001):
+    def get_sampled_states(self, step_size=0.1):
         # TODO connect w/ get_state
         if self.is_valid:
             st = np.arange(self.cost, step=step_size)
-            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i) 
-                                for i in st]) for j in range(self.num_dims)])
+            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i)
+                                      for i in st]) for j in range(self.num_dims)])
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
             if self.control_space_q >= 3:
@@ -219,6 +219,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         # TODO possibly delete
         return expm(self.A*dt)@start_pt + integrate.quad_vec(self.quad_dynamics_integral_wrapper(dt), 0, dt)[0]@u
+
 
 if __name__ == "__main__":
     # problem parameters
