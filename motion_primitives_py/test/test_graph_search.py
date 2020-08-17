@@ -34,7 +34,7 @@ class TestGraphSearch(unittest.TestCase):
 
     def test_search(self):
         gs = GraphSearch(self.mpl, self.om, self.start_state, self.goal_state,
-                         self.goal_tol, heuristic='euclidean', neighbors='lattice')
+                         self.goal_tol, heuristic='euclidean')
         path, sampled_path, path_cost = gs.run_graph_search()
         assert(gs.queue)
         gs.make_graph_search_animation()
