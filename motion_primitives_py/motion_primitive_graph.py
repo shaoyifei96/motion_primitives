@@ -3,6 +3,7 @@ from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitiv
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class MotionPrimitiveGraph():
     """
     Compute motion primitive graphs for quadrotors over different size state spaces
@@ -73,7 +74,7 @@ class MotionPrimitiveGraph():
         """
         Return a uniform Cartesian sampling over vector bounds with vector resolution.
         Input:
-            bounds, (N, 2) bounds over N dimensions
+            bounds, (N) bounds over N dimensions (assumes symmetric positive and negative values)
             resolution, (N,) resolution over N dimensions
         Output:
             pts, (M,N) set of M points sampled in N dimensions
@@ -81,13 +82,13 @@ class MotionPrimitiveGraph():
         assert len(bounds) == len(resolution)
         independent = []
         bounds = np.asarray(bounds)
-        for (a, b, r) in zip(bounds[:, 0], bounds[:, 1], resolution):
+        for (a, r) in zip(bounds, resolution):
             for _ in range(self.num_dims):
                 if random:
-                    independent.append(a + np.random.rand((np.ceil((b-a)/r+1).astype(int)))*(b-a))
+                    independent.append(np.random.rand((np.ceil(a/r+1).astype(int)))*2*a-a)
                 else:
                     if r != np.inf:
-                        independent.append(np.arange(a, b+.00001, r))
+                        independent.append(np.concatenate([np.flip(-np.arange(0, a+.00001, r)[1:]), np.arange(0, a+.00001, r)]))
                     else:
                         independent.append(0)  # if the requested resolution is infinity, just return 0
         if self.motion_primitive_type == ReedsSheppMotionPrimitive:  # hack
@@ -120,8 +121,10 @@ class MotionPrimitiveGraph():
         actual_sample_pts = potential_sample_pts[actual_sample_indices]
         return actual_sample_pts, actual_sample_indices
 
+
 if __name__ == "__main__":
     control_space_q = 3
     num_dims = 2
     max_state = [3, 1, 1, 100, 1, 1]
     mpg = MotionPrimitiveGraph(control_space_q, num_dims, max_state, True)
+    mpg.uniform_state_set([2], [.8], random=True)

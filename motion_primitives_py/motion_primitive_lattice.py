@@ -162,8 +162,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # TODO maybe move this somewhere else
         self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
 
-        bounds = np.vstack((-self.max_state[:self.control_space_q], self.max_state[:self.control_space_q])).T
-        potential_sample_pts = self.uniform_state_set(bounds, resolution[:self.control_space_q], random=False)
+        potential_sample_pts = self.uniform_state_set(self.max_state[:self.control_space_q], resolution[:self.control_space_q], random=False)
         self.vertices, self.edges = self.compute_min_dispersion_points(
             num_output_pts, potential_sample_pts, check_backwards_dispersion, animate)
         if self.plot:
