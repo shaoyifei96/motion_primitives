@@ -11,7 +11,7 @@ class TestMotionPrimitive(unittest.TestCase):
         cls.start_state = np.array([0, 0, 0, 0, 0, 0])
         cls.end_state = np.array([1, 1, 0, 0, 0, 0])
         cls.num_dims = 2
-        cls.max_state = 100 * np.ones((6,))
+        cls.max_state = 1e3 * np.ones((6,))
         cls.polynomial_mp = PolynomialMotionPrimitive(cls.start_state,
                                                       cls.end_state,
                                                       cls.num_dims,
@@ -27,6 +27,11 @@ class TestMotionPrimitive(unittest.TestCase):
         tf = self.polynomial_mp.cost
         sf = self.polynomial_mp.get_state(np.array([tf]))
         self.assertTrue(((np.squeeze(sf) - self.end_state) < 10e-5).all())
+
+    def test_polynomial_max_u(self):
+        for t in np.arange(0, self.polynomial_mp.cost, .1):
+            u = np.sum(self.polynomial_mp.polys * self.polynomial_mp.x_derivs[-2](t),axis=1)
+            assert ((abs(u) < self.max_state[self.polynomial_mp.control_space_q]).all())
 
     def test_polynomial_save_load(self):
         d = self.polynomial_mp.to_dict()

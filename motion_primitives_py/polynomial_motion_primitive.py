@@ -24,7 +24,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         # Solve boundary value problem
         self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims,
-            self.max_state, self.x_derivs)
+            self.max_state, self.x_derivs, subclass_specific_data.get('iterative_bvp_dt'), subclass_specific_data.get('iterative_bvp_max_t'))
         if self.polys is not None:
             self.is_valid = True
             self.cost = traj_time
@@ -124,7 +124,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
         # iterate through relevant derivatives and make function for each
         time_derivatives = []
-        for i in range(control_space_q + 1):
+        for i in range(min(control_space_q + 2, order)):
             time_derivatives.append(sym.lambdify([t], x))
             x = sym.diff(x)
         return time_derivatives
@@ -157,13 +157,16 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return polys
 
     @staticmethod
-    def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state, x_derivs):
+    def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state, x_derivs, dt, max_t):
         """
         Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish. TODO: only checking input constraint at start, middle, and end at the moment
         """
         # TODO make parameters
-        dt = .1
-        max_t = 1
+        if dt == None:
+            dt = .1
+        if max_t == None:
+            max_t = 1
+
         t = 0
         u_max = np.inf
         polys = None
@@ -171,15 +174,19 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         while u_max > max_state[control_space_q]:
             t += dt
             if t > max_t:
-                # u = np.ones(self.num_dims)*np.inf
                 polys = None
                 t = np.inf
                 break
             polys = PolynomialMotionPrimitive.solve_bvp_meam_620_style(start_state, end_states, num_dims, x_derivs, t)
-            # TODO this is only u(t), not necessarily max(u) from 0 to t which we would want, use critical points maybe?
-            u_max = max(abs(np.sum(polys*x_derivs[-1](t), axis=1)))
-            u_max = max(u_max, max(abs(np.sum(polys*x_derivs[-1](t/2), axis=1))))
-            u_max = max(u_max, max(abs(np.sum(polys*x_derivs[-1](0), axis=1))))
+            u_max = 0
+            for i in range(num_dims):
+                critical_pts = [0, t]
+                if control_space_q > 2:
+                    roots = np.roots((polys*x_derivs[control_space_q + 1](1))[i, :])
+                    if roots.size > 0:
+                        critical_pts = roots
+                critical_us = [abs(np.sum((polys*x_derivs[control_space_q](t_crit))[i, :])) for t_crit in critical_pts if t_crit <= t]
+                u_max = max(u_max, np.max(critical_us))
         return polys, t
 
     def A_and_B_matrices_quadrotor(self):
@@ -229,13 +236,15 @@ if __name__ == "__main__":
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
-    max_state = 100 * np.ones((num_dims * control_space_q,))
+    max_state = 1e3 * np.ones((num_dims * control_space_q,))
 
     # polynomial
     mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
 
     # save
     assert(mp.is_valid)
+    assert(np.array_equal(mp.end_state, end_state))
+    print(mp.cost)
     dictionary = mp.to_dict()
 
     # reconstruct

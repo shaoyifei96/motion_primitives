@@ -7,6 +7,7 @@ import itertools
 import ujson as json
 import sys
 
+
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
     """
     A class that provides functions to compute a lattice of minimum dispersion
@@ -103,7 +104,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # each time through loop add point to the set and update data structures
         print("potential sample points:", len(potential_sample_pts))
         for i in range(num_output_pts):
-            print(f"{i + 1}/{num_output_pts}")
+            print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
 
             # add index to the list of sample node indices
             actual_sample_indices[i] = np.array((index))
@@ -185,7 +186,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 mp = self.edges[i, j]
                 if mp is not None and mp.is_valid and mp.cost < cost_threshold:
                     if self.plot:
-                        st, sp, sv, sa, sj = mp.get_sampled_states()
+                        st, sp, sv, sa, sj = mp.get_sampled_states(.1)
                         if self.num_dims == 2:
                             self.ax.plot(sp[0, :], sp[1, :])
                             self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
@@ -329,11 +330,12 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 if __name__ == "__main__":
     # %%
     from motion_primitives_py import *
+    import numpy as np
     tiling = True
     plot = True
     animate = False
     check_backwards_dispersion = True
-
+    mp_subclass_specific_data = {}
     # %%
     # define parameters
     control_space_q = 2
@@ -343,10 +345,12 @@ if __name__ == "__main__":
     resolution = [.21, .2]
 
     # # %%
-    # motion_primitive_type = PolynomialMotionPrimitive
-    # control_space_q = 2
-    # num_dims = 2
-    # max_state = [.51, 1.51, 15, 100, 1, 1]
+    motion_primitive_type = PolynomialMotionPrimitive
+    control_space_q = 2
+    num_dims = 2
+    max_state = [.51, 1.51, 15, 100, 1, 1]
+    mp_subclass_specific_data = {'iterative_bvp_dt': .2, 'iterative_bvp_max_t': 1}
+    resolution = [.21, .2, 10]
 
     # %%
     # motion_primitive_type = JerksMotionPrimitive
@@ -356,7 +360,7 @@ if __name__ == "__main__":
 
     # %%
     # build lattice
-    mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, plot)
+    mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
         num_output_pts=30, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
