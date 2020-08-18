@@ -16,11 +16,11 @@ class JerksMotionPrimitive(MotionPrimitive):
         assert(self.control_space_q == 3), "This function only works for jerk input space (and maybe acceleration input space one day)"
 
         # start point # ugly but this is faster than using np.split
-        p0, v0, a0 = self.start_state[:self.num_dims], self.start_state[self.num_dims:2 *
-                                                                        self.num_dims], self.start_state[2*self.num_dims:3*self.num_dims]
+        p0, v0, a0 = self.start_state[:self.num_dims]+1e-5, self.start_state[self.num_dims:2 *
+                                                                        self.num_dims]+1e-5, self.start_state[2*self.num_dims:3*self.num_dims]+1e-5
         # end point
-        p1, v1, a1 = self.end_state[:self.num_dims], self.end_state[self.num_dims:2 *
-                                                                    self.num_dims], self.end_state[2*self.num_dims:3*self.num_dims]
+        p1, v1, a1 = self.end_state[:self.num_dims]+1e-5, self.end_state[self.num_dims:2 *
+                                                                    self.num_dims]+1e-5, self.end_state[2*self.num_dims:3*self.num_dims]+1e-5
         # state and input limits
         v_max, a_max, j_max = self.max_state[1:1+self.control_space_q] + 1e-5  # numerical hack for library seg fault
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q] - 1e-5
