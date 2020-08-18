@@ -32,7 +32,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
-        Load a polynomial representation of a motion primitive from a dictionary 
+        Load a polynomial representation of a motion primitive from a dictionary
         """
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
@@ -67,8 +67,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         # TODO connect w/ get_state
         if self.is_valid:
             st = np.arange(self.cost, step=step_size)
-            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i)
-                                      for i in st]) for j in range(self.num_dims)])
+            sp = self.evaluate_polynomial_at_derivative(0, st)
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
             if self.control_space_q >= 3:
@@ -90,15 +89,15 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             sampled, array of polynomial derivative evaluated at sample times
         """
 
-        sampled = np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[j, :]),
-                                                         ((deriv_num), (0)))[:self.polys.shape[1]], i) for i in st]) for j in range(self.num_dims)])
-
+        poly_coeffs = np.array([np.concatenate((np.zeros(deriv_num), self.x_derivs[deriv_num](1) * self.polys[j, :]))[:self.polys.shape[1]]
+                                for j in range(self.num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
+        sampled = np.array([np.sum(poly_coeffs.T*self.x_derivs[0](t), axis=1) for t in st]).T  # faster than polyval
         return sampled
 
     @staticmethod
     def get_dynamics_polynomials(control_space_q):
         """
-        Returns an array of lambda functions that evaluate the derivatives of 
+        Returns an array of lambda functions that evaluate the derivatives of
         a polynomial of specified order with coefficients all set to 1
 
         Example for polynomial order 5:
@@ -148,8 +147,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         for i in range(num_dims):  # Construct a separate polynomial for each dimension
 
             # vector of the form [start_state,end_state,start_state_dot,end_state_dot,...]
-            b[:control_space_q] = start_state[i::num_dims]
-            b[control_space_q:] = end_state[i::num_dims]
+            b[: control_space_q] = start_state[i:: num_dims]
+            b[control_space_q:] = end_state[i:: num_dims]
             poly = np.linalg.solve(A, b)
 
             polys[i, :] = poly
@@ -235,7 +234,8 @@ if __name__ == "__main__":
 
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
-    end_state = np.random.rand(num_dims * control_space_q,)
+    # end_state = np.random.rand(num_dims * control_space_q,)
+    end_state = np.ones_like(start_state)
     max_state = 1e3 * np.ones((num_dims * control_space_q,))
 
     # polynomial
