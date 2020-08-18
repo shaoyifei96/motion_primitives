@@ -66,7 +66,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def get_sampled_states(self, step_size=0.1):
         # TODO connect w/ get_state
         if self.is_valid:
-            st = np.arange(self.cost, step=step_size)
+            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
             sp = self.evaluate_polynomial_at_derivative(0, st)
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)

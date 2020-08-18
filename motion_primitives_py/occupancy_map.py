@@ -80,7 +80,8 @@ class OccupancyMap():
     def plot(self, bounds=None, ax=None):
         if len(self.dims) == 2:
             if ax == None:
-                fig, ax = plt.subplots()
+                fig, self.ax = plt.subplots()
+                ax = self.ax
                 # if len(self.dims) == 3:
                 #     fig_3d, ax_3d = plt.subplots()
                 #     ax_3d = fig_3d.add_subplot(111, projection='3d')

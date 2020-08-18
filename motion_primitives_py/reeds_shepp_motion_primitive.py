@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import reeds_shepp
 
+
 class ReedsSheppMotionPrimitive(MotionPrimitive):
     """
     Create a new Reeds-Shepp motion primitive
@@ -44,7 +45,7 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
         ps = np.array(reeds_shepp.path_sample(self.start_state, self.end_state, self.turning_radius, step_size)).T
         p = ps[:2, :]
         v = ps[2, :][np.newaxis, :]
-        ts = np.arange(0, self.cost + step_size, step_size)
+        ts = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
         return ts, p, v, None, None
 
 
