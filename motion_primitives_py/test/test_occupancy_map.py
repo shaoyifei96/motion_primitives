@@ -25,12 +25,18 @@ class TestOccupancyMap(unittest.TestCase):
         cls.bad_mp = PolynomialMotionPrimitive([7, 7, 0, 0], [7, 18, 0, 0],
                                                len(cls.om.dims),
                                                [100, 100, 100, 100])
+        cls.good_mp2 = PolynomialMotionPrimitive([11, 15, 0, 0], [7, 18, 0, 0],
+                                               len(cls.om.dims),
+                                               [100, 100, 100, 100])
         cls.good_mp = PolynomialMotionPrimitive([3, 7, 0, 0], [3, 18, 0, 0],
                                                 len(cls.om.dims),
                                                 [100, 100, 100, 100])
 
     def test_plot(self):
         self.om.plot()
+        self.good_mp.plot(True)
+        self.good_mp2.plot(True)
+        self.bad_mp.plot(True)
         plt.show(block=False)
         plt.pause(1)
         plt.close()
@@ -46,8 +52,9 @@ class TestOccupancyMap(unittest.TestCase):
         assert(self.om.is_valid_position(self.unoccupied_valid_pos))
 
     def test_is_mp_collision_free(self):
-        assert(not self.om.is_mp_collision_free(self.bad_mp))
+        assert(self.om.is_mp_collision_free(self.bad_mp))
         assert(self.om.is_mp_collision_free(self.good_mp))
+        assert(self.om.is_mp_collision_free(self.good_mp2))
 
 
 if __name__ == '__main__':
