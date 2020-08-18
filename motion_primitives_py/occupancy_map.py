@@ -18,11 +18,6 @@ class OccupancyMap():
         # distance margin to inflate obstacles by
         self.margin = margin
 
-        fig, self.ax = plt.subplots()
-        if len(self.dims) == 3:
-            fig_3d, ax_3d = plt.subplots()
-            self.ax_3d = fig_3d.add_subplot(111, projection='3d')
-
     @classmethod
     def fromVoxelMapBag(cls, filename, topic=None, margin=0):
         # load messages from bagfile
@@ -85,7 +80,10 @@ class OccupancyMap():
     def plot(self, bounds=None, ax=None):
         if len(self.dims) == 2:
             if ax == None:
-                ax = self.ax
+                fig, ax = plt.subplots()
+                # if len(self.dims) == 3:
+                #     fig_3d, ax_3d = plt.subplots()
+                #     ax_3d = fig_3d.add_subplot(111, projection='3d')
             if bounds:
                 upper_l = self.get_indices_from_position(np.array([bounds[0], bounds[3]]))
                 lower_r = self.get_indices_from_position(np.array([bounds[1], bounds[2]]))

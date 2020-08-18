@@ -2,7 +2,8 @@ from motion_primitives_py import MotionPrimitive
 from scipy.special import factorial
 import matplotlib.pyplot as plt
 import sympy as sym
-import numpy as np  
+import numpy as np
+
 
 class InputsMotionPrimitive(MotionPrimitive):
     def __init__(self, start_state, end_state, num_dims, max_state,
@@ -22,13 +23,15 @@ class InputsMotionPrimitive(MotionPrimitive):
         # Initialize superclass
         super().__init__(start_state, self.dynamics(start_state, self.u, cost),
                          num_dims, max_state, subclass_specific_data)
-        self.is_valid = True
+        # enforce state constraints on vel, acc, ... but not position
+        if (abs(self.end_state)[self.num_dims:] < np.repeat(self.max_state[1:self.control_space_q], self.num_dims)).all():
+            self.is_valid = True
         self.cost = cost
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
-        Load a inputs representation of a motion primitive from a dictionary 
+        Load a inputs representation of a motion primitive from a dictionary
         """
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
@@ -94,12 +97,13 @@ if __name__ == "__main__":
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
-    max_state = 100 * np.ones((num_dims * control_space_q,))
+    # max_state = 100 * np.ones((num_dims * control_space_q,))
+    max_state = [1, 2, 3, 4, 5]
     u = np.array([1, -1])
     dt = 1
 
     # polynomial
-    mp = InputsMotionPrimitive(start_state, end_state, num_dims, max_state, 
+    mp = InputsMotionPrimitive(start_state, end_state, num_dims, max_state,
                                subclass_specific_data={"u": u, "dt": dt})
 
     # save
@@ -113,4 +117,3 @@ if __name__ == "__main__":
     st, sp, sv, sa, sj = mp.get_sampled_states()
     mp.plot_from_sampled_states(st, sp, sv, sa, sj)
     plt.show()
-

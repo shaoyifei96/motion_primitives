@@ -6,6 +6,7 @@ from copy import deepcopy
 import matplotlib.animation as animation
 from motion_primitives_py import MotionPrimitiveLattice, MotionPrimitiveTree
 
+
 class Node:
     """
     Container for node data. Nodes are sortable by the value of (f, -g).
@@ -34,7 +35,7 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic='euclidean', plot=False):
+    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic='euclidean'):
         # Save arguments as parameters
         self.motion_primitive_graph = motion_primitive_graph
         self.map = occupancy_map
@@ -42,7 +43,6 @@ class GraphSearch:
         self.goal_state = np.array(goal_state)
         self.goal_tolerance = np.array(goal_tolerance)
         self.mp_sampling_step_size = mp_sampling_step_size
-        self.plot = plot
 
         # Dimensionality parameters
         self.num_dims = self.motion_primitive_graph.num_dims
@@ -51,10 +51,6 @@ class GraphSearch:
 
         # Create comparators for extreme states
         map_size = self.map.extent
-        self.min_state_comparator = np.hstack([np.array(map_size[:self.num_dims])] +
-                                              [np.repeat(-i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
-        self.max_state_comparator = np.hstack([np.array(map_size[self.num_dims:])] +
-                                              [np.repeat(i, self.num_dims) for i in self.motion_primitive_graph.max_state[:self.control_space_q-1]])
 
         # Parameter used in min time heuristic from Sikang's paper
         self.rho = 1.0
@@ -69,19 +65,13 @@ class GraphSearch:
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
-            self.dt = .5
-            self.num_u_per_dimension = 5
+            self.dt = 1
+            self.num_u_per_dimension = 12
             self.num_mps = self.num_u_per_dimension**self.num_dims
             self.get_neighbor_nodes = self.get_neighbor_nodes_evenly_spaced
         elif type(self.motion_primitive_graph) is MotionPrimitiveLattice:
             self.num_mps = len(self.motion_primitive_graph.edges)
             self.get_neighbor_nodes = self.get_neighbor_nodes_lattice
-
-
-    def is_valid_state(self, state):
-        if (state < self.min_state_comparator).any() or (state > self.max_state_comparator).any():
-            return False
-        return True
 
     def zero_heuristic(self, state):
         return 0
@@ -120,6 +110,20 @@ class GraphSearch:
         sampled_path.reverse()
         return np.vstack(path).transpose(), np.hstack(sampled_path), path_cost
 
+    def plot_path(self, path, sampled_path, path_cost):
+
+        fig, ax = plt.subplots()
+        self.map.plot(ax=ax)
+        ax.plot(self.start_state[0], self.start_state[1], 'og')
+        ax.plot(self.goal_state[0], self.goal_state[1], 'or')
+
+        if sampled_path is not None:
+            print(path.T)
+            ax.plot(sampled_path[0, :], sampled_path[1, :])
+            print(f'cost: {path_cost}')
+            ax.plot(path[0, :], path[1, :], '*m')
+            ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False))
+
     def get_neighbor_nodes_evenly_spaced(self, node):
         neighbor_mps = self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension)
         neighbors = []
@@ -135,7 +139,7 @@ class GraphSearch:
         neighbors = []
         reset_map_index = int(np.floor(node.index / self.motion_primitive_graph.num_tiles))
         for i, mp in enumerate(self.motion_primitive_graph.edges[:, reset_map_index]):
-            if mp is not None and mp.is_valid and self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, offset=node.state[:self.num_dims]):
+            if mp is not None and self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, offset=node.state[:self.num_dims]):
                 state = deepcopy(node.state)
                 state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
                 state[self.num_dims:] = mp.end_state[self.num_dims:]
@@ -306,12 +310,18 @@ class GraphSearch:
 
 if __name__ == "__main__":
     from motion_primitives_py import *
+    import time
+    mpl = MotionPrimitiveLattice.load("lattice_poly.json")
+    print(mpl.dispersion)
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+    print(mpl.max_state)
+
     start_state = np.zeros((6))
     goal_state = np.zeros_like(start_state)
 
     resolution = 1
     origin = [0, 0]
-    dims = [10, 100]
+    dims = [10, 20]
     data = np.zeros(dims)
     data[5:10, 10:15] = 100
     data = data.flatten('F')
@@ -319,39 +329,26 @@ if __name__ == "__main__":
     start_state[0:3] = [8, 2, 0]
     goal_state[0:3] = [1, 10, 0]
 
-    goal_tolerance = np.ones_like(start_state)
-    plot = True
+    goal_tolerance = np.ones_like(start_state)*1
 
-    mpg = MotionPrimitiveTree(2, 2,  [1, 1, 1, 1], InputsMotionPrimitive, plot=False)
-    # mpg = MotionPrimitiveLattice.load("lattice_test.json")
-    gs = GraphSearch(mpg, occ_map, start_state[:mpg.n], goal_state[:mpg.n], goal_tolerance, plot=plot, heuristic='euclidean')
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-    import time
+    print("Motion Primitive Tree")
+    mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
+    gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance, heuristic='euclidean')
     tic = time.time()
     path, sampled_path, path_cost = gs.run_graph_search()
     toc = time.time()
+    gs.plot_path(path, sampled_path, path_cost)
+    print(f"Planning time: {toc - tic}s")
+
+    print("Motion Primitive Lattice")
+    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance, heuristic='euclidean')
+    tic = time.time()
+    path, sampled_path, path_cost = gs.run_graph_search()
+    toc = time.time()
+    gs.plot_path(path, sampled_path, path_cost)
     print(f"Planning time: {toc - tic}s")
 
     # if gs.queue is not None:
     #     gs.make_graph_search_animation(True)
-
-    plt.close('all')
-    fig, ax = plt.subplots()
-    gs.map.plot(ax=ax)
-    ax.plot(gs.start_state[0], gs.start_state[1], 'og')
-    ax.plot(gs.goal_state[0], gs.goal_state[1], 'or')
-    # # plt.plot(gs.neighbor_list[:, 0], gs.neighbor_list[:, 1], 'k.')
-    # # plt.plot(gs.expanded_nodes_list[:, 0], gs.expanded_nodes_list[:, 1], 'k.')
-
-    if sampled_path is not None:
-        print(path.T)
-        ax.plot(sampled_path[0, :], sampled_path[1, :])
-        print(f'cost: {path_cost}')
-        ax.plot(path[0, :], path[1, :], '*m')
-        ax.add_patch(plt.Circle(gs.goal_state[:gs.num_dims], gs.goal_tolerance[0], color='b', fill=False))
-        # mp = mpl.motion_primitive_type(start_state, goal_state, mpl.num_dims, mpl.max_state)
-        # st, sp, sv, sa, sj = mp.get_sampled_states()
-        # print(f'optimal path cost: {mp.cost}')
-        # plt.plot(sp[0, :], sp[1, :])
 
     plt.show()
