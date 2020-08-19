@@ -47,6 +47,12 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
         v = ps[2, :][np.newaxis, :]
         ts = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
         return ts, p, v, None, None
+    
+    def get_sampled_position(self, step_size=0.1):
+        ps = np.array(reeds_shepp.path_sample(self.start_state, self.end_state, self.turning_radius, step_size)).T
+        p = ps[:2, :]
+        ts = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+        return ts, p
 
 
 if __name__ == "__main__":

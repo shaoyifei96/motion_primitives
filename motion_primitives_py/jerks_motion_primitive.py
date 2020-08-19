@@ -69,13 +69,18 @@ class JerksMotionPrimitive(MotionPrimitive):
         return np.squeeze(np.concatenate([sp, sv, sa]))  # TODO concatenate may be slow because allocates new memory
 
     def get_sampled_states(self, step_size=0.1):
-        # TODO implement step sizing based off of resolution
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
         st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=step_size)
         return st, sp, sv, sa, sj
 
+    def get_sampled_position(self, step_size=0.1):
+        p0, v0, a0 = np.split(self.start_state, self.control_space_q)
+        st, sp = min_time_bvp.uniformly_sample_position(p0, v0, a0, self.switch_times, self.jerks, dt=step_size)
+        return st, sp
+
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     # problem parameters
     num_dims = 2
     control_space_q = 3
