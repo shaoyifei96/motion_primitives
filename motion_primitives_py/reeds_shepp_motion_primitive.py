@@ -45,13 +45,16 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
         ps = np.array(reeds_shepp.path_sample(self.start_state, self.end_state, self.turning_radius, step_size)).T
         p = ps[:2, :]
         v = ps[2, :][np.newaxis, :]
-        ts = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+        ts = np.linspace(0, self.cost, p.shape[1])
         return ts, p, v, None, None
-    
+
     def get_sampled_position(self, step_size=0.1):
         ps = np.array(reeds_shepp.path_sample(self.start_state, self.end_state, self.turning_radius, step_size)).T
-        p = ps[:2, :]
-        ts = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+        p = np.empty((2, ps.shape[1]+2))
+        p[:, 1:-1] = ps[:2, :]
+        p[:, 0] = self.start_state[:2]
+        p[:, -1] = self.end_state[:2]
+        ts = np.linspace(0, self.cost, p.shape[1])
         return ts, p
 
 
@@ -64,7 +67,7 @@ if __name__ == "__main__":
     dict = mp1.to_dict()
     mp1 = ReedsSheppMotionPrimitive.from_dict(dict, 2, max_state)
 
-    st1, sx1, _, _, _ = mp1.get_sampled_states()
+    st1, sx1 = mp1.get_sampled_position()
     plt.plot(start_state[0], start_state[1], 'go')
     plt.plot(end_state[0], end_state[1], 'ro')
     plt.plot(sx1[0, :], sx1[1, :])
