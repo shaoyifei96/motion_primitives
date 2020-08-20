@@ -34,11 +34,10 @@ class InputsMotionPrimitive(MotionPrimitive):
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
             mp.u = np.array(dict["u"])
-            if 'dynamics' in subclass_specific_data:
-                mp.dynamics = subclass_specific_data['dynamics']
+            if "dynamics" in subclass_specific_data:
+                mp.subclass_specific_data['dynamics'] = subclass_specific_data['dynamics']
             else:
-                mp.dynamics = mp.get_dynamics_polynomials(mp.control_space_q,
-                                                          num_dims)
+                mp.subclass_specific_data['dynamics'] = mp.get_dynamics_polynomials(mp.control_space_q, mp.num_dims)
         return mp
 
     def to_dict(self):
