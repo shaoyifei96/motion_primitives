@@ -88,6 +88,23 @@ class JerksMotionPrimitive(MotionPrimitive):
         st, sp = min_time_bvp.uniformly_sample_position(p0, v0, a0, self.switch_times, self.jerks, dt=step_size)
         return st, sp
 
+    def get_sampled_input(self, step_size=0.1):
+        if step_size:
+            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+            su = np.empty((self.num_dims, len(st)))
+            for dim in range(self.num_dims):
+                switch_index = 1
+                for i in range(len(st)):
+                    while st[i] > self.switch_times[dim, switch_index]:
+                        switch_index += 1
+                    su[dim, i] = self.jerks[dim, switch_index - 1]
+            print(self.switch_times)
+            print(st)
+            print(self.jerks)
+            print(su)
+            return st, su
+        else:
+            return self.switch_times, self.jerks
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -98,19 +115,15 @@ if __name__ == "__main__":
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
-    max_state = np.ones((num_dims * control_space_q,))*100
+    max_state = 100 * np.ones((num_dims * control_space_q,))
 
     # jerks
-    mp1 = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
-
-    # save
-    assert(mp1.is_valid)
-    dictionary1 = mp1.to_dict()
-
-    # reconstruct
-    mp1 = JerksMotionPrimitive.from_dict(dictionary1, num_dims, max_state)
+    mp = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
 
     # plot
-    st, sp, sv, sa, sj = mp1.get_sampled_states()
-    mp1.plot_from_sampled_states(st, sp, sv, sa, sj)
+    st, sp, sv, sa, sj = mp.get_sampled_states()
+    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    st, su = mp.get_sampled_input(step_size=.1)
+    plt.plot(st, su[0, :])
+    plt.plot(st, su[1, :])
     plt.show()

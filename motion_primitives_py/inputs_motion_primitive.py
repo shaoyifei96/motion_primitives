@@ -76,6 +76,11 @@ class InputsMotionPrimitive(MotionPrimitive):
         sp = states[:self.num_dims, :]
         return st, sp
 
+    def get_sampled_input(self, step_size=0.1):
+        st = np.linspace(0, self.cost, int(np.ceil(self.cost / step_size) + 1))
+        su = np.repeat(self.u.reshape((len(self.u), 1)), len(st), axis=1)
+        return st, su
+
     @staticmethod
     def get_dynamics_polynomials(control_space_q, num_dims):
         start_pt = sym.Matrix([sym.symbols(f'start_pt{i}') for i in range(control_space_q * num_dims)])
@@ -119,4 +124,5 @@ if __name__ == "__main__":
     # plot
     st, sp, sv, sa, sj = mp.get_sampled_states()
     mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    print(mp.get_sampled_input())
     plt.show()

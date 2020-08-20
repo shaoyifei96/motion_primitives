@@ -59,9 +59,23 @@ class MotionPrimitive():
         """
         raise NotImplementedError
 
-    def get_sampled_states(self):
+    def get_sampled_states(self, step_size=0.1):
         """
         Return a sampling of the trajectory for plotting 
+        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        """
+        raise NotImplementedError
+
+    def get_sampled_position(self, step_size=0.1):
+        """
+        Return a sampling of only position of trajectory for plotting 
+        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        """
+        raise NotImplementedError
+
+    def get_sampled_input(self, step_size=0.1):
+        """
+        Return a sampling of inputs needed to move along the mp
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
         raise NotImplementedError

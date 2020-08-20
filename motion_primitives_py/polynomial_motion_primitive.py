@@ -83,6 +83,14 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         else:
             return None, None
 
+    def get_sampled_input(self, step_size=0.1):
+        if self.is_valid:
+            st = np.linspace(0, self.cost, int(np.ceil(self.cost / step_size) + 1))
+            su = self.evaluate_polynomial_at_derivative(self.control_space_q, st)
+            return st, su
+        else:
+            return None, None
+
     def evaluate_polynomial_at_derivative(self, deriv_num, st):
         """
         Sample the specified derivative number of the polynomial trajectory at
