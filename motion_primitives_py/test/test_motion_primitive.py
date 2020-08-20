@@ -4,13 +4,16 @@ import pytest
 
 similarity_threshold = 10e-5
 
+
 def test_initial_state(mp_fixture):
     s0 = np.squeeze(mp_fixture.get_state(np.array([0])))
     assert ((s0 - mp_fixture.start_state) < similarity_threshold).all()
 
+
 def test_final_state(mp_fixture):
     sf = np.squeeze(mp_fixture.get_state(np.array([mp_fixture.cost])))
     assert ((sf - mp_fixture.end_state) < similarity_threshold).all()
+
 
 """
 def test_max_u(mp_fixture):
@@ -19,9 +22,10 @@ def test_max_u(mp_fixture):
         assert (abs(u) < mp_fixture.max_state[mp_fixture.control_space_q]).all()
 """
 
+
 def test_save_load(mp_fixture):
     dictionary = mp_fixture.to_dict()
-    mp2 = type(mp_fixture).from_dict(dictionary, mp_fixture.num_dims, 
+    mp2 = type(mp_fixture).from_dict(dictionary, mp_fixture.num_dims,
                                      mp_fixture.max_state)
     states1 = mp_fixture.get_sampled_states()
     states2 = mp2.get_sampled_states()
