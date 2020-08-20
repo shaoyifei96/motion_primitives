@@ -44,6 +44,10 @@ class TestMotionPrimitive(unittest.TestCase):
         self.assertTrue((abs(sa1 - sa2) < 10e-5).all())
         self.assertTrue((abs(sj1 - sj2) < 10e-5).all())
 
+    def test_polynomial_get_position(self):
+        assert((self.polynomial_mp.start_state[:self.num_dims] - self.polynomial_mp.get_sampled_position()[1][:, 0] < 1e-5).all())
+        assert((self.polynomial_mp.end_state[:self.num_dims] - self.polynomial_mp.get_sampled_position()[1][:, -1] < 1e-5).all())
+
     def test_jerks_initial_state(self):
         s0 = self.jerk_mp.get_state(np.array([0]))
         self.assertTrue(((np.squeeze(s0) - self.start_state) < 10e-5).all())
@@ -85,7 +89,6 @@ class TestMotionPrimitive(unittest.TestCase):
         assert((mpl1.max_state == mpl2.max_state).all())
         assert(mpl1.motion_primitive_type == mpl2.motion_primitive_type)
         assert(mpl1.num_tiles == mpl2.num_tiles)
-        import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
