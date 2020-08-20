@@ -120,6 +120,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
             # add index to the list of sample node indices
             actual_sample_indices[i] = np.array((index))
+            print(potential_sample_pts[index])
 
             # update scores of nodes
             min_score[index, 0] = -np.inf  # give node we chose low score
@@ -134,7 +135,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 min_score[:, 1] = np.maximum(np.nanmin(min_score_fwd, axis=1), np.nanmin(min_score_bwd.T, axis=1))
             else:
                 min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
-            min_score[:, 0] = np.amin(min_score, axis=1)
+            min_score[:, 0] = np.minimum(min_score[:, 0], min_score[:, 1])  # faster than amin according to numpy doc
+            np.set_printoptions(threshold=sys.maxsize)
 
             # take the new point with the maximum distance to its closest node
             index = np.argmax(min_score[:, 0])
@@ -151,7 +153,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             self.dispersion = max(min_score[:, 0])
             self.dispersion_list.append(self.dispersion)
 
-        pool.close() # end multiprocessing pool
+        pool.close()  # end multiprocessing pool
 
         # create graph representation to return
         vertices = potential_sample_pts[actual_sample_indices]
@@ -348,6 +350,8 @@ if __name__ == "__main__":
     from motion_primitives_py import *
     import numpy as np
     import time
+    from pycallgraph import PyCallGraph, Config
+    from pycallgraph.output import GraphvizOutput
 
     tiling = True
     plot = True
@@ -367,9 +371,9 @@ if __name__ == "__main__":
     motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [.51, 1.51, 15, 100, 1, 1]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .2, 'iterative_bvp_max_t': 10}
-    resolution = [.51, .51, 10]
+    max_state = [.51, 3.51, 15, 100, 1, 1]
+    mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
+    resolution = [.11, 1.21]
 
     # %%
     # motion_primitive_type = JerksMotionPrimitive
@@ -380,21 +384,19 @@ if __name__ == "__main__":
     # %%
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
-    # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     tic = time.time()
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=30, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
+        num_output_pts=15, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
     toc = time.time()
     print(toc-tic)
     print(mpl.vertices)
     mpl.limit_connections(2*mpl.dispersion)
     mpl.save("lattice_test.json")
-    mpl = MotionPrimitiveLattice.load("lattice_test.json", plot)
-    print(mpl.dispersion)
-    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
-    mpl.limit_connections(2*mpl.dispersion)
-    # mpl.limit_connections(np.inf)
-    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+    # mpl = MotionPrimitiveLattice.load("lattice_test.json", plot)
+    # mpl.limit_connections(2*mpl.dispersion)
+    # print(mpl.dispersion)
+    # print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
     # %%
     # plot

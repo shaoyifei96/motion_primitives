@@ -79,7 +79,7 @@ class GraphSearch:
 
     def min_time_heuristic(self, state):
         # sikang heuristic 1
-        return self.rho * np.linalg.norm(state[0:self.num_dims] - self.goal_state[0:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state[1]
+        return self.rho * np.linalg.norm(state[:self.num_dims] - self.goal_state[:self.num_dims], ord=np.inf)/self.motion_primitive_graph.max_state[1]
 
     def euclidean_distance_heuristic(self, state):
         return np.linalg.norm(state[:self.num_dims] - self.goal_state[:self.num_dims])
@@ -219,7 +219,7 @@ class GraphSearch:
             #     break
             # if node.graph_depth > 5:
             #     break
-            # if len(self.queue) > 10000:
+            # if len(self.queue) > 30000:
             #     break
 
             neighbors = self.get_neighbor_nodes(node)
@@ -320,7 +320,7 @@ if __name__ == "__main__":
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
 
-    mpl = MotionPrimitiveLattice.load("lattice_j1.json")
+    mpl = MotionPrimitiveLattice.load("lattice_test.json")
     print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
     print(mpl.max_state)
@@ -328,22 +328,22 @@ if __name__ == "__main__":
     start_state = np.zeros((6))
     goal_state = np.zeros_like(start_state)
 
-    # resolution = .2
-    # origin = [0, 0]
-    # dims = [20, 20]
-    # data = np.zeros(dims)
-    # data[5:10, 4:6] = 100
-    # data[0:5, 11:12] = 100
-    # data = data.flatten('F')
-    # occ_map = OccupancyMap(resolution, origin, dims, data)
-    # start_state[0:3] = np.array([0, 0, 0])*resolution
-    # goal_state[0:3] = np.array([1, 15, 0])*resolution
+    resolution = .2
+    origin = [0, 0]
+    dims = [20, 20]
+    data = np.zeros(dims)
+    data[5:10, 4:6] = 100
+    data[0:5, 11:13] = 100
+    data = data.flatten('F')
+    occ_map = OccupancyMap(resolution, origin, dims, data)
+    start_state[0:3] = np.array([2, 1, 0])*resolution
+    goal_state[0:3] = np.array([3, 15, 0])*resolution
 
-    occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
-    start_state[0:2] = [10, 6]
-    goal_state[0:2] = [22, 6]
+    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
+    # start_state[0:2] = [10, 6]
+    # goal_state[0:2] = [22, 6]
 
-    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*10
+    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*3
 
     print("Motion Primitive Tree")
     mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     print("Motion Primitive Lattice")
     mpl.plot = False
     gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
-                     heuristic='euclidean', mp_sampling_step_size=.1)
+                     heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1]/5)
     # with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
     #     path, sampled_path, path_cost = gs.run_graph_search()
     tic = time.time()
