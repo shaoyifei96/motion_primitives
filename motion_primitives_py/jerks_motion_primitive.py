@@ -1,8 +1,9 @@
 
 from motion_primitives_py import MotionPrimitive
-from motion_primitives_py import c_output_redirector
+from motion_primitives_py.c_output_redirector import stdout_redirector
 import io
 import numpy as np
+import matplotlib.pyplot as plt
 from py_opt_control import min_time_bvp
 
 
@@ -25,9 +26,18 @@ class JerksMotionPrimitive(MotionPrimitive):
         v_max, a_max, j_max = self.max_state[1:1+self.control_space_q] + 1e-5  # numerical hack for library seg fault
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q] - 1e-5
 
-        f = io.BytesIO()
-        with c_output_redirector.stdout_redirector(f):  # Suppress warning/error messages from C library
+        # suppress warning/error messages from C library
+        # due to a bug in pytest we'll end up with a bunch of logging errors if 
+        # we try to log anything within an 'atexit' hook. 
+        # when https://github.com/pytest-dev/pytest/issues/5502 is fixed we can
+        # remove this very hacky part.
+        if "supress_redirector" in subclass_specific_data:
             self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
+        else:
+            with stdout_redirector(io.BytesIO()):  
+                self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
+
+        # check if trajectory is valid
         traj_time = np.max(self.switch_times[:, -1])
         self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all()
         if self.is_valid:
