@@ -13,15 +13,13 @@ class InputsMotionPrimitive(MotionPrimitive):
         assert('dt' in subclass_specific_data), "Must provide parameter 'dt'"
         self.u = subclass_specific_data['u']
         cost = subclass_specific_data['dt']
-        if 'dynamics' in subclass_specific_data:
-            self.dynamics = subclass_specific_data['dynamics']
-        else:
+        if not 'dynamics' in subclass_specific_data:
             control_space_q = int(len(start_state) / num_dims)
-            self.dynamics = self.get_dynamics_polynomials(control_space_q,
-                                                          num_dims)
+            subclass_specific_data['dynamics'] = self.get_dynamics_polynomials(control_space_q,
+                                                                                    num_dims)
 
         # Initialize superclass
-        super().__init__(start_state, self.dynamics(start_state, self.u, cost),
+        super().__init__(start_state, subclass_specific_data['dynamics'](start_state, self.u, cost),
                          num_dims, max_state, subclass_specific_data)
         # enforce state constraints on vel, acc, ... but not position
         if (abs(self.end_state)[self.num_dims:] < np.repeat(self.max_state[1:self.control_space_q], self.num_dims)).all():
@@ -60,10 +58,10 @@ class InputsMotionPrimitive(MotionPrimitive):
         Return:
             state, a numpy array of size (num_dims x control_space_q, len(t))
         """
-        return np.array(self.dynamics(self.start_state, self.u, t))
+        return np.array(self.subclass_specific_data['dynamics'](self.start_state, self.u, t))
 
-    def get_sampled_states(self, step_size=0.001):
-        st = np.arange(0, self.cost, step_size)
+    def get_sampled_states(self, step_size=0.1):
+        st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
         states = self.get_state(st)
         sp = states[:self.num_dims, :]
         sv = states[self.num_dims:2 * self.num_dims, :]
@@ -72,6 +70,12 @@ class InputsMotionPrimitive(MotionPrimitive):
         else:
             sa = None
         return st, sp, sv, sa, None
+
+    def get_sampled_position(self, step_size=0.1):
+        st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+        states = self.get_state(st)
+        sp = states[:self.num_dims, :]
+        return st, sp
 
     @staticmethod
     def get_dynamics_polynomials(control_space_q, num_dims):

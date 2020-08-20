@@ -6,6 +6,7 @@ import matplotlib.animation as animation
 import itertools
 import ujson as json
 import sys
+from multiprocessing import Pool
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
@@ -68,25 +69,34 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
 
-    def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
+    def dispersion_distance_fn_trajectory(self, inputs):
         """
         A function that evaluates the cost of a path from an array of start_pts
         to an array of end_pts. For the moment the cost is the time of the
         optimal path.
         """
-        score = np.ones((len(start_pts), len(end_pts))) * -np.inf
-        mp_list = np.empty((len(start_pts), len(end_pts)), dtype=object)
-        for i in range(len(start_pts)):
-            for j in range(len(end_pts)):
-                if (start_pts[i, :] == end_pts[j, :]).all():
-                    continue
-                mp = self.motion_primitive_type(start_pts[i, :], end_pts[j, :],
-                                                self.num_dims, self.max_state,
-                                                self.mp_subclass_specific_data)
-                if mp.is_valid:
-                    mp_list[i, j] = mp
-                    score[i, j] = mp.cost
-        return score, mp_list
+        start_pts = inputs[0]
+        end_pts = inputs[1]
+        mp = self.motion_primitive_type(start_pts, end_pts,
+                                        self.num_dims, self.max_state, mp_subclass_specific_data)
+        mp.subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
+        if not mp.is_valid:
+            mp.cost = np.nan
+        return mp
+
+    def multiprocessing_init(self):
+         # hacky stuff to avoid pickling lambda functions
+        global mp_subclass_specific_data
+        mp_subclass_specific_data = self.mp_subclass_specific_data
+
+    def multiprocessing_dispersion_distance_fn(self, pool, start_pts, end_pts):
+        paramlist = list(itertools.product(start_pts, end_pts))
+        if 'dynamics' in self.mp_subclass_specific_data:
+            self.mp_subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
+        pool_output = pool.map(self.dispersion_distance_fn, paramlist)
+        min_score = np.array([mp.cost for mp in pool_output]).reshape(start_pts.shape[0], end_pts.shape[0])
+        mp_list = np.array(pool_output).reshape(start_pts.shape[0], end_pts.shape[0])
+        return min_score, mp_list
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, animate=False):
         # overloaded from motion_primitive_graph for the moment
@@ -99,7 +109,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # initialize data structures
         mp_adjacency_matrix_fwd = np.empty((num_output_pts * self.num_tiles, len(potential_sample_pts)), dtype=object)
         actual_sample_indices = np.zeros((num_output_pts)).astype(int)
-        min_score = np.ones((len(potential_sample_pts), self.num_tiles + 1)) * np.inf
+        min_score = np.ones((len(potential_sample_pts), 2)) * np.inf
+        # create multiprocessing pool to compute MPs
+        pool = Pool(initializer=self.multiprocessing_init)
 
         # each time through loop add point to the set and update data structures
         print("potential sample points:", len(potential_sample_pts))
@@ -115,12 +127,13 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 end_pts = self.tile_points([potential_sample_pts[index, :]])
             else:
                 end_pts = potential_sample_pts[index, :][np.newaxis, :]
-            min_score_fwd, mp_list_fwd = self.dispersion_distance_fn(potential_sample_pts, end_pts)
+
+            min_score_fwd, mp_list_fwd = self.multiprocessing_dispersion_distance_fn(pool, potential_sample_pts, end_pts)
             if check_backwards_dispersion:
-                min_score_bwd, mp_list_bwd = self.dispersion_distance_fn(end_pts, potential_sample_pts)
-                min_score[:, 1:] = np.maximum(min_score_fwd, min_score_bwd.T)
+                min_score_bwd, mp_list_bwd = self.multiprocessing_dispersion_distance_fn(pool, end_pts, potential_sample_pts)
+                min_score[:, 1] = np.maximum(np.nanmin(min_score_fwd, axis=1), np.nanmin(min_score_bwd.T, axis=1))
             else:
-                min_score[:, 1:] = min_score_fwd
+                min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
             min_score[:, 0] = np.amin(min_score, axis=1)
 
             # take the new point with the maximum distance to its closest node
@@ -137,6 +150,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             # update dispersion metric
             self.dispersion = max(min_score[:, 0])
             self.dispersion_list.append(self.dispersion)
+
+        pool.close() # end multiprocessing pool
 
         # create graph representation to return
         vertices = potential_sample_pts[actual_sample_indices]
@@ -163,7 +178,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # TODO maybe move this somewhere else
         self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
 
-        potential_sample_pts = self.uniform_state_set(self.max_state[:self.control_space_q], resolution[:self.control_space_q], random=False)
+        potential_sample_pts = self.uniform_state_set(
+            self.max_state[:self.control_space_q], resolution[:self.control_space_q], random=False)
         self.vertices, self.edges = self.compute_min_dispersion_points(
             num_output_pts, potential_sample_pts, check_backwards_dispersion, animate)
         if self.plot:
@@ -184,7 +200,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
-                if mp is not None and mp.is_valid and mp.cost < cost_threshold:
+                if mp is not None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
                     if self.plot:
                         st, sp, sv, sa, sj = mp.get_sampled_states(.1)
                         if self.num_dims == 2:
@@ -331,11 +347,14 @@ if __name__ == "__main__":
     # %%
     from motion_primitives_py import *
     import numpy as np
+    import time
+
     tiling = True
     plot = True
     animate = False
     check_backwards_dispersion = True
     mp_subclass_specific_data = {}
+
     # %%
     # define parameters
     control_space_q = 2
@@ -349,8 +368,8 @@ if __name__ == "__main__":
     control_space_q = 2
     num_dims = 2
     max_state = [.51, 1.51, 15, 100, 1, 1]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .2, 'iterative_bvp_max_t': 1}
-    resolution = [.21, .2, 10]
+    mp_subclass_specific_data = {'iterative_bvp_dt': .2, 'iterative_bvp_max_t': 10}
+    resolution = [.51, .51, 10]
 
     # %%
     # motion_primitive_type = JerksMotionPrimitive
@@ -362,12 +381,14 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     # # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    tic = time.time()
     mpl.compute_min_dispersion_space(
         num_output_pts=30, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
+    toc = time.time()
+    print(toc-tic)
     print(mpl.vertices)
     mpl.limit_connections(2*mpl.dispersion)
     mpl.save("lattice_test.json")
-    # %%
     mpl = MotionPrimitiveLattice.load("lattice_test.json", plot)
     print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))

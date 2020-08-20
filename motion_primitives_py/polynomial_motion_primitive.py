@@ -16,15 +16,12 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         # Initialize class
         super().__init__(start_state, end_state, num_dims, max_state,
                          subclass_specific_data)
-        if "x_derivs" in subclass_specific_data:
-            self.x_derivs = subclass_specific_data['x_derivs']
-        else:
-            self.x_derivs = self.get_dynamics_polynomials(self.control_space_q)
-
+        if "dynamics" not in self.subclass_specific_data:
+            self.subclass_specific_data['dynamics'] = self.get_dynamics_polynomials(self.control_space_q)
         # Solve boundary value problem
         self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims,
-            self.max_state, self.x_derivs, subclass_specific_data.get('iterative_bvp_dt'), subclass_specific_data.get('iterative_bvp_max_t'))
+            self.max_state, self.subclass_specific_data['dynamics'], subclass_specific_data.get('iterative_bvp_dt'), subclass_specific_data.get('iterative_bvp_max_t'))
         if self.polys is not None:
             self.is_valid = True
             self.cost = traj_time
@@ -32,15 +29,15 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
-        Load a polynomial representation of a motion primitive from a dictionary 
+        Load a polynomial representation of a motion primitive from a dictionary
         """
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
             mp.polys = np.array(dict["polys"])
-            if "x_derivs" in subclass_specific_data:
-                mp.x_derivs = subclass_specific_data['x_derivs']
+            if "dynamics" in subclass_specific_data:
+                mp.subclass_specific_data['dynamics'] = subclass_specific_data['dynamics']
             else:
-                mp.x_derivs = mp.get_dynamics_polynomials(mp.control_space_q)
+                mp.subclass_specific_data['dynamics'] = mp.get_dynamics_polynomials(mp.control_space_q)
         return mp
 
     def to_dict(self):
@@ -66,9 +63,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def get_sampled_states(self, step_size=0.1):
         # TODO connect w/ get_state
         if self.is_valid:
-            st = np.arange(self.cost, step=step_size)
-            sp = np.vstack([np.array([np.polyval(self.polys[j, :], i)
-                                      for i in st]) for j in range(self.num_dims)])
+            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+            sp = self.evaluate_polynomial_at_derivative(0, st)
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
             if self.control_space_q >= 3:
@@ -78,6 +74,14 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             return st, sp, sv, sa, sj
         else:
             return None, None, None, None, None
+
+    def get_sampled_position(self, step_size=0.1):
+        if self.is_valid:
+            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+            sp = self.evaluate_polynomial_at_derivative(0, st)
+            return st, sp
+        else:
+            return None, None
 
     def evaluate_polynomial_at_derivative(self, deriv_num, st):
         """
@@ -89,16 +93,16 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Output:
             sampled, array of polynomial derivative evaluated at sample times
         """
-
-        sampled = np.vstack([np.array([np.polyval(np.pad((self.x_derivs[deriv_num](1) * self.polys[j, :]),
-                                                         ((deriv_num), (0)))[:self.polys.shape[1]], i) for i in st]) for j in range(self.num_dims)])
-
+        dyn = self.subclass_specific_data['dynamics']
+        poly_coeffs = np.array([np.concatenate((np.zeros(deriv_num),dyn[deriv_num](1) * self.polys[j, :]))[:self.polys.shape[1]] for j in range(self.num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
+        sampled = np.array([np.sum(poly_coeffs.T*dyn[0](t), axis=1)
+                            for t in st]).T  # faster than polyval
         return sampled
 
     @staticmethod
     def get_dynamics_polynomials(control_space_q):
         """
-        Returns an array of lambda functions that evaluate the derivatives of 
+        Returns an array of lambda functions that evaluate the derivatives of
         a polynomial of specified order with coefficients all set to 1
 
         Example for polynomial order 5:
@@ -130,7 +134,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return time_derivatives
 
     @staticmethod
-    def solve_bvp_meam_620_style(start_state, end_state, num_dims, x_derivs, T):
+    def solve_bvp_meam_620_style(start_state, end_state, num_dims, dynamics, T):
         """
         Return polynomial coefficients for a trajectory from start_state ((n,) array) to end_state ((n,) array) in time interval [0,T]
         The array of lambda functions created in get_dynamics_polynomials and the dimension of the configuration space are also required.
@@ -139,7 +143,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         poly_order = (control_space_q)*2-1
         A = np.zeros((poly_order+1, poly_order+1))
         for i in range(control_space_q):
-            x = x_derivs[i]  # iterate through all the derivatives
+            x = dynamics[i]  # iterate through all the derivatives
             A[i, :] = x(0)  # x(ti) = start_state
             A[control_space_q+i, :] = x(T)  # x(tf) = end_state
 
@@ -148,8 +152,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         for i in range(num_dims):  # Construct a separate polynomial for each dimension
 
             # vector of the form [start_state,end_state,start_state_dot,end_state_dot,...]
-            b[:control_space_q] = start_state[i::num_dims]
-            b[control_space_q:] = end_state[i::num_dims]
+            b[: control_space_q] = start_state[i:: num_dims]
+            b[control_space_q:] = end_state[i:: num_dims]
             poly = np.linalg.solve(A, b)
 
             polys[i, :] = poly
@@ -157,15 +161,14 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return polys
 
     @staticmethod
-    def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state, x_derivs, dt, max_t):
+    def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state, dynamics, dt, max_t):
         """
         Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish. TODO: only checking input constraint at start, middle, and end at the moment
         """
-        # TODO make parameters
         if dt == None:
             dt = .1
         if max_t == None:
-            max_t = 1
+            max_t = 10
 
         t = 0
         u_max = np.inf
@@ -177,15 +180,15 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                 polys = None
                 t = np.inf
                 break
-            polys = PolynomialMotionPrimitive.solve_bvp_meam_620_style(start_state, end_states, num_dims, x_derivs, t)
+            polys = PolynomialMotionPrimitive.solve_bvp_meam_620_style(start_state, end_states, num_dims, dynamics, t)
             u_max = 0
             for i in range(num_dims):
                 critical_pts = [0, t]
                 if control_space_q > 2:
-                    roots = np.roots((polys*x_derivs[control_space_q + 1](1))[i, :])
+                    roots = np.roots((polys*dynamics[control_space_q + 1](1))[i, :])
                     if roots.size > 0:
                         critical_pts = roots
-                critical_us = [abs(np.sum((polys*x_derivs[control_space_q](t_crit))[i, :])) for t_crit in critical_pts if t_crit <= t]
+                critical_us = [abs(np.sum((polys*dynamics[control_space_q](t_crit))[i, :])) for t_crit in critical_pts if t_crit <= t]
                 u_max = max(u_max, np.max(critical_us))
         return polys, t
 
@@ -235,7 +238,8 @@ if __name__ == "__main__":
 
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
-    end_state = np.random.rand(num_dims * control_space_q,)
+    # end_state = np.random.rand(num_dims * control_space_q,)
+    end_state = np.ones_like(start_state)
     max_state = 1e3 * np.ones((num_dims * control_space_q,))
 
     # polynomial

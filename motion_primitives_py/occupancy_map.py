@@ -36,8 +36,9 @@ class OccupancyMap():
         return self.resolution * (indices + .5) + self.origin
 
     def is_valid_indices(self, indices):
-        if np.any(indices < 0) or np.any((self.dims - indices) <= 0):
-            return False
+        for i in range(len(self.dims)):
+            if indices[i] < 0 or (self.dims[i] - indices[i]) <= 0:
+                return False
         else:
             return True
 
@@ -70,29 +71,24 @@ class OccupancyMap():
             return False
         if offset is None:
             offset = np.zeros(mp.num_dims)
-        # TODO make number of points a parameter to pass in here
-        _, samples, _, _, _, = mp.get_sampled_states(step_size)
+        _, samples = mp.get_sampled_position(step_size)
         for sample in samples.T + offset[:len(self.dims)]:
             if not self.is_free_and_valid_position(sample):
                 return False
         return True
 
-    def plot(self, bounds=None, ax=None):
+    def plot(self, ax=None):
         if len(self.dims) == 2:
             if ax == None:
-                fig, ax = plt.subplots()
+                fig, self.ax = plt.subplots()
+                ax = self.ax
                 # if len(self.dims) == 3:
                 #     fig_3d, ax_3d = plt.subplots()
-                #     ax_3d = fig_3d.add_subplot(111, projection='3d')
-            if bounds:
-                upper_l = self.get_indices_from_position(np.array([bounds[0], bounds[3]]))
-                lower_r = self.get_indices_from_position(np.array([bounds[1], bounds[2]]))
-                im = self.voxels[upper_l[0]:lower_r[0], upper_l[1]:lower_r[1]]
-            else:
-                im = self.voxels
-                bounds = self.extent
-            image = ax.imshow(im.T, cmap=plt.cm.gray_r, origin='lower', extent=bounds)
-            return image
+            im = self.voxels.T
+            ax.pcolormesh(np.arange(self.voxels.shape[0]+1)*self.resolution, np.arange(self.voxels.shape[1]+1)
+                          * self.resolution, self.voxels.T, cmap='Greys', zorder=1)
+            ax.add_patch(plt.Rectangle(self.origin, self.extent[1], self.extent[3], ec='r', fill=False))
+            ax.set_aspect('equal')
 
 
 if __name__ == "__main__":
