@@ -30,7 +30,7 @@ class TestMotionPrimitive(unittest.TestCase):
 
     def test_polynomial_max_u(self):
         for t in np.arange(0, self.polynomial_mp.cost, .1):
-            u = np.sum(self.polynomial_mp.polys * self.polynomial_mp.x_derivs[-2](t),axis=1)
+            u = np.sum(self.polynomial_mp.polys * self.polynomial_mp.subclass_specific_data['dynamics'][-2](t), axis=1)
             assert ((abs(u) < self.max_state[self.polynomial_mp.control_space_q]).all())
 
     def test_polynomial_save_load(self):

@@ -66,7 +66,7 @@ class GraphSearch:
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
-            self.dt = .1
+            self.dt = .6
             self.num_u_per_dimension = 20
             self.num_mps = self.num_u_per_dimension**self.num_dims
             self.get_neighbor_nodes = self.get_neighbor_nodes_evenly_spaced
@@ -219,7 +219,7 @@ class GraphSearch:
             #     break
             # if node.graph_depth > 5:
             #     break
-            # if len(self.queue) > 100:
+            # if len(self.queue) > 10000:
             #     break
 
             neighbors = self.get_neighbor_nodes(node)
@@ -343,17 +343,17 @@ if __name__ == "__main__":
     start_state[0:2] = [10, 6]
     goal_state[0:2] = [22, 6]
 
-    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*3
+    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*10
 
-    mpl.max_state[3] = 10
     print("Motion Primitive Tree")
     mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
+    mpt.max_state[3] = 10
     gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
                      heuristic='euclidean', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
-    with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
-        path, sampled_path, path_cost = gs.run_graph_search()
+    # with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
+    #     path, sampled_path, path_cost = gs.run_graph_search()
     tic = time.time()
-    # path, sampled_path, path_cost = gs.run_graph_search()
+    path, sampled_path, path_cost = gs.run_graph_search()
     toc = time.time()
     gs.plot_path(path, sampled_path, path_cost)
     print(f"Planning time: {toc - tic}s")
@@ -362,11 +362,11 @@ if __name__ == "__main__":
     print("Motion Primitive Lattice")
     mpl.plot = False
     gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
-                     heuristic='euclidean', mp_sampling_step_size=.5)
-    with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
-        path, sampled_path, path_cost = gs.run_graph_search()
+                     heuristic='euclidean', mp_sampling_step_size=.1)
+    # with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
+    #     path, sampled_path, path_cost = gs.run_graph_search()
     tic = time.time()
-    # path, sampled_path, path_cost = gs.run_graph_search()
+    path, sampled_path, path_cost = gs.run_graph_search()
     toc = time.time()
     gs.plot_path(path, sampled_path, path_cost)
     print(f"Planning time: {toc - tic}s")

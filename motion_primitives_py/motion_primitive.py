@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+from copy import deepcopy
 
 class MotionPrimitive():
     """
@@ -10,7 +10,7 @@ class MotionPrimitive():
     If the implementation is specific to the subclass, raise a NotImplementedError
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
+    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={'dynamics':None}):
         """
         """
         self.start_state = np.array(start_state)
@@ -18,7 +18,7 @@ class MotionPrimitive():
         self.num_dims = np.array(num_dims)
         self.max_state = np.array(max_state)
         # TODO probably cleaner to do this with kwargs
-        self.subclass_specific_data = subclass_specific_data
+        self.subclass_specific_data = deepcopy(subclass_specific_data)
         self.control_space_q = int(self.start_state.shape[0]/num_dims)
         self.is_valid = False
         self.cost = None

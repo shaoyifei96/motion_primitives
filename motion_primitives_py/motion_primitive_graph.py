@@ -2,7 +2,7 @@
 from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
-
+from copy import deepcopy
 
 class MotionPrimitiveGraph():
     """
@@ -43,11 +43,11 @@ class MotionPrimitiveGraph():
         self.motion_primitive_type = motion_primitive_type
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
-        self.mp_subclass_specific_data = mp_subclass_specific_data
+        self.mp_subclass_specific_data = deepcopy(mp_subclass_specific_data)
 
         # Setup specific to motion primitive being used TODO move elsewhere
         if self.motion_primitive_type == PolynomialMotionPrimitive:
-            self.mp_subclass_specific_data['x_derivs'] = self.motion_primitive_type.get_dynamics_polynomials(self.control_space_q)
+            self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(self.control_space_q)
         elif self.motion_primitive_type == InputsMotionPrimitive:
             self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(
                 self.control_space_q, self.num_dims)
@@ -60,7 +60,6 @@ class MotionPrimitiveGraph():
         else:
             self.num_tiles = 1
 
-        # TODO update Tree subclass to use latest data structures
         self.motion_primitives_list = []
         self.dispersion = None
         self.dispersion_list = []
