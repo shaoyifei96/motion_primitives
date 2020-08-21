@@ -66,7 +66,8 @@ class GraphSearch:
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
-            self.dt = .6
+            # TODO make parameter
+            self.dt = .8
             self.num_u_per_dimension = 20
             self.num_mps = self.num_u_per_dimension**self.num_dims
             self.get_neighbor_nodes = self.get_neighbor_nodes_evenly_spaced
@@ -126,8 +127,15 @@ class GraphSearch:
         closed_nodes_states = np.array([node.state for node in self.closed_nodes]).T
         ax.plot(closed_nodes_states[0, :], closed_nodes_states[1, :], 'm*', zorder=3)
         neighbor_nodes_states = np.array([node.state for node in self.neighbor_nodes]).T
-        ax.plot(neighbor_nodes_states[0, :], neighbor_nodes_states[1, :], '.', color=('.8'), zorder=2)
+        if neighbor_nodes_states.size > 0:
+            ax.plot(neighbor_nodes_states[0, :], neighbor_nodes_states[1, :], '.',
+                    color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k')
         self.map.plot(ax=ax)
+
+        # fig, ax = plt.subplots()
+        # ax.plot(closed_nodes_states[2, :], closed_nodes_states[3, :], 'm*', zorder=3)
+        # ax.plot(neighbor_nodes_states[2, :], neighbor_nodes_states[3, :], '.',
+        #         color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k')
 
     def get_neighbor_nodes_evenly_spaced(self, node):
         neighbor_mps = self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension)
@@ -202,25 +210,36 @@ class GraphSearch:
             nodes_expanded += 1
             self.closed_nodes.append(node)  # for animation/plotting
 
-            # If node is the goal node, return path.
-            if self.n == 3:  # Hack for ReedShepp
-                state = np.zeros(self.n+1)
-                state[:self.n] = node.state - self.goal_state
-                norm = np.linalg.norm(state.reshape(self.control_space_q, self.num_dims), axis=1)
+            if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
+                mp = self.motion_primitive_graph.motion_primitive_type(
+                    node.state, self.goal_state, self.num_dims, self.motion_primitive_graph.max_state)
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
+                    print("Path found")
+                    last_node = Node(mp.cost, 0, self.goal_state, node.state, mp)
+                    self.node_dict[last_node.state.tobytes()] = last_node
+                    path, sampled_path, path_cost = self.build_path(last_node)
+                    break
+
             else:
-                norm = np.linalg.norm((node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
-            if (norm < self.goal_tolerance[:self.control_space_q]).all():
-                print("Path found")
-                path, sampled_path, path_cost = self.build_path(node)
-                break
+                # If node is the goal node, return path.
+                if self.n == 3:  # Hack for ReedShepp
+                    state = np.zeros(self.n+1)
+                    state[:self.n] = node.state - self.goal_state
+                    norm = np.linalg.norm(state.reshape(self.control_space_q, self.num_dims), axis=1)
+                else:
+                    norm = np.linalg.norm((node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
+                if (norm < self.goal_tolerance[:self.control_space_q]).all():
+                    print("Path found")
+                    path, sampled_path, path_cost = self.build_path(node)
+                    break
 
             # JUST FOR TESTING
             # if (nodes_expanded) > 50:
             #     break
-            # if node.graph_depth > 5:
+            # if node.graph_depth > 2:
             #     break
-            # if len(self.queue) > 30000:
-            #     break
+            if len(self.queue) > 10000:
+                break
 
             neighbors = self.get_neighbor_nodes(node)
             for neighbor_node in neighbors:
@@ -328,41 +347,42 @@ if __name__ == "__main__":
     start_state = np.zeros((6))
     goal_state = np.zeros_like(start_state)
 
-    resolution = .2
+    resolution = .4
     origin = [0, 0]
-    dims = [20, 20]
+    dims = [20, 40]
     data = np.zeros(dims)
     data[5:10, 4:6] = 100
+    data[5:10, 19:21] = 100
     data[0:5, 11:13] = 100
     data = data.flatten('F')
     occ_map = OccupancyMap(resolution, origin, dims, data)
-    start_state[0:3] = np.array([2, 1, 0])*resolution
-    goal_state[0:3] = np.array([3, 15, 0])*resolution
+    start_state[0:3] = np.array([7, 1, 0])*resolution
+    goal_state[0:3] = np.array([3, 30, 0])*resolution
 
-    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
-    # start_state[0:2] = [10, 6]
-    # goal_state[0:2] = [22, 6]
+    occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
+    start_state[0:2] = [10, 6]
+    goal_state[0:2] = [70, 6]
 
-    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*3
+    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*2
 
-    print("Motion Primitive Tree")
-    mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
-    mpt.max_state[3] = 10
-    gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
-                     heuristic='euclidean', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
-    # with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
-    #     path, sampled_path, path_cost = gs.run_graph_search()
-    tic = time.time()
-    path, sampled_path, path_cost = gs.run_graph_search()
-    toc = time.time()
-    gs.plot_path(path, sampled_path, path_cost)
-    print(f"Planning time: {toc - tic}s")
-    # gs.make_graph_search_animation(True)
+    # print("Motion Primitive Tree")
+    # mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
+    # # mpt.max_state[3] = 10
+    # gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
+    #                  heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
+    # # with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
+    # #     path, sampled_path, path_cost = gs.run_graph_search()
+    # tic = time.time()
+    # path, sampled_path, path_cost = gs.run_graph_search()
+    # toc = time.time()
+    # gs.plot_path(path, sampled_path, path_cost)
+    # print(f"Planning time: {toc - tic}s")
+    # # gs.make_graph_search_animation(True)
 
     print("Motion Primitive Lattice")
     mpl.plot = False
     gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
-                     heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1]/5)
+                     heuristic='min_time', mp_sampling_step_size=.05)
     # with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
     #     path, sampled_path, path_cost = gs.run_graph_search()
     tic = time.time()
