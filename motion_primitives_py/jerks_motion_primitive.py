@@ -18,23 +18,23 @@ class JerksMotionPrimitive(MotionPrimitive):
 
         # start point # ugly but this is faster than using np.split
         p0, v0, a0 = self.start_state[:self.num_dims]+1e-5, self.start_state[self.num_dims:2 *
-                                                                        self.num_dims]+1e-5, self.start_state[2*self.num_dims:3*self.num_dims]+1e-5
+                                                                             self.num_dims]+1e-5, self.start_state[2*self.num_dims:3*self.num_dims]+1e-5
         # end point
         p1, v1, a1 = self.end_state[:self.num_dims]+1e-5, self.end_state[self.num_dims:2 *
-                                                                    self.num_dims]+1e-5, self.end_state[2*self.num_dims:3*self.num_dims]+1e-5
+                                                                         self.num_dims]+1e-5, self.end_state[2*self.num_dims:3*self.num_dims]+1e-5
         # state and input limits
         v_max, a_max, j_max = self.max_state[1:1+self.control_space_q] + 1e-5  # numerical hack for library seg fault
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q] - 1e-5
 
         # suppress warning/error messages from C library
-        # due to a bug in pytest we'll end up with a bunch of logging errors if 
-        # we try to log anything within an 'atexit' hook. 
+        # due to a bug in pytest we'll end up with a bunch of logging errors if
+        # we try to log anything within an 'atexit' hook.
         # when https://github.com/pytest-dev/pytest/issues/5502 is fixed we can
         # remove this very hacky part.
         if "supress_redirector" in subclass_specific_data:
             self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
         else:
-            with stdout_redirector(io.BytesIO()):  
+            with stdout_redirector(io.BytesIO()):
                 self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
 
         # check if trajectory is valid
@@ -98,13 +98,10 @@ class JerksMotionPrimitive(MotionPrimitive):
                     while st[i] > self.switch_times[dim, switch_index]:
                         switch_index += 1
                     su[dim, i] = self.jerks[dim, switch_index - 1]
-            print(self.switch_times)
-            print(st)
-            print(self.jerks)
-            print(su)
             return st, su
         else:
             return self.switch_times, self.jerks
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
