@@ -61,10 +61,12 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
+                            "dispersion": self.dispersion,
+                            "check_backwards_dispersion": self.check_backwards_dispersion,
                             "max_state": self.max_state.tolist(),
+                            "resolution": self.resolution,
                             "vertices": self.vertices.tolist(),
                             "edges": mps,
-                            "dispersion": self.dispersion
                             }
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
@@ -90,10 +92,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mp_subclass_specific_data = self.mp_subclass_specific_data
 
     def multiprocessing_dispersion_distance_fn(self, pool, start_pts, end_pts):
-        paramlist = list(itertools.product(start_pts, end_pts))
+        start_and_end_pts = list(itertools.product(start_pts, end_pts))
         if 'dynamics' in self.mp_subclass_specific_data:
             self.mp_subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
-        pool_output = pool.map(self.dispersion_distance_fn, paramlist)
+        pool_output = pool.map(self.dispersion_distance_fn, start_and_end_pts)
         min_score = np.array([mp.cost for mp in pool_output]).reshape(start_pts.shape[0], end_pts.shape[0])
         mp_list = np.array(pool_output).reshape(start_pts.shape[0], end_pts.shape[0])
         return min_score, mp_list
@@ -136,7 +138,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             else:
                 min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
             min_score[:, 0] = np.minimum(min_score[:, 0], min_score[:, 1])  # faster than amin according to numpy doc
-            np.set_printoptions(threshold=sys.maxsize)
 
             # take the new point with the maximum distance to its closest node
             index = np.argmax(min_score[:, 0])
@@ -189,6 +190,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
             if self.num_dims == 3:
                 self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
+        self.resolution = resolution
+        self.check_backwards_dispersion = check_backwards_dispersion
 
     def limit_connections(self, cost_threshold):
         """
@@ -373,13 +376,14 @@ if __name__ == "__main__":
     num_dims = 2
     max_state = [.51, 3.51, 15, 100, 1, 1]
     mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
-    resolution = [.11, 1.21]
+    resolution = [.51, 3.51]
 
     # %%
     # motion_primitive_type = JerksMotionPrimitive
     # control_space_q = 3
     # num_dims = 2
-    # max_state = [.51, 1.51, .51, 100, 1, 1]
+    # max_state = [.1, .51, .51, 10, 1, 1]
+    # resolution = [.21, .51, .51]
 
     # %%
     # build lattice
