@@ -70,9 +70,9 @@ class OccupancyMap():
         if not mp.is_valid:
             return False
         if offset is None:
-            offset = np.zeros(mp.num_dims)
+            offset = mp.start_state
         _, samples = mp.get_sampled_position(step_size)
-        for sample in samples.T + offset[:len(self.dims)]:
+        for sample in samples.T + offset[:mp.num_dims] - mp.start_state[:mp.num_dims]:
             if not self.is_free_and_valid_position(sample):
                 return False
         return True
