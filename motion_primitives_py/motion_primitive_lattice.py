@@ -153,6 +153,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             # update dispersion metric
             self.dispersion = max(min_score[:, 0])
             self.dispersion_list.append(self.dispersion)
+            print(
+                f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
         pool.close()  # end multiprocessing pool
 
