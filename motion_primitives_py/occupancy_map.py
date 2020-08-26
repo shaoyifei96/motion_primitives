@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 class OccupancyMap():
     def __init__(self, resolution, origin, dims, data, margin=0):
         self.resolution = resolution
-        self.voxels = np.squeeze(data.reshape(dims, order='F'))
+        self.voxels = np.squeeze(np.array(data).reshape(dims, order='F'))
         self.dims = np.array(self.voxels.shape)
         self.origin = origin[:len(self.dims)]
         map_size = self.dims*self.resolution
@@ -46,7 +46,7 @@ class OccupancyMap():
         return self.is_valid_indices(self.get_indices_from_position(position))
 
     def is_free_and_valid_indices(self, indices):
-        if not self.is_valid_indices(indices) or not self.voxels[tuple(indices)] == 0:
+        if not self.is_valid_indices(indices) or not self.voxels[tuple(indices)] <= 0:
             return False
         else:
             return True

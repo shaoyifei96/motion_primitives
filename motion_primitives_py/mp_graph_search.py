@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from heapq import heappush, heappop, heapify
 from copy import deepcopy
 import matplotlib.animation as animation
-from motion_primitives_py import MotionPrimitiveLattice, MotionPrimitiveTree
+from motion_primitives_py import MotionPrimitiveLattice, MotionPrimitiveTree, OccupancyMap
+import yaml
 
 
 class Node:
@@ -36,7 +37,7 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic='euclidean'):
+    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic='min_time'):
         # Save arguments as parameters
         self.motion_primitive_graph = motion_primitive_graph
         self.map = occupancy_map
@@ -74,6 +75,23 @@ class GraphSearch:
         elif type(self.motion_primitive_graph) is MotionPrimitiveLattice:
             self.num_mps = len(self.motion_primitive_graph.edges)
             self.get_neighbor_nodes = self.get_neighbor_nodes_lattice
+
+    @classmethod
+    def from_yaml(cls, filename, mpg, heuristic='min_time', goal_tolerance=None):
+        with open(filename, 'r') as stream:
+            output = yaml.load(stream, Loader=yaml.CLoader)
+            di = {}
+            for d in output:
+                di.update(d)
+        occupancy_map = OccupancyMap(di['resolution'], di['origin'], di['dim'], di['data'])
+        start_state = np.zeros(mpg.n)
+        start_state[:mpg.num_dims] = di['start']
+        goal_state = np.zeros(mpg.n)
+        goal_state[:mpg.num_dims] = di['goal']
+        if goal_tolerance == None:
+            goal_tolerance = np.ones(mpg.n)
+        gs = cls(mpg, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic=heuristic)
+        return gs
 
     def zero_heuristic(self, state):
         return 0
