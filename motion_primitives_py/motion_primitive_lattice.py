@@ -133,15 +133,19 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
             min_score_fwd, mp_list_fwd = self.multiprocessing_dispersion_distance_fn(pool, potential_sample_pts, end_pts)
             if check_backwards_dispersion:
-                min_score_bwd, mp_list_bwd = self.multiprocessing_dispersion_distance_fn(pool, end_pts, potential_sample_pts)
+                min_score_bwd, _ = self.multiprocessing_dispersion_distance_fn(pool, end_pts, potential_sample_pts)
                 min_score[:, 1] = np.maximum(np.nanmin(min_score_fwd, axis=1), np.nanmin(min_score_bwd.T, axis=1))
             else:
                 min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
             min_score[:, 0] = np.minimum(min_score[:, 0], min_score[:, 1])  # faster than amin according to numpy doc
 
-            # take the new point with the maximum distance to its closest node
-            index = np.argmax(min_score[:, 0])
-            if min_score[index, 0] == -np.inf:
+            # Do tie-breaking with picking node furthest from other nodes in sample set in state space
+            max_dispersion_indices = np.squeeze(np.argwhere(min_score[:, 0] == np.max(min_score[:, 0])), axis=1)
+            dispersion_simple_norm = self.dispersion_distance_fn_simple_norm(
+                potential_sample_pts[max_dispersion_indices], potential_sample_pts[actual_sample_indices[:i+1]])[0]
+            index = max_dispersion_indices[np.argmax(np.linalg.norm(dispersion_simple_norm, axis=1))]
+
+            if np.isnan(min_score[index, 0]):
                 print("""ERROR: no new valid trajectories to a point in the
                       sample set. You probably need to increase max state or
                       decrease resolution. Exiting.""")
