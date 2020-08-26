@@ -244,11 +244,11 @@ class GraphSearch:
             neighbors = self.get_neighbor_nodes(node)
             for neighbor_node in neighbors:
                 old_neighbor = self.node_dict.get(neighbor_node.state.tobytes(), None)
-                if old_neighbor is None or neighbor_node.g < old_neighbor.g:
+                if old_neighbor == None or neighbor_node.g < old_neighbor.g:
                     heappush(self.queue, neighbor_node)
                     self.node_dict[neighbor_node.state.tobytes()] = neighbor_node
-                if old_neighbor is not None:
-                    old_neighbor.is_closed = True
+                    if old_neighbor != None:
+                        old_neighbor.is_closed = True
                 self.neighbor_nodes.append(neighbor_node)  # for plotting
 
         if self.queue is not None:
@@ -270,8 +270,7 @@ class GraphSearch:
             self.lines[0][k].set_data([], [])
 
         if i >= len(self.closed_nodes):
-            i = len(self.closed_nodes)-1
-            node = self.closed_nodes[i]
+            node = self.node_dict[self.goal_state.tobytes()]
             path, sampled_path, path_cost = self.build_path(node)
             self.lines[0][0].set_data(sampled_path[0, :], sampled_path[1, :])
             self.lines[0][0].set_linewidth(2)
