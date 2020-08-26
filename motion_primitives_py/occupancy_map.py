@@ -85,9 +85,9 @@ class OccupancyMap():
                 # if len(self.dims) == 3:
                 #     fig_3d, ax_3d = plt.subplots()
             im = self.voxels.T
-            ax.pcolormesh(np.arange(self.voxels.shape[0]+1)*self.resolution, np.arange(self.voxels.shape[1]+1)
-                          * self.resolution, self.voxels.T, cmap='Greys', zorder=1)
-            ax.add_patch(plt.Rectangle(self.origin, self.extent[1], self.extent[3], ec='r', fill=False))
+            ax.pcolormesh(np.arange(self.voxels.shape[0]+1)*self.resolution + self.origin[0], np.arange(self.voxels.shape[1]+1)
+                          * self.resolution + self.origin[1], self.voxels.T, cmap='Greys', zorder=1)
+            ax.add_patch(plt.Rectangle(self.origin, self.dims[0]*self.resolution, self.dims[1]*self.resolution, ec='r', fill=False))
             ax.set_aspect('equal')
 
 
