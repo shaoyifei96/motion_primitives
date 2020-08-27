@@ -16,13 +16,13 @@ class InputsMotionPrimitive(MotionPrimitive):
         if not 'dynamics' in subclass_specific_data:
             control_space_q = int(len(start_state) / num_dims)
             subclass_specific_data['dynamics'] = self.get_dynamics_polynomials(control_space_q,
-                                                                                    num_dims)
+                                                                               num_dims)
 
         # Initialize superclass
         super().__init__(start_state, subclass_specific_data['dynamics'](start_state, self.u, cost),
                          num_dims, max_state, subclass_specific_data)
         # enforce state constraints on vel, acc, ... but not position
-        if (abs(self.end_state)[self.num_dims:] < np.repeat(self.max_state[1:self.control_space_q], self.num_dims)).all():
+        if (abs(self.end_state)[self.num_dims:] <= np.repeat(self.max_state[1:self.control_space_q], self.num_dims)).all():
             self.is_valid = True
         self.cost = cost
 

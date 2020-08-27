@@ -55,24 +55,24 @@ class OccupancyMap():
         indices = self.get_indices_from_position(position)
         return self.is_free_and_valid_indices(indices)
 
-    def is_mp_collision_free(self, mp, step_size=0.1, offset=None):
+    def is_mp_collision_free(self, mp, step_size=0.1, start_position_override=None):
         """
         Function to check if there is a collision between a motion primitive
         trajectory and the occupancy map
 
         Input:
             mp, a MotionPrimitive object to be checked
-            offset, offset for starting point
+            start_position_override, position of starting point if different from what is in the MP
 
         Output:
             collision, boolean that is True if there were no collisions
         """
         if not mp.is_valid:
             return False
-        if offset is None:
-            offset = mp.start_state
+        if start_position_override is None:
+            start_position_override = mp.start_state
         _, samples = mp.get_sampled_position(step_size)
-        for sample in samples.T + offset[:mp.num_dims] - mp.start_state[:mp.num_dims]:
+        for sample in samples.T + start_position_override[:mp.num_dims] - mp.start_state[:mp.num_dims]:
             if not self.is_free_and_valid_position(sample):
                 return False
         return True
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     control_space_q = 3
 
     # setup occupancy map
-    occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_0.6_1.bag', 0)
+    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
     occ_map.plot()
     print(occ_map.extent)
 
