@@ -308,7 +308,7 @@ class GraphSearch:
                      color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
             if neighbor_node.mp is not None:
                 if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
-                    start_position_override = neighbor_node.state
+                    start_position_override = neighbor_node.parent
                 else:
                     start_position_override = None
                 neighbor_node.mp.plot(position_only=True, start_position_override=start_position_override)
