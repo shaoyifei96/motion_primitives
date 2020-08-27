@@ -88,7 +88,7 @@ class GraphSearch:
         start_state[:mpg.num_dims] = di['start']
         goal_state = np.zeros(mpg.n)
         goal_state[:mpg.num_dims] = di['goal']
-        if goal_tolerance == None:
+        if goal_tolerance is None:
             goal_tolerance = np.ones(mpg.n)
         gs = cls(mpg, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic=heuristic)
         return gs
@@ -161,7 +161,9 @@ class GraphSearch:
         for i, mp in enumerate(neighbor_mps):
             if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
                 state = mp.end_state
-                neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp, graph_depth=node.graph_depth+1)
+                # neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp, graph_depth=node.graph_depth+1) # min time cost
+                neighbor_node = Node(mp.cost*(self.rho + np.linalg.norm(mp.subclass_specific_data['u'])**2) + node.g, self.heuristic(
+                    state), state, node.state, mp, graph_depth=node.graph_depth+1)
                 neighbors.append(neighbor_node)
         node.is_closed = True
         return neighbors
@@ -170,12 +172,18 @@ class GraphSearch:
         neighbors = []
         reset_map_index = int(np.floor(node.index / self.motion_primitive_graph.num_tiles))
         for i, mp in enumerate(self.motion_primitive_graph.edges[:, reset_map_index]):
-            if mp is not None and self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, offset=node.state[:self.num_dims]):
+            if mp is not None and self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, start_position_override=node.state[:self.num_dims]):
                 state = deepcopy(node.state)
                 state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
                 state[self.num_dims:] = mp.end_state[self.num_dims:]
                 neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp,
                                      index=i, parent_index=node.index, graph_depth=node.graph_depth+1)
+                # sikang g
+                # _, u_sampled = mp.get_sampled_input(.1)
+                # u_int = np.sum(np.linalg.norm(u_sampled, axis=0))*.1
+                # neighbor_node = Node(mp.cost*(self.rho + u_int**2), self.heuristic(state), state, node.state, mp,
+                #                      index=i, parent_index=node.index, graph_depth=node.graph_depth+1)
+
                 neighbors.append(neighbor_node)
         node.is_closed = True
         return neighbors
@@ -202,7 +210,7 @@ class GraphSearch:
                 state = mp.end_state + self.start_position_offset
                 node = Node(mp.cost, self.heuristic(state), state, None, mp, index=i, parent_index=None, graph_depth=0)
                 self.start_edges.append(mp)
-                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, offset=self.start_position_offset):
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, start_position_override=self.start_position_offset):
                     heappush(self.queue, node)
                     self.node_dict[node.state.tobytes()] = node
         else:
@@ -246,7 +254,9 @@ class GraphSearch:
                     norm = np.linalg.norm(state.reshape(self.control_space_q, self.num_dims), axis=1)
                 else:
                     norm = np.linalg.norm((node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
-                if (norm < self.goal_tolerance[:self.control_space_q]).all():
+                    # sikang inf norm ...
+                    norm = np.max(abs(node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
+                if (norm <= self.goal_tolerance[:self.control_space_q]).all():
                     print("Path found")
                     path, sampled_path, path_cost = self.build_path(node)
                     break
@@ -256,8 +266,9 @@ class GraphSearch:
             #     break
             # if node.graph_depth > 2:
             #     break
-            if len(self.queue) > 10000:
-                break
+            # if len(self.queue) > 1000:
+            #     break
+            # print(node)
 
             neighbors = self.get_neighbor_nodes(node)
             for neighbor_node in neighbors:
@@ -281,6 +292,26 @@ class GraphSearch:
         if path is None:
             print("No path found")
         return path, sampled_path, path_cost
+
+    def expand_all_nodes(self, max_depth):
+        self.reset_graph_search()
+        node = heappop(self.queue)
+        neighbors = self.get_neighbor_nodes(node)
+        colors = plt.cm.tab10(np.linspace(0, 1, 10))
+        while neighbors:
+            neighbor_node = neighbors.pop(0)
+            if neighbor_node.graph_depth > max_depth:
+                break
+
+            neighbors = neighbors + self.get_neighbor_nodes(neighbor_node)
+            plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
+                     color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
+            if neighbor_node.mp is not None:
+                if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
+                    start_position_override = neighbor_node.state
+                else:
+                    start_position_override = None
+                neighbor_node.mp.plot(position_only=True, start_position_override=start_position_override)
 
     def animation_helper(self, i, closed_set_states):
         print(f"frame {i+1}/{len(self.closed_nodes)+10}")
