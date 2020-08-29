@@ -37,7 +37,7 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic='min_time'):
+    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance=None, mp_sampling_step_size=0.1, heuristic='min_time'):
         # Save arguments as parameters
         self.motion_primitive_graph = motion_primitive_graph
         self.map = occupancy_map
@@ -55,7 +55,7 @@ class GraphSearch:
         map_size = self.map.extent
 
         # Parameter used in min time heuristic from Sikang's paper
-        self.rho = 1.0
+        self.rho = 1000.0
         self.heuristic_dict = {
             'zero': self.zero_heuristic,
             'euclidean': self.euclidean_distance_heuristic,
@@ -68,8 +68,10 @@ class GraphSearch:
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
             # TODO make parameter
-            self.dt = .8
-            self.num_u_per_dimension = 20
+            self.dt = 0.7
+            self.num_u_per_dimension = 7
+            # self.dt = 1.0
+            # self.num_u_per_dimension = 3
             self.num_mps = self.num_u_per_dimension**self.num_dims
             self.get_neighbor_nodes = self.get_neighbor_nodes_evenly_spaced
         elif type(self.motion_primitive_graph) is MotionPrimitiveLattice:
@@ -124,7 +126,10 @@ class GraphSearch:
             sampled_path.append(sp + node.parent[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis])
             path_cost += mp.cost
             node = self.node_dict[node.parent.tobytes()]
-        path.append(self.start_state)
+        if node.mp is not None:
+            _, sp = node.mp.get_sampled_position()
+            sampled_path.append(sp + self.start_position_offset[:self.num_dims][:, np.newaxis])
+            path_cost += node.mp.cost
 
         path.reverse()
         sampled_path.reverse()
@@ -141,7 +146,9 @@ class GraphSearch:
             ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
             print(f'cost: {path_cost}')
             ax.plot(path[0, :], path[1, :], 'co', zorder=4)
-        ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
+
+        if self.goal_tolerance.size > 1:
+            ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
         closed_nodes_states = np.array([node.state for node in self.closed_nodes]).T
         ax.plot(closed_nodes_states[0, :], closed_nodes_states[1, :], 'm*', zorder=3)
         neighbor_nodes_states = np.array([node.state for node in self.neighbor_nodes]).T
@@ -262,8 +269,8 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            # if (nodes_expanded) > 50:
-            #     break
+            if (nodes_expanded) > 2000:
+                break
             # if node.graph_depth > 2:
             #     break
             # if len(self.queue) > 1000:
@@ -303,7 +310,8 @@ class GraphSearch:
             if neighbor_node.graph_depth > max_depth:
                 break
 
-            neighbors = neighbors + self.get_neighbor_nodes(neighbor_node)
+            new_neighbors = self.get_neighbor_nodes(neighbor_node)
+            neighbors = neighbors + new_neighbors
             plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
                      color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
             if neighbor_node.mp is not None:
@@ -319,8 +327,11 @@ class GraphSearch:
             self.lines[0][k].set_data([], [])
 
         if i >= len(self.closed_nodes):
-            node = self.node_dict[self.goal_state.tobytes()]
-            path, sampled_path, path_cost = self.build_path(node)
+            if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
+                node = self.node_dict[self.goal_state.tobytes()]
+            else:
+                node = self.closed_nodes[-1]
+            _, sampled_path, _ = self.build_path(node)
             self.lines[0][0].set_data(sampled_path[0, :], sampled_path[1, :])
             self.lines[0][0].set_linewidth(2)
             self.lines[0][0].set_zorder(11)
@@ -333,14 +344,15 @@ class GraphSearch:
             elif type(self.motion_primitive_graph) is MotionPrimitiveTree:
                 iterator = enumerate(self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension))
             for j, mp in iterator:
-                _, sp = mp.get_sampled_position()
-                shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
-                open_list.append(shifted_sp[:, -1])
-                self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, start_position_override=node.state):
+                    _, sp = mp.get_sampled_position()
+                    shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
+                    open_list.append(shifted_sp[:, -1])
+                    self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
             if open_list != []:
                 self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
+                self.lines[4].set_data(self.open_list_states_animation[:, 0], self.open_list_states_animation[:, 1])
         self.lines[3].set_data(closed_set_states[0, :i+1, ], closed_set_states[1, :i+1])
-        self.lines[4].set_data(self.open_list_states_animation[:, 0], self.open_list_states_animation[:, 1])
         return self.lines
 
     def make_graph_search_animation(self, save_animation=False):
@@ -363,8 +375,11 @@ class GraphSearch:
         goal_line, = ax.plot(self.goal_state[0], self.goal_state[1], 'or', zorder=4)
         closed_set_line, = ax.plot([], [], 'm*', zorder=3)
         open_set_line, = ax.plot([], [], '.', color=('.8'),  zorder=2)
-        circle = plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=4)
-        circle_patch = ax.add_artist(circle)
+        if self.goal_tolerance.size > 1:
+            circle = plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=4)
+            circle_patch = ax.add_artist(circle)
+        else:
+            circle_patch = None
         self.lines = [mp_lines, start_line, goal_line, closed_set_line, open_set_line, circle_patch]
         closed_set = np.array([node.state for node in self.closed_nodes]).T
         self.open_list_states_animation = self.start_state[:self.num_dims]
@@ -392,7 +407,7 @@ if __name__ == "__main__":
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
     print(mpl.max_state)
 
-    start_state = np.zeros((6))
+    start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
 
     resolution = .4
@@ -404,33 +419,56 @@ if __name__ == "__main__":
     data[0:5, 11:13] = 100
     data = data.flatten('F')
     occ_map = OccupancyMap(resolution, origin, dims, data)
-    start_state[0:3] = np.array([7, 1, 0])*resolution
-    goal_state[0:3] = np.array([3, 30, 0])*resolution
+    start_state[0:3] = np.array([3, 1, 0])*resolution
+    goal_state[0:3] = np.array([3, 25, 0])*resolution
 
-    occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
-    start_state[0:2] = [10, 6]
-    goal_state[0:2] = [70, 6]
+    # resolution = .4
+    # origin = [0, 0, 0 ]
+    # dims = [20, 40, 20]
+    # data = np.zeros(dims)
+    # data[5:10, 4:6, 0:20] = 100
+    # data[5:10, 19:21, 0:20] = 100
+    # data[0:5, 11:13, 0:20] = 100
+    # data = data.flatten('F')
+    # occ_map = OccupancyMap(resolution, origin, dims, data)
+    # start_state[0:3] = np.array([3, 1, 0])*resolution
+    # goal_state[0:3] = np.array([3, 15, 10])*resolution
 
-    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*2
+    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
+    # start_state[0:2] = [10, 6]
+    # goal_state[0:2] = [70, 6]
+    #
+    # occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    # start_state[0:2] = [0, -18]
+    # goal_state[0:2] = [7, -7]
+    # goal_state[0:2] = [5, 4]
+
+    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
+    goal_tolerance[1:] = np.inf
 
     # print("Motion Primitive Tree")
+    # mpl.max_state[0] = np.inf
     # mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
     # # mpt.max_state[3] = 10
     # gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
     #                  heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
     # # with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
     # #     path, sampled_path, path_cost = gs.run_graph_search()
+    # # gs = GraphSearch.from_yaml("corridor.yaml", mpt)
     # tic = time.time()
     # path, sampled_path, path_cost = gs.run_graph_search()
     # toc = time.time()
     # gs.plot_path(path, sampled_path, path_cost)
     # print(f"Planning time: {toc - tic}s")
-    # # gs.make_graph_search_animation(True)
+    # gs.make_graph_search_animation(True)
 
     print("Motion Primitive Lattice")
     mpl.plot = False
-    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
-                     heuristic='min_time', mp_sampling_step_size=.05)
+    mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .2
+    mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
+    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n],
+                     heuristic='bvp', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
+    # gs = GraphSearch.from_yaml("corridor.yaml", mpl, heuristic='bvp')
     # with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
     #     path, sampled_path, path_cost = gs.run_graph_search()
     tic = time.time()
