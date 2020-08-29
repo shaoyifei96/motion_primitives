@@ -7,6 +7,7 @@ import itertools
 import ujson as json
 import sys
 from multiprocessing import Pool
+from copy import deepcopy
 
 
 class MotionPrimitiveLattice(MotionPrimitiveGraph):
@@ -92,12 +93,16 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mp_subclass_specific_data = self.mp_subclass_specific_data
 
     def multiprocessing_dispersion_distance_fn(self, pool, start_pts, end_pts):
+        
         start_and_end_pts = list(itertools.product(start_pts, end_pts))
+        dynamics = None
         if 'dynamics' in self.mp_subclass_specific_data:
+            dynamics = deepcopy(self.mp_subclass_specific_data['dynamics'])
             self.mp_subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
         pool_output = pool.map(self.dispersion_distance_fn, start_and_end_pts)
         min_score = np.array([mp.cost for mp in pool_output]).reshape(start_pts.shape[0], end_pts.shape[0])
         mp_list = np.array(pool_output).reshape(start_pts.shape[0], end_pts.shape[0])
+        self.mp_subclass_specific_data['dynamics'] = dynamics
         return min_score, mp_list
 
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, animate=False):
@@ -137,15 +142,27 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 min_score[:, 1] = np.maximum(np.nanmin(min_score_fwd, axis=1), np.nanmin(min_score_bwd.T, axis=1))
             else:
                 min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
-            min_score[:, 0] = np.minimum(min_score[:, 0], min_score[:, 1])  # faster than amin according to numpy doc
+                
+            min_score[:, 0] = np.nanmin(min_score, axis=1) 
 
-            # Do tie-breaking with picking node furthest from other nodes in sample set in state space
-            max_dispersion_indices = np.squeeze(np.argwhere(min_score[:, 0] == np.max(min_score[:, 0])), axis=1)
-            dispersion_simple_norm = self.dispersion_distance_fn_simple_norm(
-                potential_sample_pts[max_dispersion_indices], potential_sample_pts[actual_sample_indices[:i+1]])[0]
-            index = max_dispersion_indices[np.argmax(np.linalg.norm(dispersion_simple_norm, axis=1))]
+            if np.isnan(np.max(min_score[:, 0])):
+                if i==1:
+                    print("ERROR: some sample points have no valid trajectories from the origin.  You probably need to increase max state or decrease resolution. ")
+                else:
+                    print("ERROR: I don't expect this :( terrible things")
+                raise SystemExit
+            else:
+                
+                index = np.squeeze(np.argwhere(min_score[:, 0] == np.max(min_score[:, 0])), axis=1)
+                # Do tie-breaking with picking node furthest from other nodes in sample set in state space
+                if index.shape[0] >1:
+                    dispersion_simple_norm = self.dispersion_distance_fn_simple_norm(
+                        potential_sample_pts[index], potential_sample_pts[actual_sample_indices[:i+1]])[0]
+                    index = index[np.argmax(np.linalg.norm(dispersion_simple_norm, axis=1))].item()
+                else:
+                    index = index[0]
 
-            if np.isnan(min_score[index, 0]):
+            if np.isinf(min_score[index, 0]):
                 print("""ERROR: no new valid trajectories to a point in the
                       sample set. You probably need to increase max state or
                       decrease resolution. Exiting.""")
@@ -156,6 +173,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
             # update dispersion metric
             self.dispersion = max(min_score[:, 0])
+            if np.isnan(self.dispersion):
+                self.dispersion = np.inf
             self.dispersion_list.append(self.dispersion)
             print(
                 f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
@@ -208,17 +227,25 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             cost_threshold, max allowable cost for any edge in returned graph
         """
         # TODO determine how we want to interface this with saving
+        # TODO separate out plotting
+        tiled_verts = self.tile_points(self.vertices)
+        if self.plot:
+            self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
+            # for i,tv in enumerate(tiled_verts):
+            # if np.array(self.edges[i,:] == None).all():
+            if self.num_tiles > 1:
+                self.ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'ob', zorder=4)
+
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
                 if mp is not None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
                     if self.plot:
-                        st, sp, sv, sa, sj = mp.get_sampled_states(.1)
+                        _, sp = mp.get_sampled_position(.1)
                         if self.num_dims == 2:
-                            self.ax.plot(sp[0, :], sp[1, :])
-                            self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
-                            self.ax_3d.plot(sp[0, :], sp[1, :], sv[0, :])
-                            self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
+                            self.ax.plot(sp[0, :], sp[1, :], color='lightgrey')
+                            # self.ax_3d.plot(sp[0, :], sp[1, :], sv[0, :])
+                            # self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
 
                         elif self.num_dims == 3:
                             plt.plot(sp[0, :], sp[1, :], sp[2, :])
@@ -293,25 +320,37 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_pts[i, :, :self.num_dims] += offset
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims, self.n)
 
-    def animation_helper(self, i, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts):
+    def animation_helper(self, i, ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts):
         print(f"frame {i+1}/{vertices.shape[0]}")
         colors = plt.cm.tab20(np.linspace(0, 1, 20))
         closest_sample_pt = np.argmin(costs_mat[:(i + 1) * self.num_tiles, ], axis=0)
         for j in range(adj_mat.shape[1]):
             mp = adj_mat[closest_sample_pt[j], j]
             if mp is not None and mp.is_valid:
+                mp.subclass_specific_data = self.mp_subclass_specific_data
                 if j in sample_inds[:i+1]:  # Don't plot the trajectories between actual samples
                     sp = np.array([[], []])
                 else:
-                    _, sp, _, _, _ = mp.get_sampled_states()
+                    _, sp = mp.get_sampled_position()
                 self.lines[0][j].set_data(sp[0, :], sp[1, :])
                 self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
-        if i+1 < sample_inds.shape[0]:
-            self.lines[4].set_data(range(i+1), self.dispersion_list[:i+1])
+        edges = adj_mat[:(i+1)*self.num_tiles, sample_inds[:i+1]]
+        for k, edge in enumerate(np.nditer(edges, flags=['refs_ok'])):
+            mp = edge.item()
+            if mp is not None and mp.is_valid and mp.cost <= self.dispersion_list[i]*2:
+                mp.subclass_specific_data = self.mp_subclass_specific_data
+                _, sp = mp.get_sampled_position()
+                self.lines[5][k].set_data(sp[0, :], sp[1, :])
+            else:
+                self.lines[5][k].set_data([],[])
+        self.lines[4].set_data(range(i+1), self.dispersion_list[:i+1])
         if self.num_tiles > 1:
             tiled_vertices = self.tile_points(vertices[:i+1, :])
             self.lines[2].set_data(tiled_vertices[i+1:, 0], tiled_vertices[i+1:, 1])
         self.lines[3].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
+        # for vertex in vertices[:i+1, :]:
+        #     circle = plt.Circle(vertex[:self.num_dims], 2*self.dispersion_list[i]*self.max_state[1], color='b', fill=False, zorder=4)
+        #     ax1.add_artist(circle)
 
         return self.lines
 
@@ -337,13 +376,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         actual_sample_pt_line, = ax1.plot([], [], 'og')
         tiled_pts_line, = ax1.plot([], [], 'ob')
         dispersion_line, = ax2.plot([], [], 'ok--')
-        self.lines = [traj_lines, dense_sample_pt_line, tiled_pts_line, actual_sample_pt_line, dispersion_line]
+        edges_lines = []
+        for j in range(sample_inds.shape[0]*adj_mat.shape[0]):
+            edges_lines.append(ax1.plot([], [], 'k')[0])
+
+        self.lines = [traj_lines, dense_sample_pt_line, tiled_pts_line, actual_sample_pt_line, dispersion_line, edges_lines]
         # self.lines[1].set_data(potential_sample_pts[:, 0], potential_sample_pts[:, 1])
 
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
         ani = animation.FuncAnimation(
-            f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
+            f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
         if save_animation:
             print("Saving animation to disk")
@@ -372,24 +415,24 @@ if __name__ == "__main__":
     # define parameters
     control_space_q = 2
     num_dims = 2
-    max_state = [.5, np.pi/4, 2*np.pi, 100, 1, 1]
+    max_state = [3.5, 2*np.pi]
     motion_primitive_type = ReedsSheppMotionPrimitive
-    resolution = [.21, .2]
+    resolution = [.51, .5]
 
     # # %%
     motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [.51, 3.51, 15, 100, 1, 1]
+    max_state = [5.51, 1.51, 15, 100]
     mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
-    resolution = [.51, 3.51]
+    resolution = [.51, .51]
 
-    # %%
+    # # %%
     # motion_primitive_type = JerksMotionPrimitive
     # control_space_q = 3
     # num_dims = 2
-    # max_state = [.1, .51, .51, 10, 1, 1]
-    # resolution = [.21, .51, .51]
+    # max_state = [.1, .51, .51, 100, 1, 1]
+    # resolution = [.1, .21, .21]
 
     # %%
     # build lattice
@@ -397,16 +440,16 @@ if __name__ == "__main__":
     tic = time.time()
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=15, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
+        num_output_pts=20, resolution=resolution, check_backwards_dispersion=check_backwards_dispersion, animate=animate)
     toc = time.time()
     print(toc-tic)
     print(mpl.vertices)
     mpl.limit_connections(2*mpl.dispersion)
     mpl.save("lattice_test.json")
-    # mpl = MotionPrimitiveLattice.load("lattice_test.json", plot)
-    # mpl.limit_connections(2*mpl.dispersion)
+    mpl = MotionPrimitiveLattice.load("lattice_test.json", plot)
+    mpl.limit_connections(2*mpl.dispersion)
     # print(mpl.dispersion)
-    # print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
     # %%
     # plot
