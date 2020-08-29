@@ -101,9 +101,22 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Output:
             sampled, array of polynomial derivative evaluated at sample times
         """
-        dyn = self.subclass_specific_data['dynamics']
-        poly_coeffs = np.array([np.concatenate((np.zeros(deriv_num),dyn[deriv_num](1) * self.polys[j, :]))[:self.polys.shape[1]] for j in range(self.num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
-        sampled = np.array([np.sum(poly_coeffs.T*dyn[0](t), axis=1)
+        return self.evaluate_polynomial_at_derivative_static(deriv_num, st, self.subclass_specific_data['dynamics'], self.polys, self.num_dims)
+
+    @staticmethod
+    def evaluate_polynomial_at_derivative_static(deriv_num, st, dynamics, polys, num_dims):
+        """
+        Sample the specified derivative number of the polynomial trajectory at
+        the specified times
+        Input:
+            deriv_num, order of derivative, scalar
+            st, numpy array of times to sample
+        Output:
+            sampled, array of polynomial derivative evaluated at sample times
+        """
+        poly_coeffs = np.array([np.concatenate((np.zeros(deriv_num), dynamics[deriv_num](1) * polys[j, :]))[:polys.shape[1]]
+                                for j in range(num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
+        sampled = np.array([np.sum(poly_coeffs.T*dynamics[0](t), axis=1)
                             for t in st]).T  # faster than polyval
         return sampled
 
@@ -136,9 +149,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
         # iterate through relevant derivatives and make function for each
         time_derivatives = []
-        for i in range(min(control_space_q + 2, order)):
+        for i in range(max(control_space_q + 2, order)):
             time_derivatives.append(sym.lambdify([t], x))
-            x = sym.diff(x)
+            x = sym.diff(x, t)
         return time_derivatives
 
     @staticmethod
@@ -173,31 +186,40 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish. TODO: only checking input constraint at start, middle, and end at the moment
         """
+        def check_max_state_and_input():
+            u_max = 0
+            critical_pts = np.zeros(polys.shape[1] + 2)
+            critical_pts[:2] = [0, t]
+            for k in range(1, control_space_q+1):
+                for i in range(num_dims):
+                    roots = np.roots((polys*dynamics[k + 1](1))[i, :])
+                    roots = roots[np.isreal(roots)]
+                    critical_pts[2:2+roots.shape[0]] = roots
+                    critical_pts[2+roots.shape[0]:] = 0
+                    critical_us = PolynomialMotionPrimitive.evaluate_polynomial_at_derivative_static(
+                        k, critical_pts, dynamics, polys, num_dims)
+                    u_max = max(u_max, np.max(critical_us))
+                if u_max > max_state[k]:
+                    return False
+            return True
+
         if dt == None:
             dt = .1
         if max_t == None:
             max_t = 10
 
         t = 0
-        u_max = np.inf
         polys = None
         control_space_q = int(start_state.shape[0]/num_dims)
-        while u_max > max_state[control_space_q]:
+        done = False
+        while not done:
             t += dt
             if t > max_t:
                 polys = None
                 t = np.inf
                 break
             polys = PolynomialMotionPrimitive.solve_bvp_meam_620_style(start_state, end_states, num_dims, dynamics, t)
-            u_max = 0
-            for i in range(num_dims):
-                critical_pts = [0, t]
-                if control_space_q > 2:
-                    roots = np.roots((polys*dynamics[control_space_q + 1](1))[i, :])
-                    if roots.size > 0:
-                        critical_pts = roots
-                critical_us = [abs(np.sum((polys*dynamics[control_space_q](t_crit))[i, :])) for t_crit in critical_pts if t_crit <= t]
-                u_max = max(u_max, np.max(critical_us))
+            done = check_max_state_and_input()
         return polys, t
 
     def A_and_B_matrices_quadrotor(self):
@@ -248,7 +270,8 @@ if __name__ == "__main__":
     start_state = np.zeros((num_dims * control_space_q,))
     # end_state = np.random.rand(num_dims * control_space_q,)
     end_state = np.ones_like(start_state)
-    max_state = 1e3 * np.ones((num_dims * control_space_q,))
+    end_state[0] = 2
+    max_state = 1 * np.ones((control_space_q+1,))
 
     # polynomial
     mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
