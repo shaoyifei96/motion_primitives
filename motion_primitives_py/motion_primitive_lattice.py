@@ -72,11 +72,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
 
-    def dispersion_distance_fn_trajectory(self, inputs):
+    def compute_mp(self, inputs):
         """
-        A function that evaluates the cost of a path from an array of start_pts
-        to an array of end_pts. For the moment the cost is the time of the
-        optimal path.
+        Given start and end points, compute the motion primitive
+        (a wrapper for MotionPrimitive that passes in MotionPrimitiveGraph parameters)
         """
         start_pts = inputs[0]
         end_pts = inputs[1]
@@ -92,20 +91,53 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         global mp_subclass_specific_data
         mp_subclass_specific_data = self.mp_subclass_specific_data
 
-    def multiprocessing_dispersion_distance_fn(self, pool, start_pts, end_pts):
-        
+    def multiprocessing_dispersion_distance_fn_trajectory(self, pool, start_pts, end_pts):
+        """
+        A function that evaluates the cost of a path from an array of start_pts
+        to an array of end_pts. The cost is the time of the optimal path.
+        Uses the python multiprocessing library to use multiple cores of the computer.
+        The multiprocessing pool is passed in since it only needs to be created once.
+        """
         start_and_end_pts = list(itertools.product(start_pts, end_pts))
         dynamics = None
         if 'dynamics' in self.mp_subclass_specific_data:
             dynamics = deepcopy(self.mp_subclass_specific_data['dynamics'])
             self.mp_subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
-        pool_output = pool.map(self.dispersion_distance_fn, start_and_end_pts)
+        pool_output = pool.map(self.compute_mp, start_and_end_pts)
         min_score = np.array([mp.cost for mp in pool_output]).reshape(start_pts.shape[0], end_pts.shape[0])
         mp_list = np.array(pool_output).reshape(start_pts.shape[0], end_pts.shape[0])
         self.mp_subclass_specific_data['dynamics'] = dynamics
         return min_score, mp_list
 
+    def dispersion_distance_fn_trajectory(self, start_pts, end_pts):
+        """
+        A function that evaluates the cost of a path from an array of start_pts
+        to an array of end_pts. The cost is the time of the optimal path.
+        """
+        score = np.ones((len(start_pts), len(end_pts))) * np.nan
+        mp_list = np.empty((len(start_pts), len(end_pts)), dtype=object)
+        for i in range(len(start_pts)):
+            for j in range(len(end_pts)):
+                mp = self.motion_primitive_type(start_pts[i, :], end_pts[j, :],
+                                                self.num_dims, self.max_state,
+                                                self.mp_subclass_specific_data)
+                if mp.is_valid:
+                    mp_list[i, j] = mp
+                    score[i, j] = mp.cost
+        return score, mp_list
+
     def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, animate=False):
+        """
+        Computes the minimum dispersion set of points iteratively
+        Inputs:
+            num_output_pts, number of minimum dispersion vertices in the output
+            potential_sample_pts, the candidates to downsample from (often generate from uniform_state_set)
+            check_backwards_dispersion, whether to compute dispersion only from the dense sampling (potential_sample_pts) to the downsampled vertices, or whether to also compute the cost of the reverse motion primitive (maybe required for proof of completeness for non-symmetric systems)
+            animate, whether to make an animation of the iterations
+        Outputs:
+            vertices, the nodes of the "minimum dispersion graph"
+            edges, the connections of the graph
+        """
         # overloaded from motion_primitive_graph for the moment
         # TODO maybe unify with original version used in tree
 
@@ -136,9 +168,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             else:
                 end_pts = potential_sample_pts[index, :][np.newaxis, :]
 
-            min_score_fwd, mp_list_fwd = self.multiprocessing_dispersion_distance_fn(pool, potential_sample_pts, end_pts)
+            min_score_fwd, mp_list_fwd = self.multiprocessing_dispersion_distance_fn_trajectory(pool, potential_sample_pts, end_pts)
             if check_backwards_dispersion:
-                min_score_bwd, _ = self.multiprocessing_dispersion_distance_fn(pool, end_pts, potential_sample_pts)
+                min_score_bwd, _ = self.multiprocessing_dispersion_distance_fn_trajectory(pool, end_pts, potential_sample_pts)
                 min_score[:, 1] = np.maximum(np.nanmin(min_score_fwd, axis=1), np.nanmin(min_score_bwd.T, axis=1))
             else:
                 min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
@@ -178,6 +210,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             self.dispersion_list.append(self.dispersion)
             print(
                 f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
+
+            print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
 
         pool.close()  # end multiprocessing pool
 
@@ -396,6 +430,30 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         else:
             plt.show()
 
+    def compute_dispersion_from_graph(self, vertices, resolution):
+        print(self.max_state[:self.control_space_q])
+        print(resolution[:self.control_space_q])
+        dense_sampling = self.uniform_state_set(self.max_state[:self.control_space_q], resolution[:self.control_space_q], random=False)
+        # dense_sampling = self.uniform_state_set([self.max_state[0]], [resolution[0]], random=False)
+        # self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm
+        # self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
+        # print(dense_sampling.shape)
+        # score = self.dispersion_distance_fn(dense_sampling,vertices[:,:2])[0]
+        pool = Pool(initializer=self.multiprocessing_init)
+        print(dense_sampling.shape)
+        self.vertices = None
+        self.edges = None
+
+        score, _ = self.multiprocessing_dispersion_distance_fn_trajectory(pool, dense_sampling, vertices)
+
+        dispersion =  np.max(np.nanmin(score, axis=1))
+        index =  np.argmax(np.nanmin(score, axis=1))
+        fig, ax = plt.subplots()
+        ax.plot(vertices[:, 0], vertices[:, 1], 'og')
+        circle = plt.Circle(dense_sampling[index ,:self.num_dims], dispersion, color='b', fill=False, )
+        ax.add_artist(circle)
+
+        return dispersion
 
 if __name__ == "__main__":
     # %%
