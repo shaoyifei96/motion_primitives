@@ -7,12 +7,12 @@ similarity_threshold = 10e-5
 
 def test_initial_state(mp_fixture):
     s0 = np.squeeze(mp_fixture.get_state(np.array([0])))
-    assert ((s0 - mp_fixture.start_state) < similarity_threshold).all()
+    assert (abs(s0 - mp_fixture.start_state) < similarity_threshold).all()
 
 
 def test_final_state(mp_fixture):
     sf = np.squeeze(mp_fixture.get_state(np.array([mp_fixture.cost])))
-    assert ((sf - mp_fixture.end_state) < similarity_threshold).all()
+    assert (abs(sf - mp_fixture.end_state) < similarity_threshold).all()
 
 
 """

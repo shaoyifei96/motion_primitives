@@ -39,7 +39,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
         # check if trajectory is valid
         traj_time = np.max(self.switch_times[:, -1])
-        self.is_valid = (self.get_state(traj_time) - self.end_state < 1e-5).all()
+        self.is_valid = (abs(self.get_state(traj_time) - self.end_state) < 1e-1).all()
         if self.is_valid:
             self.cost = traj_time
 
