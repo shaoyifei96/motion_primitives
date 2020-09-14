@@ -155,7 +155,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # each time through loop add point to the set and update data structures
         print("potential sample points:", len(potential_sample_pts))
         for i in range(num_output_pts):
-            print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
 
             # add index to the list of sample node indices
             actual_sample_indices[i] = np.array((index))
