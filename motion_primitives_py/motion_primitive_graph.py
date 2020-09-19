@@ -95,7 +95,7 @@ class MotionPrimitiveGraph():
             self.n = 3
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
-        return pts
+        return pts, independent
 
     def dispersion_distance_fn_simple_norm(self, start_pts, end_pts):
         score = np.linalg.norm(start_pts[:, np.newaxis]-end_pts, axis=2)

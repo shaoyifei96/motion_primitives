@@ -80,11 +80,13 @@ class MotionPrimitive():
         """
         raise NotImplementedError
 
-    def plot_from_sampled_states(self, st, sp, sv, sa, sj, position_only=False, ax=None, start_position_override=None):
+    def plot_from_sampled_states(self, st, sp, sv, sa, sj, position_only=False, ax=None, start_position_override=None, color=None):
         """
         Plot time vs. position, velocity, acceleration, and jerk (input is already sampled)
         """
         # Plot the state over time.
+        if color is None:
+            color = 'lightgrey'
         if not position_only:
             fig, axes = plt.subplots(4, 1, sharex=True)
             samples = [sp, sv, sa, sj]
@@ -102,18 +104,18 @@ class MotionPrimitive():
                     if position_only:
                         if start_position_override is  None:
                             start_position_override = self.start_state
-                        ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1]+start_position_override[1]-self.start_state[1],color='lightgrey')
+                        ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1]+start_position_override[1]-self.start_state[1],color=color)
                     else:
                         ax.plot(st, s[i, :])
                 ax.set_ylabel(l)
 
-    def plot(self, position_only=False, ax=None, start_position_override=None):
+    def plot(self, position_only=False, ax=None, start_position_override=None, color=None):
         """
         Generate the sampled state and input trajectories and plot them
         """
         st, sp, sv, sa, sj = self.get_sampled_states()
         if st is not None:
-            self.plot_from_sampled_states(st, sp, sv, sa, sj, position_only, ax, start_position_override)
+            self.plot_from_sampled_states(st, sp, sv, sa, sj, position_only, ax, start_position_override, color)
         else:
             print("Trajectory was not found")
 
