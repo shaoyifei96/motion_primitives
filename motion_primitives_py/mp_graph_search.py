@@ -300,11 +300,12 @@ class GraphSearch:
             print("No path found")
         return path, sampled_path, path_cost
 
-    def expand_all_nodes(self, max_depth):
+    def expand_all_nodes(self, max_depth, plot=False):
         self.reset_graph_search()
         node = heappop(self.queue)
         neighbors = self.get_neighbor_nodes(node)
         colors = plt.cm.tab10(np.linspace(0, 1, 10))
+        vertices = []
         while neighbors:
             neighbor_node = neighbors.pop(0)
             if neighbor_node.graph_depth > max_depth:
@@ -312,15 +313,19 @@ class GraphSearch:
 
             new_neighbors = self.get_neighbor_nodes(neighbor_node)
             neighbors = neighbors + new_neighbors
-            plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
-                     color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
+            if plot:
+                plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
+                        color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
             if neighbor_node.mp is not None:
                 if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
                     start_position_override = neighbor_node.parent
                 else:
                     start_position_override = None
-                neighbor_node.mp.plot(position_only=True, start_position_override=start_position_override)
-
+                if plot:
+                    neighbor_node.mp.plot(position_only=True, start_position_override=start_position_override)
+                vertices.append(neighbor_node)
+        return vertices
+        
     def animation_helper(self, i, closed_set_states):
         print(f"frame {i+1}/{len(self.closed_nodes)+10}")
         for k in range(len(self.lines[0])):
@@ -402,25 +407,24 @@ if __name__ == "__main__":
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
 
-    mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    mpl = MotionPrimitiveLattice.load("lattice_poly_3.json")
     print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
-    print(mpl.max_state)
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
 
-    resolution = .4
-    origin = [0, 0]
-    dims = [20, 40]
-    data = np.zeros(dims)
-    data[5:10, 4:6] = 100
-    data[5:10, 19:21] = 100
-    data[0:5, 11:13] = 100
-    data = data.flatten('F')
-    occ_map = OccupancyMap(resolution, origin, dims, data)
-    start_state[0:3] = np.array([3, 1, 0])*resolution
-    goal_state[0:3] = np.array([3, 25, 0])*resolution
+    # resolution = .4
+    # origin = [0, 0]
+    # dims = [20, 40]
+    # data = np.zeros(dims)
+    # data[5:10, 4:6] = 100
+    # data[5:10, 19:21] = 100
+    # data[0:5, 11:13] = 100
+    # data = data.flatten('F')
+    # occ_map = OccupancyMap(resolution, origin, dims, data)
+    # start_state[0:3] = np.array([3, 1, 0])*resolution
+    # goal_state[0:3] = np.array([3, 25, 0])*resolution
 
     # resolution = .4
     # origin = [0, 0, 0 ]
@@ -438,16 +442,16 @@ if __name__ == "__main__":
     # start_state[0:2] = [10, 6]
     # goal_state[0:2] = [70, 6]
     #
-    # occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
-    # start_state[0:2] = [0, -18]
-    # goal_state[0:2] = [7, -7]
-    # goal_state[0:2] = [5, 4]
+    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    start_state[0:2] = [0, -18]
+    goal_state[0:2] = [7, -7]
+    goal_state[0:2] = [5, 4]
 
-    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
-    goal_tolerance[1:] = np.inf
-
+    # goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
+    # goal_tolerance[1:] = np.inf
     # print("Motion Primitive Tree")
     # mpl.max_state[0] = np.inf
+
     # mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
     # # mpt.max_state[3] = 10
     # gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
