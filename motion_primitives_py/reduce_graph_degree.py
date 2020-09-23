@@ -12,11 +12,11 @@ class MotionPrimitiveLattice(MotionPrimitiveLattice):
 
     def bfs(self, i, j):
         # bfs https://pythoninwonderland.wordpress.com/2017/03/18/how-to-implement-breadth-first-search-in-python/
-        mp = self.edges[i, j]
-        if mp is None:
+        original_edge = self.edges[i, j]
+        if original_edge is None:
             return None
         explored = []
-        queue = [[mp]]
+        queue = [[original_edge]]
         paths = []
         while queue:
             # pop the first path from the queue
@@ -37,22 +37,36 @@ class MotionPrimitiveLattice(MotionPrimitiveLattice):
                         # print(mp.cost)
                         # print(2*self.dispersion)
                         # print(sum([m.cost for m in new_path]))
-                        if sum([m.cost for m in new_path]) < 2*self.dispersion:
+                        new_path_cost = sum([m.cost for m in new_path])
+                        if new_path_cost < 2*self.dispersion:
                             queue.append(new_path)
                             # return path if neighbor is goal
-                            if(neighbor.start_state == mp.end_state).all():
-                                paths.append(new_path)
+                            if(neighbor.end_state == original_edge.end_state).all():
+                                paths.append((new_path, new_path_cost))
+                                if new_path_cost > original_edge.cost:
+                                    self.edges[i, j] = None
 
                 # mark node as explored
                 explored.append(node)
-        for path in paths:
-            for mp in path:
-                print(mp.start_state)
-                print(mp.end_state)
-            print('end')
-        return paths
+
+        # for path, cost in paths:
+        #     print(2*self.dispersion)
+        #     print(original_edge.cost)
+        #     print(cost)
+        # print(original_edge.start_state)
+        # print(original_edge.end_state)
+
+        # for mp in path:
+        #     print(mp.start_state)
+        #     print(mp.end_state)
+        # return paths
 
 
 if __name__ == "__main__":
+    import numpy as np
+
     mpl = MotionPrimitiveLattice.load("lattice_test.json")
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+
     mpl.reduce_graph_degree()
+    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
