@@ -1,3 +1,4 @@
+# Examine the change in average degree and dispersion as more samples are added.
 # Plot average degree vs number of samples and dispersion vs number of sample.
 
 # Notes:
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_exhaustive{random_str}"
 
     # Euclidean Graph in 6D
-    # Super wierd result with random
+    # Super weird results with random
     # motion_primitive_type = EuclideanMotionPrimitive
     # control_space_q = 1
     # num_dims = 6
@@ -61,7 +62,7 @@ if __name__ == '__main__':
             mp_subclass_specific_data)
         # Compute the number of tests points used.
         potential_sample_pts, _ = mpl.uniform_state_set(
-            mpl.max_state[:mpl.control_space_q], resolution[:mpl.control_space_q], random=True)
+            mpl.max_state[:mpl.control_space_q], resolution[:mpl.control_space_q], random=random)
         print(potential_sample_pts)
         n_test_points = potential_sample_pts.shape[0]
         print(f'Used {n_test_points} test points.')
@@ -75,7 +76,7 @@ if __name__ == '__main__':
 
     # Compute number of tests points used.
     potential_sample_pts, _ = mpl.uniform_state_set(
-        mpl.max_state[:mpl.control_space_q], resolution[:mpl.control_space_q], random=True)
+        mpl.max_state[:mpl.control_space_q], resolution[:mpl.control_space_q], random=random)
     n_test_points = potential_sample_pts.shape[0]
     print(f'Used {n_test_points} test points.')
 
