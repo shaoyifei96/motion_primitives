@@ -32,6 +32,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                   motion_primitive_type=getattr(motion_primitives_py, data["mp_type"]),
                   tiling=data["tiling"], plot=plot)
         mpl.dispersion = data["dispersion"]
+        mpl.dispersion_list = data["dispersion_list"]
         mpl.resolution = np.array(data["resolution"])
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
@@ -64,6 +65,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
                             "dispersion": self.dispersion,
+                            "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,
                             "max_state": self.max_state.tolist(),
                             "resolution": self.resolution,
