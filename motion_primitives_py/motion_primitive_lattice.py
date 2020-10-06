@@ -233,7 +233,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                                                       potential_sample_pts)
         return vertices, edges
 
-    def compute_min_dispersion_space(self, num_output_pts, resolution, check_backwards_dispersion=False, animate=False, random=False):
+    def compute_min_dispersion_space(self, num_output_pts, resolution, check_backwards_dispersion=False, animate=False, random=False, fuzz_factor=0):
         """
         Using the bounds on the state space, compute a set of minimum dispersion
         points (similar to original Dispertio paper) and save the resulting
@@ -247,7 +247,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
 
         potential_sample_pts, _ = self.uniform_state_set(
-            self.max_state[:self.control_space_q], resolution[:self.control_space_q], random=random)
+            self.max_state[:self.control_space_q], resolution[:self.control_space_q], random=random, fuzz_factor=fuzz_factor)
         self.vertices, self.edges = self.compute_min_dispersion_points(
             num_output_pts, potential_sample_pts, check_backwards_dispersion, animate)
         if self.plot:

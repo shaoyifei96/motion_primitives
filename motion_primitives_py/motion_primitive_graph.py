@@ -9,23 +9,23 @@ class MotionPrimitiveGraph():
     Compute motion primitive graphs for quadrotors over different size state spaces
 
     Attributes:
-        control_space_q, 
+        control_space_q,
             derivative of configuration which is the control input.
-        num_dims, 
+        num_dims,
             dimension of configuration space
-        max_state, 
+        max_state,
             list of max values of position space and its derivatives
         motion_primitive_type,
             class that the motion primitive edges belong to. Must be a subclass of MotionPrimitive
-        plot, 
+        plot,
             boolean of whether to create/show plots
-        vertices, (M, N) 
-            minimum dispersion set of M points sampled in N dimensions, 
+        vertices, (M, N)
+            minimum dispersion set of M points sampled in N dimensions,
             the vertices of the graph
-        edges, (M, M) 
-            adjacency matrix of MotionPrimitive objects representing edges of 
+        edges, (M, M)
+            adjacency matrix of MotionPrimitive objects representing edges of
             the graph, with each element (x,y) of the matrix corresponding to a
-            trajectory from state vertices(x) to state vertices(y).  
+            trajectory from state vertices(x) to state vertices(y).
     """
 
     def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, tiling=True, plot=False, mp_subclass_specific_data={}):
@@ -69,12 +69,13 @@ class MotionPrimitiveGraph():
             fig_3d, ax_3d = plt.subplots()
             self.ax_3d = fig_3d.add_subplot(111, projection='3d')
 
-    def uniform_state_set(self, bounds, resolution, random=False):
+    def uniform_state_set(self, bounds, resolution, random=False, fuzz_factor=0):
         """
         Return a uniform Cartesian sampling over vector bounds with vector resolution.
         Input:
             bounds, (N) bounds over N dimensions (assumes symmetric positive and negative values)
             resolution, (N,) resolution over N dimensions
+            fuzz_factor, std of added gaussian noise as fraction of resolution (0 for no noise)
         Output:
             pts, (M,N) set of M points sampled in N dimensions
         """
@@ -95,6 +96,18 @@ class MotionPrimitiveGraph():
             self.n = 3
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
+
+        # If fuzz_factor is not zero, add independent gaussian perturbations to
+        # each point with standard deviation a fraction of the resolution.
+        if fuzz_factor != 0:
+            state_resolutions = [r for r in resolution for _ in range(self.num_dims)]
+            if self.motion_primitive_type == ReedsSheppMotionPrimitive: # hack
+                state_resolutions.pop()
+            d = np.zeros_like(pts)
+            for i, r in enumerate(state_resolutions):
+                d[:,i] = np.random.normal(scale=r*fuzz_factor, size=pts.shape[0])
+            pts = pts + d
+
         return pts, independent
 
     def dispersion_distance_fn_simple_norm(self, start_pts, end_pts):
