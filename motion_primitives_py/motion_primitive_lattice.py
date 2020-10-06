@@ -288,6 +288,33 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 else:
                     self.edges[i, j] = None
 
+    def plot_config(self):
+        """
+        Plot the graph and motion primitives projected into the 2D or 3D
+        configuration space.
+        """
+        tiled_verts = self.tile_points(self.vertices)
+
+        fig, ax = plt.subplots(1, 1, subplot_kw={'projection': {2:'rectilinear', 3:'3d'}[self.num_dims]})
+        ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
+        if self.num_tiles > 1:
+            ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'ob', zorder=4)
+
+        for i in range(len(self.edges)):
+            for j in range(len(self.vertices)):
+                mp = self.edges[i, j]
+                if mp is not None and mp.is_valid:
+                    _, sp = mp.get_sampled_position(.1)
+                    if self.num_dims == 2:
+                        ax.plot(sp[0, :], sp[1, :], color='lightgrey')
+                        # self.ax_3d.plot(sp[0, :], sp[1, :], sv[0, :])
+                        # self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
+
+                    elif self.num_dims == 3:
+                        ax.plot(sp[0, :], sp[1, :], sp[2, :])
+                        # ax.plot(self.vertices[:, 0], self.vertices[:, 1],
+                        #          self.vertices[:, 2], 'om')
+
     def get_neighbor_mps(self, node_index):
         """
         return the indices and costs of nodes that are neighbors of the given
