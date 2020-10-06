@@ -144,9 +144,13 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # overloaded from motion_primitive_graph for the moment
         # TODO maybe unify with original version used in tree
 
-        # always take the all zero state as the first actual sample
-        potential_sample_pts = np.vstack((np.zeros(self.n), potential_sample_pts))
-        index = 0
+        # Take the all zero state as the first sample. If it does not exist, create it.
+        origin_idx = np.flatnonzero(np.all(potential_sample_pts == 0, axis=1))
+        if len(origin_idx) > 0:
+            index = origin_idx[0]
+        else:
+            index = 0
+            potential_sample_pts = np.vstack((np.zeros(self.n), potential_sample_pts))
 
         # initialize data structures
         mp_adjacency_matrix_fwd = np.empty((num_output_pts * self.num_tiles, len(potential_sample_pts)), dtype=object)
