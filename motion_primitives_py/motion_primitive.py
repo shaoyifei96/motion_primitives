@@ -120,6 +120,11 @@ class MotionPrimitive():
             print("Trajectory was not found")
 
     def __eq__(self, other):
+        if other is None:
+            if self.__dict__.keys()  == None:
+                return True
+            else:
+                return False
         if self.__dict__.keys() != other.__dict__.keys():
             return False
         return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__)
