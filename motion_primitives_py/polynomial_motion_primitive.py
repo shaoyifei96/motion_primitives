@@ -213,7 +213,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         control_space_q = int(start_state.shape[0]/num_dims)
         done = False
         while not done:
-            t += dt + np.random.rand(1)*dt/5.
+            t += dt + float(np.random.rand(1)*dt/5.)
             if t > max_t:
                 polys = None
                 t = np.inf
