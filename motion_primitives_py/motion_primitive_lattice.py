@@ -279,7 +279,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
-                if mp is not None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
+                if mp != None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
                     if self.plot:
                         _, sp = mp.get_sampled_position(.1)
                         if self.num_dims == 2:
@@ -309,7 +309,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
-                if mp is not None and mp.is_valid:
+                if mp != None and mp.is_valid:
                     _, sp = mp.get_sampled_position(.1)
                     if self.num_dims == 2:
                         ax.plot(sp[0, :], sp[1, :], color='lightgrey')
