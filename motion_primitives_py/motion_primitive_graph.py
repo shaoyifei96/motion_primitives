@@ -106,7 +106,8 @@ class MotionPrimitiveGraph():
             d = np.zeros_like(pts)
             for i, r in enumerate(state_resolutions):
                 d[:,i] = np.random.normal(scale=r*fuzz_factor, size=pts.shape[0])
-            pts = pts + d
+            pts = np.minimum(np.repeat(self.max_state[:self.control_space_q],self.num_dims),pts + d)
+            pts = np.maximum(np.repeat(-self.max_state[:self.control_space_q],self.num_dims),pts)
 
         return pts, independent
 
