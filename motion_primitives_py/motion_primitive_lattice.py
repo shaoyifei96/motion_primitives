@@ -201,10 +201,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     index = index[0]
 
             if np.isinf(min_score[index, 0]):
-                print("""ERROR: no new valid trajectories to a point in the
+                print("""WARNING: no new valid trajectories to *a* point in the
                       sample set. You probably need to increase max state or
-                      decrease resolution. Exiting.""")
-                raise SystemExit
+                      decrease resolution. Not exiting.""")
+                # raise SystemExit
 
             # save motion primitives in the adjacency matrix
             mp_adjacency_matrix_fwd[i * self.num_tiles:(i + 1) * self.num_tiles, :] = mp_list_fwd.T
@@ -214,8 +214,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             if np.isnan(self.dispersion):
                 self.dispersion = np.inf
             self.dispersion_list.append(self.dispersion)
-            print(
-                f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
+            # print(
+            #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
 
