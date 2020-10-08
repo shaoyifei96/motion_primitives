@@ -29,7 +29,7 @@ if __name__ == '__main__':
     max_state = 1 * np.ones(num_dims*control_space_q)
     mp_subclass_specific_data = {}
     resolution = list(0.1 * np.ones(control_space_q))
-    fuzz_factor = 0.25 # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
+    fuzz_factor = 0.25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
     tiling = False
     check_backwards_dispersion = False
     basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive"
@@ -40,8 +40,8 @@ if __name__ == '__main__':
     num_dims = 4
     max_state = 1 * np.ones((control_space_q+1,))
     mp_subclass_specific_data = {}
-    resolution = list(0.5 * np.ones(control_space_q+1)) # Not sure about this.
-    fuzz_factor = 0.25 # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
+    resolution = list(0.5 * np.ones(control_space_q+1))  # Not sure about this.
+    fuzz_factor = 0.25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
     tiling = False
     check_backwards_dispersion = False
     basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive"
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         print(f'Used {n_test_points} test points.')
         # Compute exhaustive dispersion sequence.
         mpl.compute_min_dispersion_space(
-            num_output_pts=n_test_points-1, # This -1 is needed, but shouldn't be.
+            num_output_pts=n_test_points-1,  # This -1 is needed, but shouldn't be.
             resolution=resolution,
             check_backwards_dispersion=check_backwards_dispersion,
             fuzz_factor=fuzz_factor)
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # Calculate average degree over time given changing 2*dispersion limit.
     edge_counts = np.zeros(mpl.edges.shape[0])
     for i in range(mpl.edges.shape[0]):
-        edge_counts[i] = np.count_nonzero(costs[:i,:i] <= 2 * mpl.dispersion_list[i])
+        edge_counts[i] = np.count_nonzero(costs[:i, :i] <= 2 * mpl.dispersion_list[i])
     average_degree = edge_counts / (1+np.arange(edge_counts.size))
 
     # Plot average degree vs number of samples.
@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     # Plot the configuration with final dispersion value.
     if num_dims <= 3:
-      mpl.limit_connections(2*mpl.dispersion)
-      mpl.plot_config()
+        mpl.limit_connections(2*mpl.dispersion)
+        mpl.plot_config()
 
     plt.show()
