@@ -18,9 +18,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from motion_primitives_py.euclidean_motion_primitive import EuclideanMotionPrimitive
-from motion_primitives_py.motion_primitive_lattice import MotionPrimitiveLattice
-from motion_primitives_py.reduce_graph_degree import reduce_graph_degree
+from motion_primitives_py import *
 
 if __name__ == '__main__':
 
@@ -47,6 +45,18 @@ if __name__ == '__main__':
     tiling = False
     check_backwards_dispersion = False
     basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive"
+
+    # Euclidean Graph in 6D
+    motion_primitive_type = PolynomialMotionPrimitive
+    control_space_q = 2
+    num_dims = 2
+    max_state = np.array([.51, 1.51, 15])  # 1 * np.ones((control_space_q+1,))
+    mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
+    resolution = list(0.5 * np.ones(control_space_q+1))  # Not sure about this.
+    fuzz_factor = 0.25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
+    tiling = False
+    check_backwards_dispersion = False
+    basename = f"polynomial_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive_tiling_{tiling}_backward_{check_backwards_dispersion}"
 
     # Either load or create the specified lattice. Lattice should not have limited edges yet.
     if Path(f'{basename}.json').exists():
@@ -84,7 +94,8 @@ if __name__ == '__main__':
     costs = np.zeros(mpl.edges.shape)
     for i in range(costs.shape[0]):
         for j in range(costs.shape[1]):
-            costs[i,j] = mpl.edges[i,j].cost
+            if mpl.edges[i, j] is not None:
+                costs[i, j] = mpl.edges[i, j].cost
 
     # Calculate average degree over time given changing 2*dispersion limit.
     edge_counts = np.zeros(mpl.edges.shape[0])
