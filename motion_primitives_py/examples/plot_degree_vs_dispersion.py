@@ -98,21 +98,21 @@ if __name__ == '__main__':
                 costs[i, j] = mpl.edges[i, j].cost
 
     # Calculate average degree over time given changing 2*dispersion limit.
-    edge_counts = np.zeros(mpl.edges.shape[0])
-    for i in range(mpl.edges.shape[0]):
-        edge_counts[i] = np.count_nonzero(costs[:i, :i] <= 2 * mpl.dispersion_list[i])
+    edge_counts = np.zeros(mpl.edges.shape[1])
+    for i in range(mpl.edges.shape[1]):
+        edge_counts[i] = np.count_nonzero(costs[:i*mpl.num_tiles, :i] <= 2 * mpl.dispersion_list[i])
     average_degree = edge_counts / (1+np.arange(edge_counts.size))
 
     # Plot average degree vs number of samples.
     fig, ax = plt.subplots(1, 1, constrained_layout=True)
-    ax.plot(range(mpl.edges.shape[0]), average_degree, color='black')
+    ax.plot(range(mpl.edges.shape[1]), average_degree, color='black')
     ax.set_xlabel('number samples')
     ax.set_ylabel('average degree')
     # Plot dispersion vs number of samples (on same axes).
     ax2 = ax.twinx()
     color = 'lightgrey'
     ax2.set_ylabel('dispersion', color=color)
-    ax2.plot(range(mpl.edges.shape[0]), mpl.dispersion_list, color=color)
+    ax2.plot(range(mpl.edges.shape[1]), mpl.dispersion_list, color=color)
     ax2.tick_params(axis='y', labelcolor=color)
     fig.savefig(f'{basename}.pdf')
 
