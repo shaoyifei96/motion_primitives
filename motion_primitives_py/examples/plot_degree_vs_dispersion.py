@@ -28,39 +28,37 @@ if __name__ == '__main__':
     num_dims = 2
     max_state = 1 * np.ones(num_dims*control_space_q)
     mp_subclass_specific_data = {}
-    resolution = list(0.1 * np.ones(control_space_q))
-    fuzz_factor = 0.25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
+    n_test_points = 40
     tiling = False
     check_backwards_dispersion = False
-    basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive"
+    basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_num_dense_samples{n_test_points}_tiling{tiling}_backward{check_backwards_dispersion}"
 
-    # Euclidean Graph in 6D
-    motion_primitive_type = EuclideanMotionPrimitive
-    control_space_q = 1
-    num_dims = 4
-    max_state = 1 * np.ones((control_space_q+1,))
-    mp_subclass_specific_data = {}
-    resolution = list(0.5 * np.ones(control_space_q+1))  # Not sure about this.
-    fuzz_factor = 0.25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
-    tiling = False
-    check_backwards_dispersion = False
-    basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive"
-
-    # Euclidean Graph in 6D
+    # Polynomial Graph 4D
     motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
     max_state = np.array([.51, 1.51, 15])  # 1 * np.ones((control_space_q+1,))
     mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
-    resolution = list(0.5 * np.ones(control_space_q+1))  # Not sure about this.
-    fuzz_factor = 0.25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
-    tiling = False
+    n_test_points = 40
+    tiling = True
     check_backwards_dispersion = False
-    basename = f"polynomial_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive_tiling_{tiling}_backward_{check_backwards_dispersion}"
+    basename = f"polynomial_lattice_{num_dims}D_num_dense_samples{n_test_points}_tiling{tiling}_backward{check_backwards_dispersion}"
+
+    # # jerks Graph in 4D
+    # motion_primitive_type = JerksMotionPrimitive
+    # control_space_q = 3
+    # num_dims = 2
+    # max_state = np.array([.51, 1.51, 1.51, 100])  # 1 * np.ones((control_space_q+1,))
+    # mp_subclass_specific_data = {}
+    # resolution = list(.51 * np.ones(control_space_q+1))  # Not sure about this.
+    # fuzz_factor = .25  # Useful values include {0 (no fuzz), 0.25 (medium fuzz)}.
+    # tiling = False
+    # check_backwards_dispersion = False
+    # basename = f"polynomial_lattice_{num_dims}D_{resolution[0]}res_{fuzz_factor}fuzz_exhaustive_tiling_{tiling}_backward_{check_backwards_dispersion}"
 
     # Either load or create the specified lattice. Lattice should not have limited edges yet.
-    if Path(f'{basename}.json').exists():
-        mpl = MotionPrimitiveLattice.load(f'{basename}.json', plot=False)
+    if Path(f'data/{basename}.json').exists():
+        mpl = MotionPrimitiveLattice.load(f'data/{basename}.json', plot=False)
     else:
         mpl = MotionPrimitiveLattice(
             control_space_q,
@@ -70,31 +68,21 @@ if __name__ == '__main__':
             tiling,
             False,
             mp_subclass_specific_data)
-        # Compute the number of tests points used.
-        potential_sample_pts, _ = mpl.uniform_state_set(
-            mpl.max_state[:mpl.control_space_q], resolution[:mpl.control_space_q])
-        print(potential_sample_pts)
-        n_test_points = potential_sample_pts.shape[0]
         print(f'Used {n_test_points} test points.')
         # Compute exhaustive dispersion sequence.
         mpl.compute_min_dispersion_space(
             num_output_pts=n_test_points-1,  # This -1 is needed, but shouldn't be.
-            resolution=resolution,
             check_backwards_dispersion=check_backwards_dispersion,
-            fuzz_factor=fuzz_factor)
-        mpl.save(f'{basename}.json')
+            num_dense_samples=n_test_points)
+        mpl.save(f'data/{basename}.json')
 
-    # Compute number of tests points used.
-    potential_sample_pts, _ = mpl.uniform_state_set(
-        mpl.max_state[:mpl.control_space_q], resolution[:mpl.control_space_q])
-    n_test_points = potential_sample_pts.shape[0]
     print(f'Used {n_test_points} test points.')
 
     # Build complete cost matrix.
-    costs = np.zeros(mpl.edges.shape)
+    costs = np.ones(mpl.edges.shape)*np.inf
     for i in range(costs.shape[0]):
         for j in range(costs.shape[1]):
-            if mpl.edges[i, j] is not None:
+            if mpl.edges[i, j] != None:
                 costs[i, j] = mpl.edges[i, j].cost
 
     # Calculate average degree over time given changing 2*dispersion limit.
@@ -114,11 +102,10 @@ if __name__ == '__main__':
     ax2.set_ylabel('dispersion', color=color)
     ax2.plot(range(mpl.edges.shape[1]), mpl.dispersion_list, color=color)
     ax2.tick_params(axis='y', labelcolor=color)
-    fig.savefig(f'{basename}.pdf')
+    fig.savefig(f'data/{basename}.pdf')
 
     # Plot the configuration with final dispersion value.
     if num_dims <= 3:
-        mpl.limit_connections(2*mpl.dispersion)
-        mpl.plot_config()
+        mpl.plot_config(plot_mps=False)
 
     plt.show()
