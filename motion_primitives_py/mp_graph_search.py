@@ -244,7 +244,7 @@ class GraphSearch:
             nodes_expanded += 1
             self.closed_nodes.append(node)  # for animation/plotting
 
-            if type(self.motion_primitive_graph) is MotionPrimitiveLattice and self.goal_tolerance is None:
+            if type(self.motion_primitive_graph) is MotionPrimitiveLattice and self.goal_tolerance == None:
                 mp = self.motion_primitive_graph.motion_primitive_type(
                     node.state, self.goal_state, self.num_dims, self.motion_primitive_graph.max_state, self.motion_primitive_graph.mp_subclass_specific_data)
                 if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
@@ -410,7 +410,8 @@ if __name__ == "__main__":
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
 
-    mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
+    mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json")
+    # mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
@@ -476,7 +477,7 @@ if __name__ == "__main__":
     mpl.plot = False
     mpl.mp_subclass_specific_data['iterative_bvp_dt'] = 2
     mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
-    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
+    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], None,
                      heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
     # with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
     #     path, sampled_path, path_cost = gs.run_graph_search()
