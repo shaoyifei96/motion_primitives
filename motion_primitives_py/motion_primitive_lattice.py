@@ -206,8 +206,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
             if np.isinf(min_score[index, 0]):
                 print("""WARNING: no new valid trajectories to *a* point in the
-                      sample set. You probably need to increase max state or
-                      decrease resolution. Not exiting.""")
+                      sample set. Not exiting.""")
                 # raise SystemExit
 
             # save motion primitives in the adjacency matrix
@@ -216,7 +215,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             # update dispersion metric
             self.dispersion = max(min_score[:, 0])
             if np.isnan(self.dispersion):
-                self.dispersion = np.inf
+                self.dispersion = 10**10
             self.dispersion_list.append(self.dispersion)
             # print(
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
@@ -453,7 +452,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
     def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None):
         max_state = self.max_state[:self.control_space_q]
-        max_state[0] = max(vertices[:, 0])
+        max_state[0] = max(vertices[:, 0])*.7
         dense_sampling, axis_sampling = self.uniform_state_set(
             max_state, resolution[:self.control_space_q], random=False, no_sampling_value=no_sampling_value)
         pool = Pool(initializer=self.multiprocessing_init)
@@ -468,7 +467,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # print(costs_mat)
         closest_sample_pt = np.argmin(costs_mat, axis=1)
         min_score = np.nanmin(score, axis=1)
-        dispersion = np.max(min_score)
+        dispersion = np.nanmax(min_score)
         if colorbar_max is None:
             colorbar_max = dispersion
         plt.pcolormesh(axis_sampling[0], axis_sampling[1], np.amin(costs_mat, axis=1).reshape(
@@ -480,7 +479,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for j in range(adj_mat.shape[0]):
             mp = adj_mat[j, closest_sample_pt[j]]
             mp.subclass_specific_data = self.mp_subclass_specific_data
-            mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))])
+            if mp.is_valid:
+                mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))])
 
         plt.scatter(dense_sampling[:, 0], dense_sampling[:, 1], c=min_score)
         plt.plot(vertices[:, 0], vertices[:, 1], '*')
@@ -514,9 +514,9 @@ if __name__ == "__main__":
     motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [.51, 1.51, 15, 100]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2, 'rho':1}
-    num_dense_samples = 40
+    max_state = [5.51, 1.51, 15, 100]
+    mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho':1}
+    num_dense_samples = 100
 
     # # # %%
     # motion_primitive_type = JerksMotionPrimitive
@@ -531,17 +531,15 @@ if __name__ == "__main__":
     tic = time.time()
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=28, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
+        num_output_pts=40, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
     toc = time.time()
     print(toc-tic)
-    print(mpl.vertices)
     mpl.limit_connections(2*mpl.dispersion)
-
-    # # mpl.limit_connections(2*mpl.dispersion)
     mpl.save("data/lattice_test.json")
+
     mpl = MotionPrimitiveLattice.load("data/lattice_test.json", plot)
     # mpl.limit_connections(np.inf)
-    mpl.limit_connections(2*mpl.dispersion)
+    mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
