@@ -17,6 +17,7 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
         else:
             self.turning_radius = self.subclass_specific_data.get('turning_radius')
         self.cost = reeds_shepp.path_length(self.start_state, self.end_state, self.turning_radius)
+        self.traj_time = self.cost
         self.is_valid = True
 
     @classmethod

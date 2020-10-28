@@ -38,10 +38,14 @@ class JerksMotionPrimitive(MotionPrimitive):
                 self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
 
         # check if trajectory is valid
-        traj_time = np.max(self.switch_times[:, -1])
-        self.is_valid = (abs(self.get_state(traj_time) - self.end_state) < 1e-1).all()
+        self.traj_time = np.max(self.switch_times[:, -1])
+        self.is_valid = (abs(self.get_state(self.traj_time) - self.end_state) < 1e-1).all()
         if self.is_valid:
-            self.cost = traj_time
+            if self.subclass_specific_data.get('rho') is None:
+                self.cost = self.traj_time
+            else:
+                self.cost = self.traj_time * self.subclass_specific_data['rho']
+                self.cost += np.linalg.norm(np.sum((self.get_sampled_input()[1])**2 * self.get_sampled_input()[0], axis=1))
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
@@ -90,7 +94,7 @@ class JerksMotionPrimitive(MotionPrimitive):
 
     def get_sampled_input(self, step_size=0.1):
         if step_size:
-            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             su = np.empty((self.num_dims, len(st)))
             for dim in range(self.num_dims):
                 switch_index = 1

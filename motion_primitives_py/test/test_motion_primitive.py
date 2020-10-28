@@ -11,7 +11,7 @@ def test_initial_state(mp_fixture):
 
 
 def test_final_state(mp_fixture):
-    sf = np.squeeze(mp_fixture.get_state(np.array([mp_fixture.cost])))
+    sf = np.squeeze(mp_fixture.get_state(np.array([mp_fixture.traj_time])))
     assert (abs(sf - mp_fixture.end_state) < similarity_threshold).all()
 
 

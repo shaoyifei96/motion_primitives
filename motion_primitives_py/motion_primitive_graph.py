@@ -115,7 +115,7 @@ class MotionPrimitiveGraph():
 
     def sobol_state_sampling(self, bounds, num_samples):
         sobol = sobol_seq.i4_sobol_generate(self.n, num_samples, skip=np.random.randint(0, 100))
-        repeated_bounds = np.repeat(bounds, self.num_dims)
+        repeated_bounds = np.repeat(bounds, self.num_dims)[:self.n]
         scaled_sobol = sobol*2*repeated_bounds-repeated_bounds
         return scaled_sobol
 

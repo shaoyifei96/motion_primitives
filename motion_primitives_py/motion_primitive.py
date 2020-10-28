@@ -22,6 +22,7 @@ class MotionPrimitive():
         self.control_space_q = int(self.start_state.shape[0]/num_dims)
         self.is_valid = False
         self.cost = None
+        self.traj_time = None
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state):
@@ -34,6 +35,7 @@ class MotionPrimitive():
                                     np.array(dict["end_state"]),
                                     num_dims, max_state)
             mp.cost = dict["cost"]
+            mp.traj_time = dict["traj_time"]
             mp.is_valid = True
         else:
             mp = None
@@ -45,6 +47,7 @@ class MotionPrimitive():
         """
         if self.is_valid:
             dict = {"cost": self.cost,
+                    "traj_time": self.traj_time,
                     "start_state": self.start_state.tolist(),
                     "end_state": self.end_state.tolist(),
                     }

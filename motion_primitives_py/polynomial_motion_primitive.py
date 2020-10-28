@@ -19,12 +19,16 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         if "dynamics" not in self.subclass_specific_data:
             self.subclass_specific_data['dynamics'] = self.get_dynamics_polynomials(self.control_space_q)
         # Solve boundary value problem
-        self.polys, traj_time = self.iteratively_solve_bvp_meam_620_style(
+        self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims,
             self.max_state, self.subclass_specific_data['dynamics'], subclass_specific_data.get('iterative_bvp_dt'), subclass_specific_data.get('iterative_bvp_max_t'))
         if self.polys is not None:
             self.is_valid = True
-            self.cost = traj_time
+            if self.subclass_specific_data.get('rho') is None:
+                self.cost = self.traj_time
+            else:
+                self.cost = self.traj_time * self.subclass_specific_data['rho']
+                self.cost += np.linalg.norm(np.sum((self.get_sampled_input()[1])**2 * self.get_sampled_input()[0], axis=1))
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
@@ -63,7 +67,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def get_sampled_states(self, step_size=0.1):
         # TODO connect w/ get_state
         if self.is_valid:
-            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             sp = self.evaluate_polynomial_at_derivative(0, st)
             sv = self.evaluate_polynomial_at_derivative(1, st)
             sa = self.evaluate_polynomial_at_derivative(2, st)
@@ -77,7 +81,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
     def get_sampled_position(self, step_size=0.1):
         if self.is_valid:
-            st = np.linspace(0, self.cost, int(np.ceil(self.cost/step_size)+1))
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             sp = self.evaluate_polynomial_at_derivative(0, st)
             return st, sp
         else:
@@ -85,7 +89,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
 
     def get_sampled_input(self, step_size=0.1):
         if self.is_valid:
-            st = np.linspace(0, self.cost, int(np.ceil(self.cost / step_size) + 1))
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time / step_size) + 1))
             su = self.evaluate_polynomial_at_derivative(self.control_space_q, st)
             return st, su
         else:
@@ -114,10 +118,12 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Output:
             sampled, array of polynomial derivative evaluated at sample times
         """
-        poly_coeffs = np.array([np.concatenate((np.zeros(deriv_num), dynamics[deriv_num](1) * polys[j, :]))[:polys.shape[1]]
-                                for j in range(num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
-        sampled = np.array([np.sum(poly_coeffs.T*dynamics[0](t), axis=1)
-                            for t in st]).T  # faster than polyval
+        if deriv_num > -1:
+            poly_coeffs = np.array([np.concatenate((np.zeros(deriv_num), dynamics[deriv_num](1) * polys[j, :]))[:polys.shape[1]]
+                                    for j in range(num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
+        else:
+            poly_coeffs = polys.T
+        sampled = np.array([np.dot(dynamics[0](t),poly_coeffs) for t in st]).T
         return sampled
 
     @staticmethod
@@ -274,7 +280,7 @@ if __name__ == "__main__":
     max_state = 1 * np.ones((control_space_q+1,))
 
     # polynomial
-    mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state)
+    mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state, {'rho':1})
 
     # save
     assert(mp.is_valid)

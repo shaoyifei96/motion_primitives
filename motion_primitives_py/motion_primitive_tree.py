@@ -20,10 +20,11 @@ class MotionPrimitiveTree(MotionPrimitiveGraph):
         dynamics = self.mp_subclass_specific_data['dynamics']
         mps = []
         for u in u_set:
-            mp_subclass_specific_data = {'u': u, 'dt': dt, 'dynamics': dynamics}
-            mps.append(self.motion_primitive_type(start_pt, None, self.num_dims,
+            self.mp_subclass_specific_data['u'] = u
+            mp = self.motion_primitive_type(start_pt, None, self.num_dims,
                                                   self.max_state,
-                                                  mp_subclass_specific_data))
+                                                  self.mp_subclass_specific_data)
+            mps.append(mp)
         return mps
 
     def compute_all_possible_mps(self, start_pt, num_u_set, num_dts, min_dt, max_dt):

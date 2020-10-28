@@ -22,7 +22,7 @@ def mp_fixture(request):
         subclass_specific_data={"u": np.array([1, -1]), "dt": 1}
     elif request.param == JerksMotionPrimitive:
         subclass_specific_data["supress_redirector"] = True
-
+    subclass_specific_data['rho'] = 1
     # build motion primitive
     n = int(num_dims * control_space_q)
     max_state = 100 * np.ones(n,)
@@ -49,12 +49,13 @@ def lattice_fixture():
     num_dims = 2
     num_output_pts = 5
     max_state = [1, 2*np.pi, 2*np.pi, 100, 1, 1]
-    resolution = [.2, .2, np.inf, 25, 1, 1]
+    # resolution = [.2, .2, np.inf, 25, 1, 1]
+    num_dense_samples = 40
 
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state,
                                  ReedsSheppMotionPrimitive)
-    mpl.compute_min_dispersion_space(num_output_pts, resolution)
+    mpl.compute_min_dispersion_space(num_output_pts, num_dense_samples)
     mpl.limit_connections(2 * mpl.dispersion)
     yield mpl
 
@@ -68,5 +69,5 @@ def search_fixture(om_fixture, lattice_fixture):
             
     # build graph search
     yield GraphSearch(lattice_fixture, om_fixture, start_state, goal_state,
-                      goal_tol, heuristic='euclidean')
+                      goal_tol, heuristic='min_time')
     

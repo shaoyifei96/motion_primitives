@@ -33,6 +33,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                   tiling=data["tiling"], plot=plot)
         mpl.dispersion = data["dispersion"]
         mpl.dispersion_list = data["dispersion_list"]
+        mpl.mp_subclass_specific_data['rho'] = data["rho"]
         mpl.num_dense_samples = np.array(data["num_dense_samples"])
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
@@ -73,6 +74,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "vertices": self.vertices.tolist(),
                             "edges": mps,
                             }
+            saved_params['rho'] = self.mp_subclass_specific_data.get('rho')
+
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
 
@@ -281,7 +284,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 if mp != None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
                     if self.plot:
                         mp.subclass_specific_data = self.mp_subclass_specific_data
-                        mp.plot(position_only=True)
+                        mp.plot(position_only=True, ax=self.ax)
                 else:
                     self.edges[i, j] = None
 
@@ -493,26 +496,26 @@ if __name__ == "__main__":
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
 
-    tiling = False
+    tiling = True
     plot = True
     animate = False
-    check_backwards_dispersion = False
+    check_backwards_dispersion = True
     mp_subclass_specific_data = {}
 
     # %%
     # define parameters
-    control_space_q = 2
-    num_dims = 2
-    max_state = [3.5, 2*np.pi]
-    motion_primitive_type = ReedsSheppMotionPrimitive
-    resolution = [.51, .5]
+    # control_space_q = 2
+    # num_dims = 2
+    # max_state = [3.5, 2*np.pi]
+    # motion_primitive_type = ReedsSheppMotionPrimitive
+    # resolution = [.51, .5]
 
     # # # %%
     motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
     max_state = [.51, 1.51, 15, 100]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
+    mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2, 'rho':1}
     num_dense_samples = 40
 
     # # # %%
@@ -537,8 +540,8 @@ if __name__ == "__main__":
     # # mpl.limit_connections(2*mpl.dispersion)
     mpl.save("data/lattice_test.json")
     mpl = MotionPrimitiveLattice.load("data/lattice_test.json", plot)
-    mpl.limit_connections(np.inf)
-    # mpl.limit_connections(2*mpl.dispersion)
+    # mpl.limit_connections(np.inf)
+    mpl.limit_connections(2*mpl.dispersion)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
