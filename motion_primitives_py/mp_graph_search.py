@@ -68,10 +68,12 @@ class GraphSearch:
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
             # TODO make parameter
-            self.dt = 0.7
-            self.num_u_per_dimension = 7
+            # self.dt = 0.7
+            # self.num_u_per_dimension = 7
             # self.dt = 1.0
             # self.num_u_per_dimension = 3
+            self.num_u_per_dimension = self.motion_primitive_graph.mp_subclass_specific_data['num_u_per_dimension']
+            self.dt = self.motion_primitive_graph.mp_subclass_specific_data['dt']
             self.num_mps = self.num_u_per_dimension**self.num_dims
             self.get_neighbor_nodes = self.get_neighbor_nodes_evenly_spaced
         elif type(self.motion_primitive_graph) is MotionPrimitiveLattice:
@@ -269,7 +271,7 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            if (nodes_expanded) > 2000:
+            if (nodes_expanded) > 200:
                 break
             # if node.graph_depth > 2:
             #     break
@@ -314,8 +316,10 @@ class GraphSearch:
             new_neighbors = self.get_neighbor_nodes(neighbor_node)
             neighbors = neighbors + new_neighbors
             if plot:
-                plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
-                        color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
+                plt.plot(neighbor_node.state[0], neighbor_node.state[1], 'go',
+                        zorder=10-neighbor_node.graph_depth)
+                # plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
+                #         color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
             if neighbor_node.mp is not None:
                 if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
                     start_position_override = neighbor_node.parent
@@ -407,7 +411,7 @@ if __name__ == "__main__":
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
 
-    mpl = MotionPrimitiveLattice.load("lattice_poly_3.json")
+    mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
     print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
@@ -438,11 +442,11 @@ if __name__ == "__main__":
     # start_state[0:3] = np.array([3, 1, 0])*resolution
     # goal_state[0:3] = np.array([3, 15, 10])*resolution
 
-    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
+    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag')
     # start_state[0:2] = [10, 6]
     # goal_state[0:2] = [70, 6]
     #
-    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    occ_map = OccupancyMap.fromVoxelMapBag('data/test2d.bag')
     start_state[0:2] = [0, -18]
     goal_state[0:2] = [7, -7]
     goal_state[0:2] = [5, 4]

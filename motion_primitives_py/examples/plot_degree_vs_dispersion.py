@@ -31,7 +31,7 @@ if __name__ == '__main__':
     n_test_points = 40
     tiling = False
     check_backwards_dispersion = False
-    basename = f"euclidean_lattice_{num_dims}D_{resolution[0]}res_num_dense_samples{n_test_points}_tiling{tiling}_backward{check_backwards_dispersion}"
+    basename = f"euclidean_lattice_{num_dims}D_num_dense_samples{n_test_points}_tiling{tiling}_backward{check_backwards_dispersion}"
 
     # Polynomial Graph 4D
     motion_primitive_type = PolynomialMotionPrimitive
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     max_state = np.array([.51, 1.51, 15])  # 1 * np.ones((control_space_q+1,))
     mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
     n_test_points = 40
-    tiling = True
+    tiling = False
     check_backwards_dispersion = False
     basename = f"polynomial_lattice_{num_dims}D_num_dense_samples{n_test_points}_tiling{tiling}_backward{check_backwards_dispersion}"
 

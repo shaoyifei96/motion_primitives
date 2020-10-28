@@ -3,6 +3,8 @@ from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitiv
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import sobol_seq
+
 
 class MotionPrimitiveGraph():
     """
@@ -69,7 +71,7 @@ class MotionPrimitiveGraph():
             fig_3d, ax_3d = plt.subplots()
             self.ax_3d = fig_3d.add_subplot(111, projection='3d')
 
-    def uniform_state_set(self, bounds, resolution, random=False, fuzz_factor=0):
+    def uniform_state_set(self, bounds, resolution, random=False, no_sampling_value=0):
         """
         Return a uniform Cartesian sampling over vector bounds with vector resolution.
         Input:
@@ -90,26 +92,32 @@ class MotionPrimitiveGraph():
                     if r != np.inf:
                         independent.append(np.concatenate([np.flip(-np.arange(0, a+.00001, r)[1:]), np.arange(0, a+.00001, r)]))
                     else:
-                        independent.append(0)  # if the requested resolution is infinity, just return 0
+                        independent.append(no_sampling_value)  # if the requested resolution is infinity, just return 0
         if self.motion_primitive_type == ReedsSheppMotionPrimitive:  # hack
             independent.pop()
             self.n = 3
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
 
-        # If fuzz_factor is not zero, add independent gaussian perturbations to
-        # each point with standard deviation a fraction of the resolution.
-        if fuzz_factor != 0:
-            state_resolutions = [r for r in resolution for _ in range(self.num_dims)]
-            if self.motion_primitive_type == ReedsSheppMotionPrimitive: # hack
-                state_resolutions.pop()
-            d = np.zeros_like(pts)
-            for i, r in enumerate(state_resolutions):
-                d[:,i] = np.random.normal(scale=r*fuzz_factor, size=pts.shape[0])
-            pts = np.minimum(np.repeat(self.max_state[:self.control_space_q],self.num_dims),pts + d)
-            pts = np.maximum(np.repeat(-self.max_state[:self.control_space_q],self.num_dims),pts)
+        # # If fuzz_factor is not zero, add independent gaussian perturbations to
+        # # each point with standard deviation a fraction of the resolution.
+        # if fuzz_factor != 0:
+        #     state_resolutions = [r for r in resolution for _ in range(self.num_dims)]
+        #     if self.motion_primitive_type == ReedsSheppMotionPrimitive:  # hack
+        #         state_resolutions.pop()
+        #     d = np.zeros_like(pts)
+        #     for i, r in enumerate(state_resolutions):
+        #         d[:, i] = np.random.normal(scale=r*fuzz_factor, size=pts.shape[0])
+        #     pts = np.minimum(np.repeat(self.max_state[:self.control_space_q], self.num_dims), pts + d)
+        #     pts = np.maximum(np.repeat(-self.max_state[:self.control_space_q], self.num_dims), pts)
 
         return pts, independent
+
+    def sobol_state_sampling(self, bounds, num_samples):
+        sobol = sobol_seq.i4_sobol_generate(self.n, num_samples, skip=np.random.randint(0, 100))
+        repeated_bounds = np.repeat(bounds, self.num_dims)
+        scaled_sobol = sobol*2*repeated_bounds-repeated_bounds
+        return scaled_sobol
 
     def dispersion_distance_fn_simple_norm(self, start_pts, end_pts):
         score = np.linalg.norm(start_pts[:, np.newaxis]-end_pts, axis=2)
@@ -140,4 +148,5 @@ if __name__ == "__main__":
     num_dims = 2
     max_state = [3, 1, 1, 100, 1, 1]
     mpg = MotionPrimitiveGraph(control_space_q, num_dims, max_state, True)
-    mpg.uniform_state_set([2], [.8], random=True)
+    # mpg.uniform_state_set([2], [.8], random=True)
+    mpg.sobol_state_sampling([1, 2, 3], 1)

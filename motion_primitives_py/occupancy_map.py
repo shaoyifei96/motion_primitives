@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 class OccupancyMap():
-    def __init__(self, resolution, origin, dims, data, margin=0):
+    def __init__(self, resolution, origin, dims, data):
         self.resolution = resolution
         self.voxels = np.squeeze(np.array(data).reshape(dims, order='F'))
         self.dims = np.array(self.voxels.shape)
@@ -15,11 +15,9 @@ class OccupancyMap():
         map_min = self.origin
         map_max = map_size + self.origin
         self.extent = [map_min[0], map_max[0], map_min[1], map_max[1]]
-        # distance margin to inflate obstacles by
-        self.margin = margin
 
     @classmethod
-    def fromVoxelMapBag(cls, filename, topic=None, margin=0):
+    def fromVoxelMapBag(cls, filename, topic=None):
         # load messages from bagfile
         bag = rosbag.Bag(filename)
         msgs = [msg for _, msg, _ in bag.read_messages(topics=topic)]
@@ -27,7 +25,7 @@ class OccupancyMap():
         resolution = msgs[0].resolution
         dims = np.array([msgs[0].dim.x, msgs[0].dim.y, msgs[0].dim.z]).astype(int)
         origin = np.array([msgs[0].origin.x, msgs[0].origin.y, msgs[0].origin.z])
-        return cls(resolution, origin, dims, np.array(msgs[0].data), margin)
+        return cls(resolution, origin, dims, np.array(msgs[0].data))
 
     def get_indices_from_position(self, point):
         return np.floor((point - self.origin) / self.resolution).astype(int)
