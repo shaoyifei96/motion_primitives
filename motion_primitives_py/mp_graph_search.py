@@ -37,7 +37,7 @@ class GraphSearch:
     Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
     """
 
-    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance=None, mp_sampling_step_size=0.1, heuristic='min_time'):
+    def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance=np.empty(0), mp_sampling_step_size=0.1, heuristic='min_time'):
         # Save arguments as parameters
         self.motion_primitive_graph = motion_primitive_graph
         self.map = occupancy_map
@@ -244,7 +244,7 @@ class GraphSearch:
             nodes_expanded += 1
             self.closed_nodes.append(node)  # for animation/plotting
 
-            if type(self.motion_primitive_graph) is MotionPrimitiveLattice and self.goal_tolerance == None:
+            if type(self.motion_primitive_graph) is MotionPrimitiveLattice and self.goal_tolerance.size == 0:
                 mp = self.motion_primitive_graph.motion_primitive_type(
                     node.state, self.goal_state, self.num_dims, self.motion_primitive_graph.max_state, self.motion_primitive_graph.mp_subclass_specific_data)
                 if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
@@ -457,27 +457,27 @@ if __name__ == "__main__":
     # mpl.max_state[0] = np.inf
 
     mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
-    # mpt.max_state[3] = 10
+    mpt.max_state[3] = 10
     mpt.mp_subclass_specific_data['dt'] = .2
     mpt.mp_subclass_specific_data['num_u_per_dimension'] = 5
     mpt.mp_subclass_specific_data['rho'] = mpl.mp_subclass_specific_data['rho']
 
-    gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
-                     heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
-    # with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
-    #     path, sampled_path, path_cost = gs.run_graph_search()
-    tic = time.time()
-    path, sampled_path, path_cost = gs.run_graph_search()
-    toc = time.time()
-    gs.plot_path(path, sampled_path, path_cost)
-    print(f"Planning time: {toc - tic}s")
-    # gs.make_graph_search_animation(True)
+    # gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
+    #                  heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
+    # # with PyCallGraph(output=GraphvizOutput(output_file='tree.png'), config=Config(max_depth=15)):
+    # #     path, sampled_path, path_cost = gs.run_graph_search()
+    # tic = time.time()
+    # path, sampled_path, path_cost = gs.run_graph_search()
+    # toc = time.time()
+    # gs.plot_path(path, sampled_path, path_cost)
+    # print(f"Planning time: {toc - tic}s")
+    # # gs.make_graph_search_animation(True)
 
     print("Motion Primitive Lattice")
     mpl.plot = False
     mpl.mp_subclass_specific_data['iterative_bvp_dt'] = 2
     mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
-    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], None,
+    gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], 
                      heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
     # with PyCallGraph(output=GraphvizOutput(output_file='lattice.png'), config=Config(max_depth=15)):
     #     path, sampled_path, path_cost = gs.run_graph_search()
@@ -488,6 +488,9 @@ if __name__ == "__main__":
     print(f"Planning time: {toc - tic}s")
     # gs.make_graph_search_animation(True)
 
-    # # gs = GraphSearch.from_yaml("corridor.yaml", mpl, heuristic='bvp')
+    gs = GraphSearch.from_yaml("data/corridor.yaml", mpt, heuristic='min_time')
+    path, sampled_path, path_cost = gs.run_graph_search()
+    gs.plot_path(path, sampled_path, path_cost)
+
 
     plt.show()
