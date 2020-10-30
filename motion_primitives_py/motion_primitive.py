@@ -96,7 +96,7 @@ class MotionPrimitive():
             axes[3].set_xlabel('time')
             fig.suptitle('Full State over Time')
         else:
-            if ax == None:
+            if ax is None:
                 axes = [plt.gca()]
             else:
                 axes = [ax]
@@ -110,7 +110,7 @@ class MotionPrimitive():
                         ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1]+start_position_override[1]-self.start_state[1],color=color)
                     else:
                         ax.plot(st, s[i, :])
-                ax.set_ylabel(l)
+                        ax.set_ylabel(l)
 
     def plot(self, position_only=False, ax=None, start_position_override=None, color=None):
         """

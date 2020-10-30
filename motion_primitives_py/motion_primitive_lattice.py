@@ -133,7 +133,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     score[i, j] = mp.cost
         return score, mp_list
 
-    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, animate=False):
+    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, dispersion_threshhold=None, animate=False):
         """
         Computes the minimum dispersion set of points iteratively
         Inputs:
@@ -221,6 +221,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
+            if dispersion_threshhold is not None and self.dispersion < dispersion_threshhold:
+                print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
+                # Remove extra unused actual sample indices at the back
+                actual_sample_indices = actual_sample_indices[:i+1]
+                break
 
         pool.close()  # end multiprocessing pool
 
@@ -236,7 +241,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                                                       potential_sample_pts)
         return vertices, edges
 
-    def compute_min_dispersion_space(self, num_output_pts, num_dense_samples, check_backwards_dispersion=False, animate=False):
+    def compute_min_dispersion_space(self, num_output_pts, num_dense_samples, check_backwards_dispersion=False, animate=False, dispersion_threshhold=None):
         """
         Using the bounds on the state space, compute a set of minimum dispersion
         points (similar to original Dispertio paper) and save the resulting
@@ -250,7 +255,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         potential_sample_pts = self.sobol_state_sampling(self.max_state[:self.control_space_q], num_dense_samples)
         self.vertices, self.edges = self.compute_min_dispersion_points(
-            num_output_pts, potential_sample_pts, check_backwards_dispersion, animate)
+            num_output_pts, potential_sample_pts, check_backwards_dispersion, dispersion_threshhold, animate)
         if self.plot:
             if self.num_dims == 2:
                 self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
@@ -280,21 +285,22 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
-                if mp != None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
+                if mp is not None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
                     if self.plot:
                         mp.subclass_specific_data = self.mp_subclass_specific_data
                         mp.plot(position_only=True, ax=self.ax)
                 else:
                     self.edges[i, j] = None
 
-    def plot_config(self, plot_mps=False):
+    def plot_config(self, ax=None, plot_mps=False):
         """
         Plot the graph and motion primitives projected into the 2D or 3D
         configuration space.
         """
         tiled_verts = self.tile_points(self.vertices)
 
-        fig, ax = plt.subplots(1, 1, subplot_kw={'projection': {2: 'rectilinear', 3: '3d'}[self.num_dims]})
+        if ax is None:
+            _, ax = plt.subplots(1, 1, subplot_kw={'projection': {2: 'rectilinear', 3: '3d'}[self.num_dims]})
         ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
         if self.num_tiles > 1:
             ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'ob', zorder=4)
@@ -305,8 +311,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     mp = self.edges[i, j]
                     if mp != None and mp.is_valid:
                         mp.subclass_specific_data = self.mp_subclass_specific_data
-                        mp.plot(position_only=True)
+                        mp.plot(position_only=True, ax=ax)
                         _, sp = mp.get_sampled_position(.1)
+        return ax
 
     def get_neighbor_mps(self, node_index):
         """

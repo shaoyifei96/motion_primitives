@@ -137,9 +137,10 @@ class GraphSearch:
         sampled_path.reverse()
         return np.vstack(path).transpose(), np.hstack(sampled_path), path_cost
 
-    def plot_path(self, path, sampled_path, path_cost):
+    def plot_path(self, path, sampled_path, path_cost, ax=None):
 
-        fig, ax = plt.subplots()
+        if ax is None:
+            _, ax = plt.subplots()
         ax.plot(self.start_state[0], self.start_state[1], 'og', zorder=5)
         ax.plot(self.goal_state[0], self.goal_state[1], 'or', zorder=5)
 
@@ -488,9 +489,16 @@ if __name__ == "__main__":
     print(f"Planning time: {toc - tic}s")
     # gs.make_graph_search_animation(True)
 
+    fig, ax = plt.subplots(2, 1, sharex=True)
+
     gs = GraphSearch.from_yaml("data/corridor.yaml", mpt, heuristic='min_time')
     path, sampled_path, path_cost = gs.run_graph_search()
-    gs.plot_path(path, sampled_path, path_cost)
+    gs.plot_path(path, sampled_path, path_cost, ax[0])
+
+    gs = GraphSearch.from_yaml("data/corridor.yaml", mpl, heuristic='min_time')
+    path, sampled_path, path_cost = gs.run_graph_search()
+    gs.plot_path(path, sampled_path, path_cost, ax[1])
+    plt.savefig(f"plots/corridor.png", dpi=200, bbox_inches='tight')
 
 
-    plt.show()
+    # plt.show()
