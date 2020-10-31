@@ -221,11 +221,26 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
-            if dispersion_threshhold is not None and self.dispersion < dispersion_threshhold:
-                print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
-                # Remove extra unused actual sample indices at the back
-                actual_sample_indices = actual_sample_indices[:i+1]
-                break
+            if dispersion_threshhold is not None:
+                if isinstance(dispersion_threshhold,list):
+                    if self.dispersion < dispersion_threshhold[0]:
+                        copy = deepcopy(self)
+                        asi_copy = deepcopy(actual_sample_indices)
+                        asi_copy = asi_copy[:i+1]
+                        copy.vertices = potential_sample_pts[asi_copy]
+                        copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
+                        copy.limit_connections(2*copy.dispersion)
+                        copy.save(f"plots/anecdotal_example/lattice_dt{dispersion_threshhold[0]}.json")
+                        print(f"Reached Dispersion Threshhold {dispersion_threshhold[0]}")
+                        dispersion_threshhold.pop(0)
+                        if len(dispersion_threshhold)==0:
+                            break
+
+                elif self.dispersion < dispersion_threshhold:
+                    print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
+                    # Remove extra unused actual sample indices at the back
+                    actual_sample_indices = actual_sample_indices[:i+1]
+                    break
 
         pool.close()  # end multiprocessing pool
 
@@ -250,8 +265,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Input:
             num_output_pts, desired number of samples (M) in the set
         """
-        # TODO maybe move this somewhere else
-        self.dispersion_distance_fn = self.dispersion_distance_fn_trajectory
+        self.num_dense_samples = num_dense_samples
+        self.check_backwards_dispersion = check_backwards_dispersion
 
         potential_sample_pts = self.sobol_state_sampling(self.max_state[:self.control_space_q], num_dense_samples)
         self.vertices, self.edges = self.compute_min_dispersion_points(
@@ -261,8 +276,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
             if self.num_dims == 3:
                 self.ax_3d.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og')
-        self.num_dense_samples = num_dense_samples
-        self.check_backwards_dispersion = check_backwards_dispersion
 
     def limit_connections(self, cost_threshold):
         """
