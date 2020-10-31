@@ -153,7 +153,7 @@ class GraphSearch:
         if self.goal_tolerance.size > 1:
             ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
         closed_nodes_states = np.array([node.state for node in self.closed_nodes]).T
-        ax.plot(closed_nodes_states[0, :], closed_nodes_states[1, :], 'm*', zorder=3)
+        # ax.plot(closed_nodes_states[0, :], closed_nodes_states[1, :], 'm*', zorder=3)
         neighbor_nodes_states = np.array([node.state for node in self.neighbor_nodes]).T
         if neighbor_nodes_states.size > 0:
             ax.plot(neighbor_nodes_states[0, :], neighbor_nodes_states[1, :], '.',
