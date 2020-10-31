@@ -28,7 +28,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                 self.cost = self.traj_time
             else:
                 self.cost = self.traj_time * self.subclass_specific_data['rho']
-                self.cost += np.linalg.norm(np.sum((self.get_sampled_input()[1])**2 * self.get_sampled_input()[0], axis=1))
+                st, su = self.get_sampled_input()
+                self.cost += np.linalg.norm(np.sum((su)**2 * st, axis=1))
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):

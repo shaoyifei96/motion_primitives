@@ -307,7 +307,7 @@ class GraphSearch:
         node = heappop(self.queue)
         neighbors = self.get_neighbor_nodes(node)
         colors = plt.cm.tab10(np.linspace(0, 1, 10))
-        vertices = []
+        vertices = [node]
         while neighbors:
             neighbor_node = neighbors.pop(0)
             if neighbor_node.graph_depth > max_depth:
