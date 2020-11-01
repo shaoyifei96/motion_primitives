@@ -221,26 +221,25 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
-            if dispersion_threshhold is not None:
-                if isinstance(dispersion_threshhold,list):
-                    if self.dispersion < dispersion_threshhold[0]:
-                        copy = deepcopy(self)
-                        asi_copy = deepcopy(actual_sample_indices)
-                        asi_copy = asi_copy[:i+1]
-                        copy.vertices = potential_sample_pts[asi_copy]
-                        copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
-                        copy.limit_connections(2*copy.dispersion)
-                        copy.save(f"plots/anecdotal_example/lattice_dt{dispersion_threshhold[0]}.json")
-                        print(f"Reached Dispersion Threshhold {dispersion_threshhold[0]}")
-                        dispersion_threshhold.pop(0)
-                        if len(dispersion_threshhold)==0:
-                            break
+            if isinstance(dispersion_threshhold,list):
+                if self.dispersion < dispersion_threshhold[0]:
+                    copy = deepcopy(self)
+                    asi_copy = deepcopy(actual_sample_indices)
+                    asi_copy = asi_copy[:i+1]
+                    copy.vertices = potential_sample_pts[asi_copy]
+                    copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
+                    copy.limit_connections(2*copy.dispersion)
+                    copy.save(f"plots/anecdotal_example/lattice_dt{dispersion_threshhold[0]}.json")
+                    print(f"Reached Dispersion Threshhold {dispersion_threshhold[0]}")
+                    dispersion_threshhold.pop(0)
+                    if len(dispersion_threshhold)==0:
+                        break
 
-                elif self.dispersion < dispersion_threshhold:
-                    print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
-                    # Remove extra unused actual sample indices at the back
-                    actual_sample_indices = actual_sample_indices[:i+1]
-                    break
+            elif dispersion_threshhold is not None and self.dispersion < dispersion_threshhold:
+                print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
+                # Remove extra unused actual sample indices at the back
+                actual_sample_indices = actual_sample_indices[:i+1]
+                break
 
         pool.close()  # end multiprocessing pool
 
@@ -425,7 +424,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # for vertex in vertices[:i+1, :]:
         #     circle = plt.Circle(vertex[:self.num_dims], 2*self.dispersion_list[i]*self.max_state[1], color='b', fill=False, zorder=4)
         #     ax1.add_artist(circle)
-
+        plt.savefig(f'plots/frame{i}.png')
         return self.lines
 
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
@@ -470,41 +469,74 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         else:
             plt.show()
 
-    def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None):
+    def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None, filename="test.png", heatmap2=False):
         max_state = self.max_state[:self.control_space_q]
-        max_state[0] = max(vertices[:, 0])*.7
+        if heatmap2:
+            # max_state[0] = max(vertices[:, 0])*1.0
+            max_state[0] = 2
+        else:
+            max_state[0] = max_state[0]*.9
+
         dense_sampling, axis_sampling = self.uniform_state_set(
             max_state, resolution[:self.control_space_q], random=False, no_sampling_value=no_sampling_value)
         pool = Pool(initializer=self.multiprocessing_init)
+        # self.max_state[0] = np.inf
         self.vertices = None
         self.edges = None
         print(dense_sampling.shape)
 
         score, adj_mat = self.multiprocessing_dispersion_distance_fn_trajectory(pool, dense_sampling, vertices)
+        # if self.check_backwards_dispersion:
+        #     score_bw, adj_mat_bw = self.multiprocessing_dispersion_distance_fn_trajectory(pool, vertices, dense_sampling)
         pool.close()  # end multiprocessing pool
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
-        # print(costs_mat)
         closest_sample_pt = np.argmin(costs_mat, axis=1)
         min_score = np.nanmin(score, axis=1)
         dispersion = np.nanmax(min_score)
         if colorbar_max is None:
             colorbar_max = dispersion
-        plt.pcolormesh(axis_sampling[0], axis_sampling[1], np.amin(costs_mat, axis=1).reshape(
-            (axis_sampling[0].shape[0], axis_sampling[1].shape[0])), edgecolors='k', shading='gouraud', norm=plt.Normalize(0, colorbar_max))
-        plt.colorbar()
 
-        plt.figure()
+        # plt.figure()
+        if heatmap2:
+            n=2
+        else:
+            n=3
+        fig, ax = plt.subplots(1,n, sharey=True, sharex=True, constrained_layout=True)
+
+        ax[0].set_aspect('equal', 'box')
+        ax[1].set_aspect('equal', 'box')
+        if n >2:
+            ax[2].set_aspect('equal', 'box')
+
+        # ax[0].plot(dense_sampling[:, 0], dense_sampling[:, 1], '.', color='grey')
+        ax[0].plot(vertices[:, 0], vertices[:, 1], 'go')
+        for i in range(vertices.shape[0]):
+            vel_norm = np.linalg.norm(vertices[i, 2:])*5
+            if self.n >3:
+                ax[0].arrow(vertices[i, 0], vertices[i, 1], vertices[i, 2]/vel_norm, vertices[i, 3]/vel_norm, color='k', head_width=.1)
+            elif self.n ==3:
+                ax[0].arrow(vertices[i, 0], vertices[i, 1], np.cos(vertices[i, 2])/5, np.sin(vertices[i, 2])/5, color='k', head_width=.1)
+
         colors = plt.cm.viridis(np.linspace(0, 1, 101))
-        for j in range(adj_mat.shape[0]):
-            mp = adj_mat[j, closest_sample_pt[j]]
-            mp.subclass_specific_data = self.mp_subclass_specific_data
-            if mp.is_valid:
-                mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))])
+        pcm = ax[n-1].pcolormesh(np.array(axis_sampling[0]), np.array(axis_sampling[1]), np.amin(costs_mat, axis=1).reshape(
+            (axis_sampling[0].shape[0], axis_sampling[1].shape[0])), shading='gouraud', norm=plt.Normalize(0, colorbar_max))
+        
+        fig.colorbar(pcm, ax=ax[n-1], shrink=.45)
 
-        plt.scatter(dense_sampling[:, 0], dense_sampling[:, 1], c=min_score)
-        plt.plot(vertices[:, 0], vertices[:, 1], '*')
+        if not heatmap2:
+            for j in range(adj_mat.shape[0]):
+                mp = adj_mat[j, closest_sample_pt[j]]
+                mp.subclass_specific_data = self.mp_subclass_specific_data
+                if mp.is_valid:
+                    mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))],ax=ax[1], zorder=10)
+            ax[1].plot(dense_sampling[:, 0], dense_sampling[:, 1], '.', color='grey')
+            ax[1].plot(vertices[:, 0], vertices[:, 1], 'go',zorder=20)
 
+            max_disp_pt = np.squeeze(dense_sampling[np.argmax(min_score)])
+            ax[2].plot(max_disp_pt[0],max_disp_pt[1],'x')
+ 
+        plt.savefig(f"{filename}.png", dpi=1200, bbox_inches='tight')
         return dispersion
 
 
@@ -517,26 +549,27 @@ if __name__ == "__main__":
     from pycallgraph.output import GraphvizOutput
 
     tiling = True
-    plot = True
-    animate = False
+    plot = False
+    animate = True
     check_backwards_dispersion = True
     mp_subclass_specific_data = {}
 
     # %%
     # define parameters
-    # control_space_q = 2
-    # num_dims = 2
-    # max_state = [3.5, 2*np.pi]
-    # motion_primitive_type = ReedsSheppMotionPrimitive
-    # resolution = [.51, .5]
-
-    # # # %%
-    motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [5.51, 1.51, 15, 100]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho':1}
+    max_state = [3.5, 2*np.pi]
+    motion_primitive_type = ReedsSheppMotionPrimitive
+    # resolution = [.51, .5]
     num_dense_samples = 100
+
+    # # # %%
+    # motion_primitive_type = PolynomialMotionPrimitive
+    # control_space_q = 2
+    # num_dims = 2
+    # max_state = [5.51, 1.51, 15, 100]
+    # mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 2, 'rho': 1000}
+    # num_dense_samples = 100
 
     # # # %%
     # motion_primitive_type = JerksMotionPrimitive
@@ -551,12 +584,13 @@ if __name__ == "__main__":
     tic = time.time()
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=40, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
+        num_output_pts=10, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
     toc = time.time()
     print(toc-tic)
     mpl.limit_connections(2*mpl.dispersion)
     mpl.save("data/lattice_test.json")
 
+    # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json", plot)
     mpl = MotionPrimitiveLattice.load("data/lattice_test.json", plot)
     # mpl.limit_connections(np.inf)
     mpl.plot_config(plot_mps=True)
