@@ -22,6 +22,7 @@ class MotionPrimitive():
         self.control_space_q = int(self.start_state.shape[0]/num_dims)
         self.is_valid = False
         self.cost = None
+        self.traj_time = None
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state):
@@ -34,6 +35,7 @@ class MotionPrimitive():
                                     np.array(dict["end_state"]),
                                     num_dims, max_state)
             mp.cost = dict["cost"]
+            mp.traj_time = dict["traj_time"]
             mp.is_valid = True
         else:
             mp = None
@@ -45,6 +47,7 @@ class MotionPrimitive():
         """
         if self.is_valid:
             dict = {"cost": self.cost,
+                    "traj_time": self.traj_time,
                     "start_state": self.start_state.tolist(),
                     "end_state": self.end_state.tolist(),
                     }
@@ -80,18 +83,20 @@ class MotionPrimitive():
         """
         raise NotImplementedError
 
-    def plot_from_sampled_states(self, st, sp, sv, sa, sj, position_only=False, ax=None):
+    def plot_from_sampled_states(self, st, sp, sv, sa, sj, position_only=False, ax=None, start_position_override=None, color=None, linewidth=1):
         """
         Plot time vs. position, velocity, acceleration, and jerk (input is already sampled)
         """
         # Plot the state over time.
+        if color is None:
+            color = 'lightgrey'
         if not position_only:
             fig, axes = plt.subplots(4, 1, sharex=True)
             samples = [sp, sv, sa, sj]
             axes[3].set_xlabel('time')
             fig.suptitle('Full State over Time')
         else:
-            if ax == None:
+            if ax is None:
                 axes = [plt.gca()]
             else:
                 axes = [ax]
@@ -100,28 +105,41 @@ class MotionPrimitive():
             for ax, s, l in zip(axes, samples, ('pos', 'vel', 'acc', 'jerk')):
                 if s is not None:
                     if position_only:
-                        ax.plot(samples[0], samples[1])
+                        if start_position_override is  None:
+                            start_position_override = self.start_state
+                        ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1]+start_position_override[1]-self.start_state[1],color=color, linewidth=linewidth)
                     else:
                         ax.plot(st, s[i, :])
-                ax.set_ylabel(l)
+                        ax.set_ylabel(l)
 
-    def plot(self, position_only=False, ax=None):
+    def plot(self, position_only=False, ax=None, start_position_override=None, color=None, linewidth=1):
         """
         Generate the sampled state and input trajectories and plot them
         """
         st, sp, sv, sa, sj = self.get_sampled_states()
         if st is not None:
-            self.plot_from_sampled_states(st, sp, sv, sa, sj, position_only, ax)
+            self.plot_from_sampled_states(st, sp, sv, sa, sj, position_only, ax, start_position_override, color, linewidth)
         else:
             print("Trajectory was not found")
 
     def __eq__(self, other):
+        if other is None:
+            if self.__dict__.keys()  == None:
+                return True
+            else:
+                return False
         if self.__dict__.keys() != other.__dict__.keys():
             return False
         return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__)
 
     def __lt__(self, other):
         return self.cost < other.cost
+
+    def __le__(self, other):
+        return self.cost <= other.cost
     
     def __gt__(self, other):
         return self.cost > other.cost
+
+    def __ge__(self, other):
+        return self.cost >= other.cost

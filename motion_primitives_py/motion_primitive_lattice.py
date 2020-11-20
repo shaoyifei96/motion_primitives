@@ -218,6 +218,33 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 else:
                     self.edges[i, j] = None
 
+<<<<<<< Updated upstream
+=======
+    def plot_config(self, ax=None, plot_mps=False, start_position_override=[0,0,0], style1='og', style2='ob', linewidth=1):
+        """
+        Plot the graph and motion primitives projected into the 2D or 3D
+        configuration space.
+        """
+        tiled_verts = self.tile_points(self.vertices) + start_position_override
+
+        if ax is None:
+            _, ax = plt.subplots(1, 1, subplot_kw={'projection': {2: 'rectilinear', 3: '3d'}[self.num_dims]})
+        vertices = self.vertices + start_position_override
+        ax.plot(vertices[:, 0], vertices[:, 1], style1, zorder=5)
+        if self.num_tiles > 1:
+            ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], style2, zorder=4)
+
+        if plot_mps:
+            for i in range(len(self.edges)):
+                for j in range(len(self.vertices)):
+                    mp = self.edges[i, j]
+                    if mp != None and mp.is_valid:
+                        mp.subclass_specific_data = self.mp_subclass_specific_data
+                        mp.plot(position_only=True, ax=ax, start_position_override=mp.start_state + start_position_override, linewidth=linewidth)
+                        _, sp = mp.get_sampled_position(.1)
+        return ax
+
+>>>>>>> Stashed changes
     def get_neighbor_mps(self, node_index):
         """
         return the indices and costs of nodes that are neighbors of the given
@@ -303,11 +330,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_vertices = self.tile_points(vertices[:i+1, :])
             self.lines[2].set_data(tiled_vertices[i+1:, 0], tiled_vertices[i+1:, 1])
         self.lines[3].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
+<<<<<<< Updated upstream
 
+=======
+        # for vertex in vertices[:i+1, :]:
+        #     circle = plt.Circle(vertex[:self.num_dims], 2*self.dispersion_list[i]*self.max_state[1], color='b', fill=False, zorder=4)
+        #     ax1.add_artist(circle)
+>>>>>>> Stashed changes
         return self.lines
 
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
-        save_animation = True
+        save_animation = False
         if save_animation:
             import matplotlib
             normal_backend = matplotlib.get_backend()
@@ -334,16 +367,69 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
         ani = animation.FuncAnimation(
+<<<<<<< Updated upstream
             f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
+=======
+            f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
+            
+>>>>>>> Stashed changes
         if save_animation:
             print("Saving animation to disk")
             ani.save('dispersion_algorithm.mp4')
+            frames = ani.new_frame_seq()
             print("Finished saving animation")
             matplotlib.use(normal_backend)
         else:
             plt.show()
 
+<<<<<<< Updated upstream
+=======
+        # plotting code for paper figure
+        for i in range(vertices.shape[0]):
+            lines = self.animation_helper(i,ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts)
+            x = np.array(lines, dtype='object').flatten()
+            for line in x:
+                ax1.add_line(line)
+
+    def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None):
+        max_state = self.max_state[:self.control_space_q]
+        max_state[0] = max(vertices[:, 0])*.7
+        dense_sampling, axis_sampling = self.uniform_state_set(
+            max_state, resolution[:self.control_space_q], random=False, no_sampling_value=no_sampling_value)
+        pool = Pool(initializer=self.multiprocessing_init)
+        self.vertices = None
+        self.edges = None
+        print(dense_sampling.shape)
+
+        score, adj_mat = self.multiprocessing_dispersion_distance_fn_trajectory(pool, dense_sampling, vertices)
+        pool.close()  # end multiprocessing pool
+        costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
+                              obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
+        # print(costs_mat)
+        closest_sample_pt = np.argmin(costs_mat, axis=1)
+        min_score = np.nanmin(score, axis=1)
+        dispersion = np.nanmax(min_score)
+        if colorbar_max is None:
+            colorbar_max = dispersion
+        plt.pcolormesh(axis_sampling[0], axis_sampling[1], np.amin(costs_mat, axis=1).reshape(
+            (axis_sampling[0].shape[0], axis_sampling[1].shape[0])), edgecolors='k', shading='gouraud', norm=plt.Normalize(0, colorbar_max))
+        plt.colorbar()
+
+        plt.figure()
+        colors = plt.cm.viridis(np.linspace(0, 1, 101))
+        for j in range(adj_mat.shape[0]):
+            mp = adj_mat[j, closest_sample_pt[j]]
+            mp.subclass_specific_data = self.mp_subclass_specific_data
+            if mp.is_valid:
+                mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))])
+
+        plt.scatter(dense_sampling[:, 0], dense_sampling[:, 1], c=min_score)
+        plt.plot(vertices[:, 0], vertices[:, 1], '*')
+
+        return dispersion
+
+>>>>>>> Stashed changes
 
 if __name__ == "__main__":
     # %%
@@ -355,7 +441,7 @@ if __name__ == "__main__":
 
     tiling = True
     plot = True
-    animate = False
+    animate = True
     check_backwards_dispersion = True
     mp_subclass_specific_data = {}
 
@@ -367,6 +453,7 @@ if __name__ == "__main__":
     motion_primitive_type = ReedsSheppMotionPrimitive
     resolution = [.21, .2]
 
+<<<<<<< Updated upstream
     # # %%
     motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
@@ -376,6 +463,22 @@ if __name__ == "__main__":
     resolution = [.11, 1.21]
 
     # %%
+=======
+    # # # %%
+    #motion_primitive_type = PolynomialMotionPrimitive
+    #control_space_q = 2
+    #num_dims = 2
+    #max_state = [5.51, 1.51, 15, 100]
+    #mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho':1}
+    
+    control_space_q = 2
+    num_dims = 2
+    max_state = [3.5, 2*np.pi]
+    motion_primitive_type = ReedsSheppMotionPrimitive
+    num_dense_samples = 100#num_dense_samples = 100
+    
+    # # # %%
+>>>>>>> Stashed changes
     # motion_primitive_type = JerksMotionPrimitive
     # control_space_q = 3
     # num_dims = 2
