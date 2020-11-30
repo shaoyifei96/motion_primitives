@@ -65,7 +65,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return np.vstack([self.evaluate_polynomial_at_derivative(i, [t])
                           for i in range(self.control_space_q)])
 
-    def get_input(self,t):
+    def get_input(self, t):
         return self.evaluate_polynomial_at_derivative(self.control_space_q, t)
 
     def get_sampled_states(self, step_size=0.1):
@@ -127,7 +127,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                                     for j in range(num_dims)]).T  # TODO maybe can move to precompute in general and then just multiply by polys
         else:
             poly_coeffs = polys.T
-        sampled = np.array([np.dot(dynamics[0](t),poly_coeffs) for t in st]).T
+        sampled = np.array([np.dot(dynamics[0](t), poly_coeffs) for t in st]).T
         return sampled
 
     @staticmethod
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     max_state = 1 * np.ones((control_space_q+1,))
 
     # polynomial
-    mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state, {'rho':1})
+    mp = PolynomialMotionPrimitive(start_state, end_state, num_dims, max_state, {'rho': 1})
 
     # save
     assert(mp.is_valid)

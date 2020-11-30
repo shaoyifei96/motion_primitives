@@ -19,6 +19,7 @@ def test_max_u(mp_fixture):
     _, su = mp_fixture.get_sampled_input()
     assert (abs(su) < mp_fixture.max_state[mp_fixture.control_space_q]).all()
 
+
 def test_max_state(mp_fixture):
     _, _, sv, sa, sj = mp_fixture.get_sampled_states()
     assert (abs(sv) < mp_fixture.max_state[1]).all()

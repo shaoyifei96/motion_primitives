@@ -1,9 +1,12 @@
 from motion_primitives_py import MotionPrimitiveGraph
 import numpy as np
 import matplotlib.pyplot as plt
+
+
 class MotionPrimitiveTree(MotionPrimitiveGraph):
     """
     """
+
     def get_neighbor_mps(self, start_pt, dt, num_u_per_dimension):
         """
         Create motion primitives for a start point by taking an even sampling over the
@@ -22,8 +25,8 @@ class MotionPrimitiveTree(MotionPrimitiveGraph):
         for u in u_set:
             self.mp_subclass_specific_data['u'] = u
             mp = self.motion_primitive_type(start_pt, None, self.num_dims,
-                                                  self.max_state,
-                                                  self.mp_subclass_specific_data)
+                                            self.max_state,
+                                            self.mp_subclass_specific_data)
             mps.append(mp)
         return mps
 
@@ -148,6 +151,6 @@ if __name__ == "__main__":
     start_pt = np.ones((mpt.n))
     mps = mpt.create_evenly_spaced_mps(start_pt, 1, num_u_per_dimension)
     for mp in mps:
-        mp.plot(position_only=True,ax=mpt.ax)
+        mp.plot(position_only=True, ax=mpt.ax)
 
     plt.show()

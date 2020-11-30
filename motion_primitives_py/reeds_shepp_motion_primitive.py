@@ -62,9 +62,9 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
         ts = np.linspace(0, self.cost, p.shape[1])
         return ts, p
 
-    def get_input(self,t):
+    def get_input(self, t):
         raise NotImplementedError
-    
+
     def get_sampled_input(self, step_size=0.1):
         raise NotImplementedError
 

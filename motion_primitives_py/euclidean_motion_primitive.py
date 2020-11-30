@@ -20,12 +20,12 @@ class EuclideanMotionPrimitive(MotionPrimitive):
         self.cost = np.linalg.norm(start_state-end_state)
 
     def get_sampled_position(self, step_size=0.1):
-        st, sp, _,_,_ = self.get_sampled_states(step_size)
+        st, sp, _, _, _ = self.get_sampled_states(step_size)
         return st, sp
 
-    def get_sampled_states(self,step_size=0.1):
-        sampling = self.start_state + (self.end_state - self.start_state)*np.arange(0, 1+step_size, step_size)[:,np.newaxis]
-        return np.arange(0, 1+step_size, step_size), sampling[:,:self.num_dims].T, None, None, None
+    def get_sampled_states(self, step_size=0.1):
+        sampling = self.start_state + (self.end_state - self.start_state)*np.arange(0, 1+step_size, step_size)[:, np.newaxis]
+        return np.arange(0, 1+step_size, step_size), sampling[:, :self.num_dims].T, None, None, None
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
@@ -39,6 +39,7 @@ class EuclideanMotionPrimitive(MotionPrimitive):
         Write important attributes of motion primitive to a dictionary
         """
         return super().to_dict()
+
 
 if __name__ == "__main__":
     # problem parameters
@@ -65,6 +66,5 @@ if __name__ == "__main__":
     mp = EuclideanMotionPrimitive.from_dict(dictionary, num_dims, max_state)
 
     # plot
-    mp.plot(position_only = True)
+    mp.plot(position_only=True)
     plt.show()
-
