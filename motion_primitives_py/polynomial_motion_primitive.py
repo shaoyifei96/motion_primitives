@@ -158,7 +158,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         time_derivatives = []
         for i in range(max(control_space_q + 2, order)):
             time_derivatives.append(sym.lambdify([t], x))
-            x = sym.diff(x, t)
+            x = sym.derive_by_array(x, t)
         return time_derivatives
 
     @staticmethod
