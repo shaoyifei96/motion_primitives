@@ -191,13 +191,13 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     @staticmethod
     def iteratively_solve_bvp_meam_620_style(start_state, end_states, num_dims, max_state, dynamics, dt, max_t):
         """
-        Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish. TODO: only checking input constraint at start, middle, and end at the moment
+        Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish.
         """
         def check_max_state_and_input():
-            u_max = 0
             critical_pts = np.zeros(polys.shape[1] + 2)
             critical_pts[:2] = [0, t]
             for k in range(1, control_space_q+1):
+                u_max = 0
                 for i in range(num_dims):
                     roots = np.roots((polys*dynamics[k + 1](1))[i, :])
                     roots = roots[np.isreal(roots)]
@@ -205,7 +205,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                     critical_pts[2+roots.shape[0]:] = 0
                     critical_us = PolynomialMotionPrimitive.evaluate_polynomial_at_derivative_static(
                         k, critical_pts, dynamics, polys, num_dims)
-                    u_max = max(u_max, np.max(critical_us))
+                    u_max = max(u_max, np.max(np.abs(critical_us)))
                 if u_max > max_state[k]:
                     return False
             return True
