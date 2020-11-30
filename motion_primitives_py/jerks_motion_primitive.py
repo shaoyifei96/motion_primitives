@@ -31,7 +31,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         # we try to log anything within an 'atexit' hook.
         # when https://github.com/pytest-dev/pytest/issues/5502 is fixed we can
         # remove this very hacky part.
-        if "supress_redirector" in subclass_specific_data:
+        if "suppress_redirector" in subclass_specific_data:
             self.switch_times, self.jerks = min_time_bvp.min_time_bvp(p0, v0, a0, p1, v1, a1, v_min, v_max, a_min, a_max, j_min, j_max)
         else:
             with stdout_redirector(io.BytesIO()):

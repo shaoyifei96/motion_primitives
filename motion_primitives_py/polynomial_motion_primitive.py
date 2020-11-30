@@ -65,6 +65,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return np.vstack([self.evaluate_polynomial_at_derivative(i, [t])
                           for i in range(self.control_space_q)])
 
+    def get_input(self,t):
+        return self.evaluate_polynomial_at_derivative(self.control_space_q, t)
+
     def get_sampled_states(self, step_size=0.1):
         # TODO connect w/ get_state
         if self.is_valid:
@@ -91,7 +94,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def get_sampled_input(self, step_size=0.1):
         if self.is_valid:
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time / step_size) + 1))
-            su = self.evaluate_polynomial_at_derivative(self.control_space_q, st)
+            su = self.get_input(st)
             return st, su
         else:
             return None, None
@@ -193,7 +196,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         Given a start and goal pt, iterate over solving the BVP until the input constraint is satisfied-ish.
         """
-        def check_max_state_and_input():
+        def check_max_state_and_input(polys):
             critical_pts = np.zeros(polys.shape[1] + 2)
             critical_pts[:2] = [0, t]
             for k in range(1, control_space_q+1):
@@ -226,7 +229,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                 t = np.inf
                 break
             polys = PolynomialMotionPrimitive.solve_bvp_meam_620_style(start_state, end_states, num_dims, dynamics, t)
-            done = check_max_state_and_input()
+            done = check_max_state_and_input(polys)
         return polys, t
 
     def A_and_B_matrices_quadrotor(self):

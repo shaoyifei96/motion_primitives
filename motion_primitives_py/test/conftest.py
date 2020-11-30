@@ -4,33 +4,34 @@ import pytest
 
 
 @pytest.fixture(
-    scope="module", 
-    params=[PolynomialMotionPrimitive, 
-            ReedsSheppMotionPrimitive, 
-            InputsMotionPrimitive, 
+    scope="module",
+    params=[PolynomialMotionPrimitive,
+            ReedsSheppMotionPrimitive,
+            InputsMotionPrimitive,
             JerksMotionPrimitive])
 def mp_fixture(request):
     # initialize to defaults
     subclass_specific_data = {}
     control_space_q = 3
     num_dims = 2
-    
+
     # parameter specific logic
     if request.param == ReedsSheppMotionPrimitive:
-        control_space_q = 1.5 # corresponds to a 3 dimensional state
+        control_space_q = 1.5  # corresponds to a 3 dimensional state
     elif request.param == InputsMotionPrimitive:
-        subclass_specific_data={"u": np.array([1, -1]), "dt": 1}
+        subclass_specific_data = {"u": np.array([1, -1]), "dt": 1}
     elif request.param == JerksMotionPrimitive:
-        subclass_specific_data["supress_redirector"] = True
+        subclass_specific_data["suppress_redirector"] = True
     subclass_specific_data['rho'] = 1
     # build motion primitive
     n = int(num_dims * control_space_q)
-    max_state = 100 * np.ones(n,)
+    max_state = np.array([1, 1, 5, 5])
     start_state = np.zeros(n,)
     end_state = np.zeros(n,)
-    end_state[:num_dims] = np.ones(num_dims,)
-    yield request.param(start_state, end_state, num_dims, max_state, 
+    end_state[:num_dims] = -1*np.ones(num_dims,)
+    yield request.param(start_state, end_state, num_dims, max_state,
                         subclass_specific_data)
+
 
 @pytest.fixture(scope="module")
 def om_fixture():
@@ -41,6 +42,7 @@ def om_fixture():
     data[5:10, 10:15] = 100
     data = data.flatten('F')
     yield OccupancyMap(resolution, origin, dims, data)
+
 
 @pytest.fixture(scope="module")
 def lattice_fixture():
@@ -66,8 +68,7 @@ def search_fixture(om_fixture, lattice_fixture):
     start_state = [8, 2, 0]
     goal_state = [8, 18, 0]
     goal_tol = np.ones_like(goal_state) * lattice_fixture.dispersion
-            
+
     # build graph search
     yield GraphSearch(lattice_fixture, om_fixture, start_state, goal_state,
                       goal_tol, heuristic='min_time')
-    

@@ -15,12 +15,15 @@ def test_final_state(mp_fixture):
     assert (abs(sf - mp_fixture.end_state) < similarity_threshold).all()
 
 
-"""
 def test_max_u(mp_fixture):
-    for t in np.arange(0, mp_fixture.cost, .1):
-        u = np.sum(mp_fixture.polys * mp_fixture.x_derivs[-2](t),axis=1)
-        assert (abs(u) < mp_fixture.max_state[mp_fixture.control_space_q]).all()
-"""
+    _, su = mp_fixture.get_sampled_input()
+    assert (abs(su) < mp_fixture.max_state[mp_fixture.control_space_q]).all()
+
+def test_max_state(mp_fixture):
+    _, _, sv, sa, sj = mp_fixture.get_sampled_states()
+    assert (abs(sv) < mp_fixture.max_state[1]).all()
+    assert (abs(sa) < mp_fixture.max_state[2]).all()
+    assert (abs(sj) < mp_fixture.max_state[3]).all()
 
 
 def test_save_load(mp_fixture):

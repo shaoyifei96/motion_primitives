@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
 
+
 class MotionPrimitive():
     """
     # WIP
@@ -10,7 +11,7 @@ class MotionPrimitive():
     If the implementation is specific to the subclass, raise a NotImplementedError
     """
 
-    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={'dynamics':None}):
+    def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={'dynamics': None}):
         """
         """
         self.start_state = np.array(start_state)
@@ -76,6 +77,13 @@ class MotionPrimitive():
         """
         raise NotImplementedError
 
+    def get_input(self, t):
+        """
+        Given a time t, return the input of the motion primitive at that time. 
+        Will be specific to the subclass, so we raise an error if the subclass has not implemented it
+        """
+        raise NotImplementedError
+
     def get_sampled_input(self, step_size=0.1):
         """
         Return a sampling of inputs needed to move along the mp
@@ -105,9 +113,10 @@ class MotionPrimitive():
             for ax, s, l in zip(axes, samples, ('pos', 'vel', 'acc', 'jerk')):
                 if s is not None:
                     if position_only:
-                        if start_position_override is  None:
+                        if start_position_override is None:
                             start_position_override = self.start_state
-                        ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1]+start_position_override[1]-self.start_state[1],color=color,zorder=zorder)
+                        ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1] +
+                                start_position_override[1]-self.start_state[1], color=color, zorder=zorder)
                     else:
                         ax.plot(st, s[i, :])
                         ax.set_ylabel(l)
@@ -124,7 +133,7 @@ class MotionPrimitive():
 
     def __eq__(self, other):
         if other is None:
-            if self.__dict__.keys()  == None:
+            if self.__dict__.keys() == None:
                 return True
             else:
                 return False
@@ -137,7 +146,7 @@ class MotionPrimitive():
 
     def __le__(self, other):
         return self.cost <= other.cost
-    
+
     def __gt__(self, other):
         return self.cost > other.cost
 
