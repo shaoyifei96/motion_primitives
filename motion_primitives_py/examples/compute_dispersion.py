@@ -4,28 +4,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pycallgraph import PyCallGraph, Config
 from pycallgraph.output import GraphvizOutput
+from copy import deepcopy
 
 """
 Compare fully expanded graphs (up to a certain depth) of lattices vs trees
 """
 depth = 1
-resolution = [.1, np.inf]
 no_sampling_value = 1.5
 colorbar_max = None
 
-mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
-mpl.plot_config(plot_mps=True)
+root_path = "/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/"
+mpl = MotionPrimitiveLattice.load("/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json")
+# mpl = MotionPrimitiveLattice.load(
+#     "/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/plots/1_vs_9/RS_nds200_dt1.05_tiled_lattice.json")
+# mpl = MotionPrimitiveLattice.load("data/polynomial_lattice4d_maxstate[5.51,1.51,15]_nds100.json")
+# mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/plots/1_vs_9/poly_nds100_dt260_tiled_lattice.json")
+mpl.check_backwards_dispersion = True
+# mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
+print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+
+# mpl.plot_config(plot_mps=True)
+mpl_copy = deepcopy(mpl)
 plt.figure()
 
-# mpl.max_state[0] = 2
-# mpl.max_state[1] = 2
-mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  [
-                          np.inf, np.inf, mpl.max_state[2]], InputsMotionPrimitive, plot=False, mp_subclass_specific_data={'num_u_per_dimension': 5, 'dt': .25})
-# print(mpl.dispersion)
-# print(sum([1 for mp in np.nditer(mpl.edges, ['refs_ok']) if mp != None])/len(mpl.vertices))
-# print(mpl.max_state)
+print(sum([1 for mp in np.nditer(mpl.edges, ['refs_ok']) if mp != None])/len(mpl.vertices))
 
-start_state = np.zeros((mpl.n))
+
+start_state = np.zeros((mpl_copy.n))
 goal_state = np.zeros_like(start_state)
 
 om_resolution = 1
@@ -43,31 +48,54 @@ goal_state[0:3] = np.array([19, 19, 0])*om_resolution
 
 goal_tolerance = np.ones_like(start_state)*occ_map.resolution*0
 
+# print("Random")
+# resolution = [.2, np.inf]
+# num_vertices = 10
+# mpl.max_state[:mpl.num_dims] = mpl.max_state[:mpl.num_dims]*.8
+# max_state_mult = np.repeat(mpl.max_state[:mpl.control_space_q], mpl.num_dims)[:mpl.n]
+# vertices = np.random.rand(mpl.n, num_vertices).T * 2 * max_state_mult - max_state_mult
+# mpl_copy.mp_subclass_specific_data['iterative_bvp_dt'] = .2
+# mpl_copy.mp_subclass_specific_data['iterative_bvp_max_t'] = 100
+# print(vertices)
+# dispersion = mpl_copy.compute_dispersion_from_graph(
+#     vertices, resolution, no_sampling_value=no_sampling_value,  colorbar_max=colorbar_max, filename="plots/heatmap_random")
+
+
 print("Motion Primitive Tree")
-# print(start_state)
-gs = GraphSearch(mpt, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
+mpt = MotionPrimitiveTree(mpl_copy.control_space_q, mpl_copy.num_dims,  [
+                          np.inf, np.inf, mpl_copy.max_state[2]], InputsMotionPrimitive, plot=False, mp_subclass_specific_data={'num_u_per_dimension': 4, 'dt': .4})
+resolution = [.4, np.inf]
+
+gs = GraphSearch(mpt, occ_map, start_state[:mpl_copy.n], goal_state[:mpl.n], goal_tolerance,
                  heuristic='zero', mp_sampling_step_size=1)
+plt.title('tree')
+
 nodes = gs.expand_all_nodes(depth)
 vertices = np.array([v.state for v in nodes])
-print(vertices.shape)
-mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .2
-mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 2
-dispersion = mpl.compute_dispersion_from_graph(vertices, resolution, no_sampling_value=no_sampling_value,  colorbar_max=colorbar_max)
+print(vertices)
+
+mpl_copy.mp_subclass_specific_data['iterative_bvp_dt'] = .1
+mpl_copy.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
+dispersion = mpl_copy.compute_dispersion_from_graph(
+    vertices, resolution, no_sampling_value=no_sampling_value,  colorbar_max=colorbar_max,  filename="plots/heatmap_UIS", heatmap2=True)
 
 
 # print("Motion Primitive Lattice")
-mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
+# mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
 mpl.plot = False
+# resolution = [.2, np.inf]
 gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n], goal_tolerance,
                  heuristic='zero', mp_sampling_step_size=1)
 plt.figure()
+plt.title('lattice')
 nodes = gs.expand_all_nodes(depth)
 vertices = np.array([v.state for v in nodes])
 print(vertices.shape)
 # vertices = mpl.vertices
-mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .2
-mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 2
+mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .1
+mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
 # dispersion = mpl.compute_dispersion_from_graph(vertices, [.25, np.inf])
-dispersion = mpl.compute_dispersion_from_graph(vertices, resolution, no_sampling_value=no_sampling_value, colorbar_max=colorbar_max)
+dispersion = mpl.compute_dispersion_from_graph(vertices, resolution, no_sampling_value=no_sampling_value,
+                                               colorbar_max=dispersion, filename="plots/heatmap_lattice", heatmap2=True)
 
-plt.show()
+# plt.show()

@@ -92,7 +92,7 @@ class JerksMotionPrimitive(MotionPrimitive):
         st, sp = min_time_bvp.uniformly_sample_position(p0, v0, a0, self.switch_times, self.jerks, dt=step_size)
         return st, sp
 
-    def get_sampled_input(self, step_size=0.1):
+    def get_sampled_input(self, step_size=None):
         if step_size:
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             su = np.empty((self.num_dims, len(st)))
