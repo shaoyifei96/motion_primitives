@@ -22,17 +22,18 @@ jobs:
         run: |
           sudo apt install -y libboost1.65-dev
 
-      - uses: actions/cache@v2
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+      # - uses: actions/cache@master
+      #   id: cache
+      #   with:
+      #     path: ${{ env.pythonLocation}}/lib/python3.6/site-packages/*
+      #     key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-pip-
+      #       ${{ runner.os }}-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          ls
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: py-opt-control
@@ -45,12 +46,12 @@ jobs:
       - name: Install package
         run: pip install -e .
 
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 motion_primitives_py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics 
+      # - name: Lint with flake8
+      #   run: |
+      #     # stop the build if there are Python syntax errors or undefined names
+      #     # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+      #     flake8 motion_primitives_py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Test with pytest
         run: |
