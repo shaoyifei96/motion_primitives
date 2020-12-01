@@ -69,19 +69,14 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         return self.evaluate_polynomial_at_derivative(self.control_space_q, t)
 
     def get_sampled_states(self, step_size=0.1):
-        # TODO connect w/ get_state
         if self.is_valid:
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
-            sp = self.evaluate_polynomial_at_derivative(0, st)
-            sv = self.evaluate_polynomial_at_derivative(1, st)
-            sa = self.evaluate_polynomial_at_derivative(2, st)
-            if self.control_space_q >= 3:
-                sj = self.evaluate_polynomial_at_derivative(3, st)
-            else:
-                sj = None
-            return st, sp, sv, sa, sj
-        else:
-            return None, None, None, None, None
+            sampled_array = np.empty((1+self.num_dims*self.control_space_q, st.shape[0]))
+            sampled_array[0, :] = st
+            for i in range(self.control_space_q):
+                sampled_array[1+i*self.num_dims:1+(i+1)*self.num_dims] = self.evaluate_polynomial_at_derivative(i, st)
+            return sampled_array
+        return None
 
     def get_sampled_position(self, step_size=0.1):
         if self.is_valid:
@@ -296,6 +291,6 @@ if __name__ == "__main__":
     mp = PolynomialMotionPrimitive.from_dict(dictionary, num_dims, max_state)
 
     # plot
-    st, sp, sv, sa, sj = mp.get_sampled_states()
-    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    samples = mp.get_sampled_states()
+    mp.plot_from_sampled_states(samples)
     plt.show()

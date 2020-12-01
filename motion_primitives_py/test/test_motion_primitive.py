@@ -15,18 +15,6 @@ def test_final_state(mp_fixture):
     assert (abs(sf - mp_fixture.end_state) < similarity_threshold).all()
 
 
-def test_max_u(mp_fixture):
-    _, su = mp_fixture.get_sampled_input()
-    assert (abs(su) < mp_fixture.max_state[mp_fixture.control_space_q]).all()
-
-
-def test_max_state(mp_fixture):
-    _, _, sv, sa, sj = mp_fixture.get_sampled_states()
-    assert (abs(sv) < mp_fixture.max_state[1]).all()
-    assert (abs(sa) < mp_fixture.max_state[2]).all()
-    assert (abs(sj) < mp_fixture.max_state[3]).all()
-
-
 def test_save_load(mp_fixture):
     dictionary = mp_fixture.to_dict()
     mp2 = type(mp_fixture).from_dict(dictionary, mp_fixture.num_dims,
@@ -37,6 +25,20 @@ def test_save_load(mp_fixture):
     assert mp_fixture.is_valid == mp2.is_valid
     for i in range(int(len(mp_fixture.start_state) / mp_fixture.num_dims + 1)):
         assert (abs(states1[i] - states2[i]) < similarity_threshold).all()
+
+
+def test_max_u(mp_state_input_fixture):
+    fx = mp_state_input_fixture
+    _, su = fx.get_sampled_input()
+    assert (abs(su) < fx.max_state[fx.control_space_q] + similarity_threshold).all()
+
+
+def test_max_state(mp_state_input_fixture):
+    fx = mp_state_input_fixture
+    sampling = fx.get_sampled_states()
+    assert (abs(sampling[1+fx.num_dims:1+fx.num_dims*2]) < fx.max_state[1] + similarity_threshold).all()
+    assert (abs(sampling[1+fx.num_dims*2:1+fx.num_dims*3]) < fx.max_state[2] + similarity_threshold).all()
+    assert (abs(sampling[1+fx.num_dims*3:1+fx.num_dims*4]) < fx.max_state[3] + similarity_threshold).all()
 
 
 if __name__ == "__main__":

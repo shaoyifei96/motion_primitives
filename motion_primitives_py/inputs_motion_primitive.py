@@ -66,13 +66,7 @@ class InputsMotionPrimitive(MotionPrimitive):
     def get_sampled_states(self, step_size=0.1):
         st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
         states = self.get_state(st)
-        sp = states[:self.num_dims, :]
-        sv = states[self.num_dims:2 * self.num_dims, :]
-        if self.control_space_q >= 3:
-            sa = states[2 * self.num_dims:, :]
-        else:
-            sa = None
-        return st, sp, sv, sa, None
+        return np.vstack((st,states))
 
     def get_sampled_position(self, step_size=0.1):
         st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
@@ -126,7 +120,7 @@ if __name__ == "__main__":
     mp = InputsMotionPrimitive.from_dict(dictionary, num_dims, max_state)
 
     # plot
-    st, sp, sv, sa, sj = mp.get_sampled_states()
-    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    sampling_array = mp.get_sampled_states()
+    mp.plot_from_sampled_states(sampling_array)
     print(mp.get_sampled_input())
     plt.show()

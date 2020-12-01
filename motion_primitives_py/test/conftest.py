@@ -32,6 +32,29 @@ def mp_fixture(request):
     yield request.param(start_state, end_state, num_dims, max_state,
                         subclass_specific_data)
 
+@pytest.fixture(
+    scope="module",
+    params=[PolynomialMotionPrimitive,
+            JerksMotionPrimitive])
+def mp_state_input_fixture(request):
+    # initialize to defaults
+    subclass_specific_data = {}
+    control_space_q = 3
+    num_dims = 2
+
+    if request.param == JerksMotionPrimitive:
+        subclass_specific_data["suppress_redirector"] = True
+    subclass_specific_data['rho'] = 1
+    # build motion primitive
+    n = int(num_dims * control_space_q)
+    max_state = np.array([1, 1, 5, 5])
+    start_state = np.zeros(n,)
+    end_state = np.zeros(n,)
+    end_state[:num_dims] = -1*np.ones(num_dims,)
+    yield request.param(start_state, end_state, num_dims, max_state,
+                        subclass_specific_data)
+
+
 
 @pytest.fixture(scope="module")
 def om_fixture():

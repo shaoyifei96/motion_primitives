@@ -20,12 +20,13 @@ class EuclideanMotionPrimitive(MotionPrimitive):
         self.cost = np.linalg.norm(start_state-end_state)
 
     def get_sampled_position(self, step_size=0.1):
-        st, sp, _, _, _ = self.get_sampled_states(step_size)
-        return st, sp
+        sampling_array = self.get_sampled_states(step_size)
+        return sampling_array[0, :], sampling_array[1:, :]
 
     def get_sampled_states(self, step_size=0.1):
         sampling = self.start_state + (self.end_state - self.start_state)*np.arange(0, 1+step_size, step_size)[:, np.newaxis]
-        return np.arange(0, 1+step_size, step_size), sampling[:, :self.num_dims].T, None, None, None
+        sampling_array = np.vstack((np.arange(0, 1+step_size, step_size), sampling[:, :self.num_dims].T))
+        return sampling_array
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):

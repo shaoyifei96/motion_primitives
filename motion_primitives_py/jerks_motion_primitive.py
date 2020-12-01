@@ -25,7 +25,6 @@ class JerksMotionPrimitive(MotionPrimitive):
         # state and input limits
         v_max, a_max, j_max = self.max_state[1:1+self.control_space_q] + 1e-5  # numerical hack for library seg fault
         v_min, a_min, j_min = -self.max_state[1:1+self.control_space_q] - 1e-5
-
         # suppress warning/error messages from C library
         # due to a bug in pytest we'll end up with a bunch of logging errors if
         # we try to log anything within an 'atexit' hook.
@@ -85,7 +84,7 @@ class JerksMotionPrimitive(MotionPrimitive):
     def get_sampled_states(self, step_size=0.1):
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
         st, sj, sa, sv, sp = min_time_bvp.uniformly_sample(p0, v0, a0, self.switch_times, self.jerks, dt=step_size)
-        return st, sp, sv, sa, sj
+        return np.vstack((st, sp, sv, sa, sj))
 
     def get_sampled_position(self, step_size=0.1):
         p0, v0, a0 = np.split(self.start_state, self.control_space_q)
@@ -122,8 +121,8 @@ if __name__ == "__main__":
     mp = JerksMotionPrimitive(start_state, end_state, num_dims, max_state)
 
     # plot
-    st, sp, sv, sa, sj = mp.get_sampled_states()
-    mp.plot_from_sampled_states(st, sp, sv, sa, sj)
+    sampling_array = mp.get_sampled_states()
+    mp.plot_from_sampled_states(sampling_array)
     st, su = mp.get_sampled_input(step_size=.1)
     plt.plot(st, su[0, :])
     plt.plot(st, su[1, :])

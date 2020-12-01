@@ -65,14 +65,14 @@ class MotionPrimitive():
 
     def get_sampled_states(self, step_size=0.1):
         """
-        Return a sampling of the trajectory for plotting 
+        Return an array consisting of sample times and a sampling of the trajectory for plotting 
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
         raise NotImplementedError
 
     def get_sampled_position(self, step_size=0.1):
         """
-        Return a sampling of only position of trajectory for plotting 
+        Return a sampling of only position of trajectory
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
         raise NotImplementedError
@@ -91,7 +91,7 @@ class MotionPrimitive():
         """
         raise NotImplementedError
 
-    def plot_from_sampled_states(self, st, sp, sv, sa, sj, position_only=False, ax=None, start_position_override=None, color=None, zorder=1):
+    def plot_from_sampled_states(self, sampling_array, position_only=False, ax=None, start_position_override=None, color=None, zorder=1):
         """
         Plot time vs. position, velocity, acceleration, and jerk (input is already sampled)
         """
@@ -100,7 +100,7 @@ class MotionPrimitive():
             color = 'lightgrey'
         if not position_only:
             fig, axes = plt.subplots(4, 1, sharex=True)
-            samples = [sp, sv, sa, sj]
+            samples = sampling_array[1:,:]
             axes[3].set_xlabel('time')
             fig.suptitle('Full State over Time')
         else:
@@ -108,8 +108,8 @@ class MotionPrimitive():
                 axes = [plt.gca()]
             else:
                 axes = [ax]
-            samples = [sp[0, :], sp[1, :]]
-        for i in range(sp.shape[0]):
+            samples = sampling_array[1:1+self.num_dims,:]
+        for i in range(self.num_dims):
             for ax, s, l in zip(axes, samples, ('pos', 'vel', 'acc', 'jerk')):
                 if s is not None:
                     if position_only:
@@ -118,16 +118,16 @@ class MotionPrimitive():
                         ax.plot(samples[0]+start_position_override[0]-self.start_state[0], samples[1] +
                                 start_position_override[1]-self.start_state[1], color=color, zorder=zorder)
                     else:
-                        ax.plot(st, s[i, :])
+                        ax.plot(sampling_array[0,:], s)
                         ax.set_ylabel(l)
 
     def plot(self, position_only=False, ax=None, start_position_override=None, color=None, zorder=1):
         """
         Generate the sampled state and input trajectories and plot them
         """
-        st, sp, sv, sa, sj = self.get_sampled_states()
-        if st is not None:
-            self.plot_from_sampled_states(st, sp, sv, sa, sj, position_only, ax, start_position_override, color, zorder)
+        sampling_array = self.get_sampled_states()
+        if sampling_array is not None:
+            self.plot_from_sampled_states(sampling_array, position_only, ax, start_position_override, color, zorder)
         else:
             print("Trajectory was not found")
 
