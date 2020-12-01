@@ -1,4 +1,3 @@
-import rosbag
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -18,6 +17,12 @@ class OccupancyMap():
 
     @classmethod
     def fromVoxelMapBag(cls, filename, topic=None):
+        try:
+            import rosbag
+        except:
+            print("Error: you need to install rosbag to use this function. If ROS is sourced you do not need to do anything else. Otherwise, you can run `pip3 install --extra-index-url https://rospypi.github.io/simple/ rosbag`. Exiting.")
+            raise SystemExit
+
         # load messages from bagfile
         bag = rosbag.Bag(filename)
         msgs = [msg for _, msg, _ in bag.read_messages(topics=topic)]

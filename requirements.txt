@@ -1,0 +1,29 @@
+attrs==20.3.0
+cycler==0.10.0
+flake8==3.8.4
+importlib-metadata==3.1.0
+iniconfig==1.1.1
+kiwisolver==1.3.1
+matplotlib==3.3.3
+mccabe==0.6.1
+mpmath==1.1.0
+numpy==1.19.4
+packaging==20.7
+Pillow==8.0.1
+pluggy==0.13.1
+py==1.9.0
+pycodestyle==2.6.0
+pyflakes==2.2.0
+pyparsing==2.4.7
+pytest==6.1.2
+python-dateutil==2.8.1
+PyYAML==5.3.1
+scipy==1.5.4
+six==1.15.0
+sympy==1.7
+toml==0.10.2
+ujson==4.0.1
+zipp==3.4.0
+-e git+https://git@github.com/ghliu/pyReedsShepp#egg=reeds_shepp
+-e git+https://git@github.com/naught101/sobol_seq@v0.2.0#egg=sobol_seq
+--extra-index-url https://rospypi.github.io/simple/ rosbag
