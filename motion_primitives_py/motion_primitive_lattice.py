@@ -218,8 +218,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 else:
                     self.edges[i, j] = None
 
-<<<<<<< Updated upstream
-=======
     def plot_config(self, ax=None, plot_mps=False, start_position_override=[0,0,0], style1='og', style2='ob', linewidth=1):
         """
         Plot the graph and motion primitives projected into the 2D or 3D
@@ -244,7 +242,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                         _, sp = mp.get_sampled_position(.1)
         return ax
 
->>>>>>> Stashed changes
     def get_neighbor_mps(self, node_index):
         """
         return the indices and costs of nodes that are neighbors of the given
@@ -330,13 +327,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_vertices = self.tile_points(vertices[:i+1, :])
             self.lines[2].set_data(tiled_vertices[i+1:, 0], tiled_vertices[i+1:, 1])
         self.lines[3].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
-<<<<<<< Updated upstream
-
-=======
         # for vertex in vertices[:i+1, :]:
         #     circle = plt.Circle(vertex[:self.num_dims], 2*self.dispersion_list[i]*self.max_state[1], color='b', fill=False, zorder=4)
         #     ax1.add_artist(circle)
->>>>>>> Stashed changes
         return self.lines
 
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
@@ -367,13 +360,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
         ani = animation.FuncAnimation(
-<<<<<<< Updated upstream
-            f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
-
-=======
             f, self.animation_helper, vertices.shape[0], interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
             
->>>>>>> Stashed changes
         if save_animation:
             print("Saving animation to disk")
             ani.save('dispersion_algorithm.mp4')
@@ -383,8 +371,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         else:
             plt.show()
 
-<<<<<<< Updated upstream
-=======
         # plotting code for paper figure
         for i in range(vertices.shape[0]):
             lines = self.animation_helper(i,ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts)
@@ -429,7 +415,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         return dispersion
 
->>>>>>> Stashed changes
 
 if __name__ == "__main__":
     # %%
@@ -453,17 +438,6 @@ if __name__ == "__main__":
     motion_primitive_type = ReedsSheppMotionPrimitive
     resolution = [.21, .2]
 
-<<<<<<< Updated upstream
-    # # %%
-    motion_primitive_type = PolynomialMotionPrimitive
-    control_space_q = 2
-    num_dims = 2
-    max_state = [.51, 3.51, 15, 100, 1, 1]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .05, 'iterative_bvp_max_t': 2}
-    resolution = [.11, 1.21]
-
-    # %%
-=======
     # # # %%
     #motion_primitive_type = PolynomialMotionPrimitive
     #control_space_q = 2
@@ -478,7 +452,6 @@ if __name__ == "__main__":
     num_dense_samples = 100#num_dense_samples = 100
     
     # # # %%
->>>>>>> Stashed changes
     # motion_primitive_type = JerksMotionPrimitive
     # control_space_q = 3
     # num_dims = 2
