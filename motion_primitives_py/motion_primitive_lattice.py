@@ -45,7 +45,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         print("Lattice successfully read")
         return mpl
 
-    def save(self, filename):
+    def save(self, filename=None):
         """
         save the motion primitive lattice to a JSON file
         """
@@ -60,6 +60,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     mps.append({})
         # write the JSON file
         # print(mps)
+        if filename is None:
+            filename = self.saving_file_prefix
         self.dispersion_list[self.dispersion_list == np.inf] = 0
         with open(filename, "w") as output_file:
             print("Saving lattice to", filename, "...")
@@ -222,7 +224,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
-            if isinstance(dispersion_threshhold,list):
+            if isinstance(dispersion_threshhold, list):
                 if self.dispersion < dispersion_threshhold[0]:
                     copy = deepcopy(self)
                     asi_copy = deepcopy(actual_sample_indices)
@@ -230,11 +232,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     copy.vertices = potential_sample_pts[asi_copy]
                     copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
                     copy.limit_connections(2*copy.dispersion)
-                    dispersions_passed = max([i for i,val in enumerate(dispersion_threshhold) if val > self.dispersion])
+                    dispersions_passed = max([i for i, val in enumerate(dispersion_threshhold) if val > self.dispersion])
                     print(f"Reached Dispersion Threshhold {dispersion_threshhold[dispersions_passed]}")
-                    copy.save(f"plots/anecdotal_example/2_lattice_dt{dispersion_threshhold[dispersions_passed]}.json")
+                    copy.save(f"{self.saving_file_prefix}{dispersion_threshhold[dispersions_passed]}.json")
                     dispersion_threshhold = dispersion_threshhold[dispersions_passed+1:]
-                    if len(dispersion_threshhold)==0:
+                    if len(dispersion_threshhold) == 0:
                         break
                     del copy
 
@@ -398,7 +400,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
     def animation_helper(self, i, ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts):
         print(f"frame {i+1}/{vertices.shape[0]}")
-        if i<0:
+        if i < 0:
             return self.lines
         else:
             self.lines[1].set_color('grey')
@@ -421,10 +423,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     max_cost_mp = j
                     max_cost = mp.cost
 
-
         self.lines[0][max_cost_mp].set_color('k')
         self.lines[0][max_cost_mp].set_linewidth(1.3)
-
 
         # edges = adj_mat[:(i+1)*self.num_tiles, sample_inds[:i+1]]
         # for k, edge in enumerate(np.nditer(edges, flags=['refs_ok'])):
@@ -473,7 +473,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         ax2.set_xlabel(r"Number of Vertices in $\mathcal{V}$")
         f.tight_layout()
 
-
         traj_lines = []
         for j in range(adj_mat.shape[1]):
             traj_lines.append(ax1.plot([], [], linewidth=.8)[0])
@@ -491,11 +490,11 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
         ani = animation.FuncAnimation(
-            f, self.animation_helper, range(-1,vertices.shape[0]), interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
+            f, self.animation_helper, range(-1, vertices.shape[0]), interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
         if save_animation:
             print("Saving animation to disk")
-            ani.save('dispersion_algorithm.mp4',dpi=800)
+            ani.save('dispersion_algorithm.mp4', dpi=800)
             print("Finished saving animation")
             matplotlib.use(normal_backend)
         else:

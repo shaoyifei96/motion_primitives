@@ -30,7 +30,7 @@ class MotionPrimitiveGraph():
             trajectory from state vertices(x) to state vertices(y).
     """
 
-    def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, tiling=True, plot=False, mp_subclass_specific_data={}):
+    def __init__(self, control_space_q, num_dims,  max_state, motion_primitive_type, tiling=True, plot=False, mp_subclass_specific_data={}, saving_file_prefix='lattice'):
         """
         Input:
             control_space_q, derivative of configuration which is the control input.
@@ -46,6 +46,7 @@ class MotionPrimitiveGraph():
         self.dispersion_distance_fn = self.dispersion_distance_fn_simple_norm  # TODO pass as param/input?
         self.n = (self.control_space_q)*self.num_dims  # dimension of state space
         self.mp_subclass_specific_data = deepcopy(mp_subclass_specific_data)
+        self.saving_file_prefix = saving_file_prefix
 
         # Setup specific to motion primitive being used TODO move elsewhere
         if self.motion_primitive_type == PolynomialMotionPrimitive:

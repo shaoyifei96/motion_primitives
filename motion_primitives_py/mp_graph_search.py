@@ -441,11 +441,11 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(2, 1, sharex=True)
 
     gs = GraphSearch.from_yaml("data/corridor.yaml", mpt, heuristic='min_time')
-    path, sampled_path, path_cost = gs.run_graph_search()
+    path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
     gs.plot_path(path, sampled_path, path_cost, ax[0])
 
     gs = GraphSearch.from_yaml("data/corridor.yaml", mpl, heuristic='min_time')
-    path, sampled_path, path_cost = gs.run_graph_search()
+    path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
     gs.plot_path(path, sampled_path, path_cost, ax[1])
 
     plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')

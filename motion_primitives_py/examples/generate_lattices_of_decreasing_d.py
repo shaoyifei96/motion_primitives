@@ -25,7 +25,7 @@ generate_new_lattices = False
 
 costs_list = []
 nodes_expanded_list = []
-
+file_prefix = 'plots/anecdotal_example/lattice'
 
 def init():
     return
@@ -33,9 +33,12 @@ def init():
 
 def animation_helper(i,  dts, plot_type='maps'):
     dispersion_threshhold = dts[i]
-    filename = f"plots/anecdotal_example/2_lattice_dt{dispersion_threshhold}"
+    filename = f"{file_prefix}{dispersion_threshhold}"
     print(f"{filename}.json")
-    mpl = MotionPrimitiveLattice.load(f"{filename}.json")
+    try:
+        mpl = MotionPrimitiveLattice.load(f"{filename}.json")
+    except:
+        return
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
@@ -63,13 +66,13 @@ def animation_helper2(i):
 # fig, ax = plt.subplots(len(dispersion_threshholds),1, sharex=True, sharey=True)
 if generate_new_lattices:
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type,
-                                 tiling=True, plot=False, mp_subclass_specific_data=mp_subclass_specific_data)
+                                 tiling=True, plot=False, mp_subclass_specific_data=mp_subclass_specific_data, saving_file_prefix=file_prefix)
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=False, num_dense_samples=num_dense_samples, dispersion_threshhold=deepcopy(dispersion_threshholds))
 
 
 for dispersion_threshhold in deepcopy(dispersion_threshholds):
-    filename = f"plots/anecdotal_example/2_lattice_dt{dispersion_threshhold}"
+    filename = f"{file_prefix}{dispersion_threshhold}"
     print(f"{filename}.json")
     try:
         open(f"{filename}.json")
