@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""
+Standalone (does not use this package at all) example of numerically computing Euclidean dispersion
+"""
+
 
 def uniform_state_set(num_dims, bounds, resolution, random=False):
     """

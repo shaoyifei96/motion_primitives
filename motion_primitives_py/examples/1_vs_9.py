@@ -3,6 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ujson as json
 
+"""
+Given the same target dispersion, create graphs G(V,E) for the 'no tiling' scenario and the 'tiling' scenarios. 
+In the 2D case, this is '1 (no tiling) vs. 9 (tiling)' blocks to cover the same area with the graph.
+"""
 animate = False
 mp_subclass_specific_data = {}
 
@@ -56,8 +60,8 @@ plt.plot([3*max_state[0], 3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k
 plt.plot([-3*max_state[0], -3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
 mpl_tiled.plot_config(plot_mps=True, ax=ax[1])
 
-filename = f"data/1_vs_9/{name}_nds{num_dense_samples}_dt{dispersion_threshhold}"
-plt.savefig(f"{filename}.png", dpi=1200, bbox_inches='tight')
+filename = f"1_vs_9_{name}_nds{num_dense_samples}_dt{dispersion_threshhold}"
+plt.savefig(f"data/plots/{filename}.png", dpi=1200, bbox_inches='tight')
 
 data_dict = {}
 data_dict['not_tiled_num_vertices'] = len(mpl_not_tiled.vertices)
@@ -68,9 +72,9 @@ data_dict['tiled_num_edges'] = len([mp for mp in list(mpl_tiled.edges.flatten())
 data_dict['tiled_edges_per_vertex'] = len([mp for mp in list(mpl_tiled.edges.flatten()) if mp != None])/len(mpl_tiled.vertices)
 
 
-mpl_tiled.save(f"{filename}_tiled_lattice.json")
-mpl_not_tiled.save(f"{filename}_untiled_lattice.json")
-with open(f"{filename}_data.json", "w") as output_file:
+mpl_tiled.save(f"data/lattices/{filename}_tiled_lattice.json")
+mpl_not_tiled.save(f"data/lattices/{filename}_untiled_lattice.json")
+with open(f"data/plots/{filename}_metadata.json", "w") as output_file:
     json.dump(data_dict, output_file, indent=4)
 
 plt.show()

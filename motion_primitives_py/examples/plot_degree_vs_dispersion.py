@@ -1,5 +1,8 @@
-# Examine the change in average degree and dispersion as more samples are added.
-# Plot average degree vs number of samples and dispersion vs number of sample.
+"""
+Examine the change in average degree and dispersion as more samples are added.
+Plot average degree vs number of samples and dispersion vs number of sample.
+Was originally created to investigate and mitigate high graph degree.
+"""
 
 # Notes:
 # -- Hypothesize that the graph degree should roughly stabilizes at some value
@@ -10,7 +13,6 @@
 # -- Questions to answer:
 #   -- How does number of dimensions affects average degree growth?
 #   -- How does random/dithered test points affect average degree growth?
-# -- For some reason, this script is super slow and not exercising multiple cores.
 
 
 from pathlib import Path
@@ -74,7 +76,7 @@ if __name__ == '__main__':
             num_output_pts=n_test_points-1,  # This -1 is needed, but shouldn't be.
             check_backwards_dispersion=check_backwards_dispersion,
             num_dense_samples=n_test_points)
-        mpl.save(f'data/{basename}.json')
+        mpl.save(f'data/lattices/{basename}.json')
 
     print(f'Used {n_test_points} test points.')
 
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     ax2.set_ylabel('dispersion', color=color)
     ax2.plot(range(mpl.edges.shape[1]), mpl.dispersion_list, color=color)
     ax2.tick_params(axis='y', labelcolor=color)
-    fig.savefig(f'data/{basename}.pdf')
+    fig.savefig(f'data/plots/{basename}.png')
 
     # Plot the configuration with final dispersion value.
     if num_dims <= 3:

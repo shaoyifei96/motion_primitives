@@ -5,6 +5,9 @@ import time
 from pycallgraph import PyCallGraph, Config
 from pycallgraph.output import GraphvizOutput
 
+"""
+Animate the evolution of the min. dispersion algorithm
+"""
 tiling = True
 plot = False
 animate = True

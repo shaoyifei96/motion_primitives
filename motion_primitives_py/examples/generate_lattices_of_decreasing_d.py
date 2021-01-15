@@ -8,7 +8,10 @@ import matplotlib.animation as animation
 from motion_primitives_py import *
 import matplotlib.pyplot as plt
 
-
+"""
+Run the dispersion algorithm, and save the lattices at a specified set of desired dispersions (all starting from the same dense set).
+Run graph search on the same map with said lattices.
+"""
 # # # %%
 name = 'poly'
 motion_primitive_type = PolynomialMotionPrimitive
@@ -21,11 +24,12 @@ num_output_pts = num_dense_samples
 # dispersion_threshholds = [190,185,177,123]
 dispersion_threshholds = np.arange(200, 30, -5).tolist()
 check_backwards_dispersion = True
-generate_new_lattices = False
+generate_new_lattices = True
 
 costs_list = []
 nodes_expanded_list = []
-file_prefix = 'data/anecdotal_example/lattice'
+file_prefix = 'data/lattices/dispersion' # TODO don't overwrite every time
+
 
 def init():
     return
@@ -42,7 +46,7 @@ def animation_helper(i,  dts, plot_type='maps'):
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
-    occ_map = OccupancyMap.fromVoxelMapBag('data/trees_dispersion_1.1.bag', 0)
+    occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag', 0)
     start_state[0:2] = [10, 6]
     goal_state[0:2] = [72, 6]
 
@@ -81,7 +85,7 @@ for dispersion_threshhold in deepcopy(dispersion_threshholds):
         dispersion_threshholds.remove(dispersion_threshhold)
 
 f, ax0 = plt.subplots(1, 1)
-occ_map = OccupancyMap.fromVoxelMapBag('data/trees_dispersion_1.1.bag', 0)
+occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag', 0)
 occ_map.plot(ax=ax0)
 f.tight_layout()
 
@@ -90,7 +94,7 @@ matplotlib.use("Agg")
 print(dispersion_threshholds)
 ani = animation.FuncAnimation(
     f, animation_helper, len(dispersion_threshholds), interval=1000, fargs=(deepcopy(dispersion_threshholds),), repeat=False, init_func=init)
-ani.save('planning.mp4', dpi=800)
+ani.save('data/videos/planning_with_decreasing_dispersion.mp4', dpi=800)
 print("done saving")
 
 f2, ax1 = plt.subplots()
@@ -98,7 +102,7 @@ color = 'tab:red'
 ax1.set_xlabel('Dispersion')
 ax1.set_ylabel('Cost', color=color)
 ax1.tick_params(axis='y', labelcolor=color)
-ax1.set_xlim(max(dispersion_threshholds),0)
+ax1.set_xlim(max(dispersion_threshholds), 0)
 ax1.set_ylim(0, max(costs_list)*1.1)
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 ax2.set_ylim(0, max(nodes_expanded_list)*1.1)
@@ -114,6 +118,6 @@ ani2 = animation.FuncAnimation(
     f2, animation_helper2, len(costs_list), interval=1000, repeat=False, init_func=init)
 # f.tight_layout()
 
-ani2.save('planning2.mp4', dpi=800)
+ani2.save('data/videos/nodes_expanded_cost_vs_dispersion.mp4', dpi=800)
 
 # plt.show()

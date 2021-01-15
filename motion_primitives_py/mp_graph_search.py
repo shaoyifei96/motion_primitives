@@ -67,11 +67,6 @@ class GraphSearch:
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
-            # TODO make parameter
-            # self.dt = 0.7
-            # self.num_u_per_dimension = 7
-            # self.dt = 1.0
-            # self.num_u_per_dimension = 3
             self.num_u_per_dimension = self.motion_primitive_graph.mp_subclass_specific_data['num_u_per_dimension']
             self.dt = self.motion_primitive_graph.mp_subclass_specific_data['dt']
             self.num_mps = self.num_u_per_dimension**self.num_dims
@@ -432,7 +427,7 @@ if __name__ == "__main__":
     goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
 
     mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
-    mpt.mp_subclass_specific_data['dt'] = .6
+    mpt.mp_subclass_specific_data['dt'] = .3
     # int(np.ceil(np.sqrt(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))))
     mpt.mp_subclass_specific_data['num_u_per_dimension'] = 4
     print(mpt.mp_subclass_specific_data['num_u_per_dimension'])
@@ -448,9 +443,9 @@ if __name__ == "__main__":
     path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
     gs.plot_path(path, sampled_path, path_cost, ax[1])
 
-    plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
+    # plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
 
-    # plt.show()
+    plt.show()
 
     # for dt in np.arange(.1,.7,.1):
     #     for num_u in range(3,6):

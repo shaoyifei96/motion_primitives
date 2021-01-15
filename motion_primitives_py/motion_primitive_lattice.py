@@ -444,7 +444,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # for vertex in vertices[:i+1, :]:
         #     circle = plt.Circle(vertex[:self.num_dims], 2*self.dispersion_list[i]*self.max_state[1], color='b', fill=False, zorder=4)
         #     ax1.add_artist(circle)
-        plt.savefig(f'plots/frame{i}.png')
+        # plt.savefig(f'plots/frame{i}.png')
         return self.lines
 
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
@@ -494,7 +494,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         if save_animation:
             print("Saving animation to disk")
-            ani.save('dispersion_algorithm.mp4', dpi=800)
+            ani.save('data/videos/dispersion_algorithm.mp4', dpi=800)
             print("Finished saving animation")
             matplotlib.use(normal_backend)
         else:
@@ -503,7 +503,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None, filename="test.png", middle_mp_plot=False):
         max_state = self.max_state[:self.control_space_q]
         max_state[0] = max(vertices[:, 0])
-
         dense_sampling, axis_sampling = self.uniform_state_set(
             max_state, resolution[:self.control_space_q], random=False, no_sampling_value=no_sampling_value)
         pool = Pool(initializer=self.multiprocessing_init)
