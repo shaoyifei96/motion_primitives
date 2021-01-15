@@ -412,7 +412,7 @@ if __name__ == "__main__":
     from pycallgraph.output import GraphvizOutput
 
     mpl = MotionPrimitiveLattice.load(
-        "plots/anecdotal_example/lattice_dt50.json")
+        "data/anecdotal_example/3_lattice_dt100.json")
     # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json")
     # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_maxstate[5.51,1.51,15]_nds100.json")
     # mpl = MotionPrimitiveLattice.load("data/lattice_test.json")

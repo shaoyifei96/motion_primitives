@@ -500,21 +500,15 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         else:
             plt.show()
 
-    def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None, filename="test.png", heatmap2=False):
+    def compute_dispersion_from_graph(self, vertices, resolution, no_sampling_value=0, colorbar_max=None, filename="test.png", middle_mp_plot=False):
         max_state = self.max_state[:self.control_space_q]
-        if heatmap2:
-            # max_state[0] = max(vertices[:, 0])*1.0
-            max_state[0] = 2
-        else:
-            max_state[0] = max_state[0]*.9
+        max_state[0] = max(vertices[:, 0])
 
         dense_sampling, axis_sampling = self.uniform_state_set(
             max_state, resolution[:self.control_space_q], random=False, no_sampling_value=no_sampling_value)
         pool = Pool(initializer=self.multiprocessing_init)
-        # self.max_state[0] = np.inf
         self.vertices = None
         self.edges = None
-        print(dense_sampling.shape)
 
         score, adj_mat = self.multiprocessing_dispersion_distance_fn_trajectory(pool, dense_sampling, vertices)
         # if self.check_backwards_dispersion:
@@ -528,45 +522,43 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         if colorbar_max is None:
             colorbar_max = dispersion
 
-        # plt.figure()
-        if heatmap2:
-            n=2
+        if middle_mp_plot:
+            num_plots = 3
         else:
-            n=3
-        fig, ax = plt.subplots(1,n, sharey=True, sharex=True, constrained_layout=True)
+            num_plots = 2
+        fig, ax = plt.subplots(1, num_plots, sharey=True, sharex=True, constrained_layout=True)
 
         ax[0].set_aspect('equal', 'box')
         ax[1].set_aspect('equal', 'box')
-        if n >2:
+        if num_plots > 2:
             ax[2].set_aspect('equal', 'box')
 
         # ax[0].plot(dense_sampling[:, 0], dense_sampling[:, 1], '.', color='grey')
         ax[0].plot(vertices[:, 0], vertices[:, 1], 'go')
-        vel_norm = np.max(np.linalg.norm((vertices[:, 2:]),axis=1))*3
+        vel_norm = np.max(np.linalg.norm((vertices[:, 2:]), axis=1))*3
         for i in range(vertices.shape[0]):
-            if self.n >3:
+            if self.n > 3:
                 ax[0].arrow(vertices[i, 0], vertices[i, 1], vertices[i, 2]/vel_norm, vertices[i, 3]/vel_norm, color='k', head_width=.1)
-            elif self.n ==3:
+            elif self.n == 3:
                 ax[0].arrow(vertices[i, 0], vertices[i, 1], np.cos(vertices[i, 2])/5, np.sin(vertices[i, 2])/5, color='k', head_width=.1)
 
         colors = plt.cm.viridis(np.linspace(0, 1, 101))
-        pcm = ax[n-1].pcolormesh(np.array(axis_sampling[0]), np.array(axis_sampling[1]), np.amin(costs_mat, axis=1).reshape(
+        pcm = ax[num_plots-1].pcolormesh(np.array(axis_sampling[0]), np.array(axis_sampling[1]), np.amin(costs_mat, axis=1).reshape(
             (axis_sampling[0].shape[0], axis_sampling[1].shape[0])), shading='gouraud', norm=plt.Normalize(0, colorbar_max))
-        
-        fig.colorbar(pcm, ax=ax[n-1], shrink=.45)
 
-        if not heatmap2:
+        fig.colorbar(pcm, ax=ax[num_plots-1], shrink=.45)
+
+        if middle_mp_plot:
             for j in range(adj_mat.shape[0]):
                 mp = adj_mat[j, closest_sample_pt[j]]
                 mp.subclass_specific_data = self.mp_subclass_specific_data
                 if mp.is_valid:
-                    mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))],ax=ax[1], zorder=10)
+                    mp.plot(position_only=True, color=colors[int(np.floor(mp.cost/colorbar_max*100))], ax=ax[1], zorder=10)
             ax[1].plot(dense_sampling[:, 0], dense_sampling[:, 1], '.', color='grey')
-            ax[1].plot(vertices[:, 0], vertices[:, 1], 'go',zorder=20)
-
+            ax[1].plot(vertices[:, 0], vertices[:, 1], 'go', zorder=20)
             max_disp_pt = np.squeeze(dense_sampling[np.argmax(min_score)])
-            ax[2].plot(max_disp_pt[0],max_disp_pt[1],'x')
- 
+            ax[2].plot(max_disp_pt[0], max_disp_pt[1], 'x')
+
         plt.savefig(f"{filename}.png", dpi=1200, bbox_inches='tight')
         return dispersion
 

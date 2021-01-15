@@ -56,7 +56,7 @@ plt.plot([3*max_state[0], 3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k
 plt.plot([-3*max_state[0], -3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
 mpl_tiled.plot_config(plot_mps=True, ax=ax[1])
 
-filename = f"plots/1_vs_9/{name}_nds{num_dense_samples}_dt{dispersion_threshhold}"
+filename = f"data/1_vs_9/{name}_nds{num_dense_samples}_dt{dispersion_threshhold}"
 plt.savefig(f"{filename}.png", dpi=1200, bbox_inches='tight')
 
 data_dict = {}

@@ -25,7 +25,7 @@ generate_new_lattices = False
 
 costs_list = []
 nodes_expanded_list = []
-file_prefix = 'plots/anecdotal_example/lattice'
+file_prefix = 'data/anecdotal_example/lattice'
 
 def init():
     return

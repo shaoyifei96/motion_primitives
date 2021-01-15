@@ -10,17 +10,19 @@ from copy import deepcopy
 Compare fully expanded graphs (up to a certain depth) of lattices vs trees
 """
 depth = 1
-no_sampling_value = 1.5
+no_sampling_value = 0
+resolution = [.2, np.inf]
+
 colorbar_max = None
 
-root_path = "/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/"
-mpl = MotionPrimitiveLattice.load("/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json")
+# mpl = MotionPrimitiveLattice.load("data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json")
 # mpl = MotionPrimitiveLattice.load(
 #     "/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/plots/1_vs_9/RS_nds200_dt1.05_tiled_lattice.json")
 # mpl = MotionPrimitiveLattice.load("data/polynomial_lattice4d_maxstate[5.51,1.51,15]_nds100.json")
 # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/plots/1_vs_9/poly_nds100_dt260_tiled_lattice.json")
-mpl.check_backwards_dispersion = True
 # mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
+mpl = MotionPrimitiveLattice.load()
+mpl.check_backwards_dispersion = True
 print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
 
 # mpl.plot_config(plot_mps=True)
@@ -64,7 +66,6 @@ goal_tolerance = np.ones_like(start_state)*occ_map.resolution*0
 print("Motion Primitive Tree")
 mpt = MotionPrimitiveTree(mpl_copy.control_space_q, mpl_copy.num_dims,  [
                           np.inf, np.inf, mpl_copy.max_state[2]], InputsMotionPrimitive, plot=False, mp_subclass_specific_data={'num_u_per_dimension': 4, 'dt': .4})
-resolution = [.4, np.inf]
 
 gs = GraphSearch(mpt, occ_map, start_state[:mpl_copy.n], goal_state[:mpl.n], goal_tolerance,
                  heuristic='zero', mp_sampling_step_size=1)
@@ -77,7 +78,7 @@ print(vertices)
 mpl_copy.mp_subclass_specific_data['iterative_bvp_dt'] = .1
 mpl_copy.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
 dispersion = mpl_copy.compute_dispersion_from_graph(
-    vertices, resolution, no_sampling_value=no_sampling_value,  colorbar_max=colorbar_max,  filename="plots/heatmap_UIS", heatmap2=True)
+    vertices, resolution, no_sampling_value=no_sampling_value,  colorbar_max=colorbar_max,  filename="plots/heatmap_UIS", middle_mp_plot=False)
 
 
 # print("Motion Primitive Lattice")
@@ -96,6 +97,6 @@ mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .1
 mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
 # dispersion = mpl.compute_dispersion_from_graph(vertices, [.25, np.inf])
 dispersion = mpl.compute_dispersion_from_graph(vertices, resolution, no_sampling_value=no_sampling_value,
-                                               colorbar_max=dispersion, filename="plots/heatmap_lattice", heatmap2=True)
+                                               colorbar_max=dispersion, filename="plots/heatmap_lattice", middle_mp_plot=False)
 
-# plt.show()
+# # plt.show()
