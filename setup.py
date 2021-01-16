@@ -3,7 +3,7 @@ from setuptools import setup
 setup(name='motion_primitives_py', version='0.0.1', packages=['motion_primitives_py'], python_requires='>3.6',
       install_requires=['ujson',
                         'sympy',
-                        'matplotlib',
+                        'matplotlib >=3.3.3',
                         'numpy',
                         'pytest',
                         'PyYAML',

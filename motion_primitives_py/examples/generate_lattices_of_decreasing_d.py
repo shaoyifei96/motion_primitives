@@ -91,6 +91,7 @@ if __name__ == '__main__':
         except:
             print("No lattice file")
             dispersion_threshholds.remove(dispersion_threshhold)
+    print(dispersion_threshholds)
 
     f, ax0 = plt.subplots(1, 1)
     occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag', 0)
@@ -99,7 +100,6 @@ if __name__ == '__main__':
 
     normal_backend = matplotlib.get_backend()
     matplotlib.use("Agg")
-    print(dispersion_threshholds)
     ani = animation.FuncAnimation(
         f, animation_helper, len(dispersion_threshholds), interval=1000, fargs=(deepcopy(dispersion_threshholds),), repeat=False, init_func=init)
     ani.save('data/videos/planning_with_decreasing_dispersion.mp4', dpi=800)
