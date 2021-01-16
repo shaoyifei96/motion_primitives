@@ -289,7 +289,7 @@ class GraphSearch:
             # print(f"Nodes in queue at finish: {len(self.queue)}")
             # print(f"Closed nodes in queue at finish: {sum(node.is_closed for node in self.queue)}")
             # print()
-            print(f"Nodes expanded: {nodes_expanded}")
+            print(f"Nodes expanded: {nodes_expanded}, Path cost: {path_cost}")
             self.neighbor_nodes = np.array(self.neighbor_nodes)
             self.closed_nodes = np.array(self.closed_nodes)
 
