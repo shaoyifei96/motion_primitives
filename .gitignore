@@ -1,12 +1,8 @@
 .vscode/
-*.png
-json/
 __pycache__/
 *.__pycache__
 *.egg-info
-**/pickle/
-**/images/
 *.json
 *.mp4
-*.bag
 *.pdf
+*.png
