@@ -44,7 +44,7 @@ def animation_helper(i,  dts, plot_type='maps'):
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
-    occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag', 0)
+    occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag')
     start_state[0:2] = [10, 6]
     goal_state[0:2] = [72, 6]
 

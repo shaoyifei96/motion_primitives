@@ -5,10 +5,13 @@ import matplotlib.pyplot as plt
 
 
 class OccupancyMap():
-    def __init__(self, resolution, origin, dims, data):
+    def __init__(self, resolution, origin, dims, data, force_2d=False):
         self.resolution = resolution
         self.voxels = np.squeeze(np.array(data).reshape(dims, order='F'))
         self.dims = np.array(self.voxels.shape)
+        if force_2d:
+            self.dims = self.dims[:2]
+            self.voxels = self.voxels[:,:,0]
         self.origin = origin[:len(self.dims)]
         map_size = self.dims*self.resolution
         map_min = self.origin
@@ -16,7 +19,7 @@ class OccupancyMap():
         self.extent = [map_min[0], map_max[0], map_min[1], map_max[1]]
 
     @classmethod
-    def fromVoxelMapBag(cls, filename, topic=None):
+    def fromVoxelMapBag(cls, filename, topic=None, force_2d=False):
         try:
             import rosbag
         except:
@@ -30,7 +33,7 @@ class OccupancyMap():
         resolution = msgs[0].resolution
         dims = np.array([msgs[0].dim.x, msgs[0].dim.y, msgs[0].dim.z]).astype(int)
         origin = np.array([msgs[0].origin.x, msgs[0].origin.y, msgs[0].origin.z])
-        return cls(resolution, origin, dims, np.array(msgs[0].data))
+        return cls(resolution, origin, dims, np.array(msgs[0].data),force_2d=force_2d)
 
     def get_indices_from_position(self, point):
         return np.floor((point - self.origin) / self.resolution).astype(int)
@@ -102,7 +105,7 @@ if __name__ == "__main__":
     control_space_q = 3
 
     # setup occupancy map
-    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag', 0)
+    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag')
     occ_map.plot()
     print(occ_map.extent)
 

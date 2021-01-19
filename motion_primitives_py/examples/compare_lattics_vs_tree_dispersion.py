@@ -30,7 +30,7 @@ occ_map = OccupancyMap(om_resolution, origin, dims, data)
 # start_state[0:3] = np.array([20, 20, 0])*resolution
 goal_state[0:3] = np.array([19, 19, 0])*om_resolution
 
-# occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag', 0)
+# occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag')
 # start_state[0:2] = [10, 6]
 # goal_state[0:2] = [22, 6]
 
