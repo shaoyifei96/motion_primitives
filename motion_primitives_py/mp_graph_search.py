@@ -23,7 +23,7 @@ class Node:
         self.index = index
         self.parent_index = parent_index
         self.graph_depth = graph_depth
-        self.is_closed = False  # True if node has been closed.
+        self.is_closed = False  
 
     def __lt__(self, other):
         return (self.f, -self.g) < (other.f, -other.g)
@@ -34,7 +34,7 @@ class Node:
 
 class GraphSearch:
     """
-    Uses a motion primitive lookup table stored in a pickle file to perform a graph search. Must run min_dispersion_primitives_tree.py to create a pickle file first.
+    Uses a motion primitive lookup table stored in a json file to perform a graph search. 
     """
 
     def __init__(self, motion_primitive_graph, occupancy_map, start_state, goal_state, goal_tolerance=np.empty(0), mp_sampling_step_size=0.1, heuristic='min_time'):

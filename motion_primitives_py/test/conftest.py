@@ -23,6 +23,7 @@ def mp_fixture(request):
     elif request.param == JerksMotionPrimitive:
         subclass_specific_data["suppress_redirector"] = True
     subclass_specific_data['rho'] = 1
+    subclass_specific_data['iterative_bvp_max_t'] = 10
     # build motion primitive
     n = int(num_dims * control_space_q)
     max_state = np.array([1, 1, 5, 5])
@@ -32,6 +33,8 @@ def mp_fixture(request):
     yield request.param(start_state, end_state, num_dims, max_state,
                         subclass_specific_data)
 
+
+# TODO unify with previous test
 @pytest.fixture(
     scope="module",
     params=[PolynomialMotionPrimitive,
@@ -45,6 +48,7 @@ def mp_state_input_fixture(request):
     if request.param == JerksMotionPrimitive:
         subclass_specific_data["suppress_redirector"] = True
     subclass_specific_data['rho'] = 1
+    subclass_specific_data['iterative_bvp_max_t'] = 10
     # build motion primitive
     n = int(num_dims * control_space_q)
     max_state = np.array([1, 1, 5, 5])
@@ -53,7 +57,6 @@ def mp_state_input_fixture(request):
     end_state[:num_dims] = -1*np.ones(num_dims,)
     yield request.param(start_state, end_state, num_dims, max_state,
                         subclass_specific_data)
-
 
 
 @pytest.fixture(scope="module")

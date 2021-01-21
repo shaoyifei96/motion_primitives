@@ -21,7 +21,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         # Solve boundary value problem
         self.polys, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
             self.start_state, self.end_state, self.num_dims,
-            self.max_state, self.subclass_specific_data['dynamics'], subclass_specific_data.get('iterative_bvp_dt'), subclass_specific_data.get('iterative_bvp_max_t'))
+            self.max_state, self.subclass_specific_data['dynamics'], subclass_specific_data.get('iterative_bvp_dt', .2), subclass_specific_data.get('iterative_bvp_max_t', 2))
         if self.polys is not None:
             self.is_valid = True
             if self.subclass_specific_data.get('rho') is None:
@@ -208,11 +208,6 @@ class PolynomialMotionPrimitive(MotionPrimitive):
                     return False
             return True
 
-        if dt == None:
-            dt = .1
-        if max_t == None:
-            max_t = 10
-
         t = 0
         polys = None
         control_space_q = int(start_state.shape[0]/num_dims)
@@ -274,8 +269,7 @@ if __name__ == "__main__":
     # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
     # end_state = np.random.rand(num_dims * control_space_q,)
-    end_state = np.ones_like(start_state)
-    end_state[0] = 2
+    end_state = np.ones_like(start_state)*.1
     max_state = 1 * np.ones((control_space_q+1,))
 
     # polynomial

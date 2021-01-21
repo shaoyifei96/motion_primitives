@@ -5,7 +5,6 @@ from copy import deepcopy
 
 class MotionPrimitive():
     """
-    # WIP
     A motion primitive that defines a trajectory from a over a time T. 
     Put functions that all MPs should have in this base class. 
     If the implementation is specific to the subclass, raise a NotImplementedError

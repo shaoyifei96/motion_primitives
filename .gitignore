@@ -6,3 +6,5 @@ __pycache__/
 *.mp4
 *.pdf
 *.png
+*.bag
+*.npy

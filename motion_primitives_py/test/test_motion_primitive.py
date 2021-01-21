@@ -5,6 +5,10 @@ import pytest
 similarity_threshold = 10e-5
 
 
+def test_is_valid(mp_fixture):
+    assert(mp_fixture.is_valid)
+
+
 def test_initial_state(mp_fixture):
     s0 = np.squeeze(mp_fixture.get_state(np.array([0])))
     assert (abs(s0 - mp_fixture.start_state) < similarity_threshold).all()
