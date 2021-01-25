@@ -98,3 +98,14 @@ def search_fixture(om_fixture, lattice_fixture):
     # build graph search
     yield GraphSearch(lattice_fixture, om_fixture, start_state, goal_state,
                       goal_tol, heuristic='min_time')
+
+@pytest.fixture(scope="module")
+def fail_search_fixture(om_fixture, lattice_fixture):
+    # define parameters for a graph search
+    start_state = [8000, 2, 0]
+    goal_state = [8, 18, 0]
+    goal_tol = np.ones_like(goal_state) * lattice_fixture.dispersion
+
+    # build graph search
+    yield GraphSearch(lattice_fixture, om_fixture, start_state, goal_state,
+                      goal_tol, heuristic='min_time')

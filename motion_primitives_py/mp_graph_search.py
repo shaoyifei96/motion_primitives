@@ -23,7 +23,7 @@ class Node:
         self.index = index
         self.parent_index = parent_index
         self.graph_depth = graph_depth
-        self.is_closed = False  
+        self.is_closed = False
 
     def __lt__(self, other):
         return (self.f, -self.g) < (other.f, -other.g)
@@ -115,35 +115,38 @@ class GraphSearch:
         """
         path = [node.state]
         sampled_path = []
-        path_cost = 0
+        self.path_cost = 0
+        self.mp_list = []
         while node.parent is not None:
             path.append(node.parent)
             mp = node.mp
             _, sp = mp.get_sampled_position()
             sampled_path.append(sp + node.parent[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis])
-            path_cost += mp.cost
+            self.path_cost += mp.cost
             node = self.node_dict[node.parent.tobytes()]
+            self.mp_list.append(mp)
         if node.mp is not None:
             _, sp = node.mp.get_sampled_position()
             sampled_path.append(sp + self.start_position_offset[:self.num_dims][:, np.newaxis])
-            path_cost += node.mp.cost
+            self.path_cost += node.mp.cost
 
         path.reverse()
         sampled_path.reverse()
-        return np.vstack(path).transpose(), np.hstack(sampled_path), path_cost
+        self.path = np.vstack(path).transpose()
+        self.sampled_path = np.hstack(sampled_path)
 
     def plot_path(self, path, sampled_path, path_cost, ax=None):
 
         if ax is None:
             _, ax = plt.subplots()
-        ax.plot(self.start_state[0], self.start_state[1], 'o', color='lightgreen', zorder=5)
+        ax.plot(self.start_state[0], self.start_state[1], 'go', zorder=5)
         ax.plot(self.goal_state[0], self.goal_state[1], 'or', zorder=5)
 
         if sampled_path is not None:
             # print(path.T)
             ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
             print(f'cost: {path_cost}')
-            ax.plot(path[0, :], path[1, :], 'go', zorder=4)
+            ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4)
 
         if self.goal_tolerance.size > 1:
             ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
@@ -197,7 +200,11 @@ class GraphSearch:
         self.queue = []      # A priority queue of nodes as a heapq.
         self.neighbor_nodes = []
         self.closed_nodes = []
-
+        self.path = None
+        self.sampled_path = None
+        self.path_cost = None
+        self.nodes_expanded = 0
+        
         if not self.map.is_free_and_valid_position(self.start_state[:self.num_dims]):
             print("start invalid")
             self.queue = None
@@ -225,19 +232,13 @@ class GraphSearch:
     def run_graph_search(self):
         self.reset_graph_search()
 
-        # While queue is not empty, pop the next smallest total cost f node
-        path = None
-        sampled_path = None
-        path_cost = None
-        nodes_expanded = 0
-
         while self.queue:
-            node = heappop(self.queue)
+            node = heappop(self.queue)# While queue is not empty, pop the next smallest total cost f node
             # If node has been closed already, skip.
             if node.is_closed:
                 continue
             # Otherwise, expand node and for each neighbor...
-            nodes_expanded += 1
+            self.nodes_expanded += 1
             self.closed_nodes.append(node)  # for animation/plotting
 
             if type(self.motion_primitive_graph) is MotionPrimitiveLattice and self.goal_tolerance.size == 0:
@@ -247,7 +248,7 @@ class GraphSearch:
                     print("Path found")
                     last_node = Node(mp.cost, 0, self.goal_state, node.state, mp)
                     self.node_dict[last_node.state.tobytes()] = last_node
-                    path, sampled_path, path_cost = self.build_path(last_node)
+                    self.build_path(last_node)
                     break
 
             else:
@@ -262,7 +263,8 @@ class GraphSearch:
                     norm = np.max(abs(node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
                 if (norm <= self.goal_tolerance[:self.control_space_q]).all():
                     print("Path found")
-                    path, sampled_path, path_cost = self.build_path(node)
+                    self.build_path(node)
+                    return self.path, self.sampled_path, self.mp_list
                     break
 
             # JUST FOR TESTING
@@ -289,13 +291,12 @@ class GraphSearch:
             # print(f"Nodes in queue at finish: {len(self.queue)}")
             # print(f"Closed nodes in queue at finish: {sum(node.is_closed for node in self.queue)}")
             # print()
-            print(f"Nodes expanded: {nodes_expanded}, Path cost: {path_cost}")
+            print(f"Nodes expanded: {self.nodes_expanded}, Path cost: {self.path_cost}")
             self.neighbor_nodes = np.array(self.neighbor_nodes)
             self.closed_nodes = np.array(self.closed_nodes)
 
-        if path is None:
+        if self.path is None:
             print("No path found")
-        return path, sampled_path, path_cost, nodes_expanded
 
     def expand_all_nodes(self, max_depth, plot=False):
         self.reset_graph_search()
@@ -407,11 +408,7 @@ if __name__ == "__main__":
     from pycallgraph.output import GraphvizOutput
 
     mpl = MotionPrimitiveLattice.load(
-        "data/anecdotal_example/3_lattice_dt100.json")
-    # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json")
-    # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_maxstate[5.51,1.51,15]_nds100.json")
-    # mpl = MotionPrimitiveLattice.load("data/lattice_test.json")
-    # print(mpl.dispersion)
+        "data/lattices/dispersion100.json")
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i.item() != None])/len(mpl.vertices))
     x = [i.item().traj_time for i in np.nditer(mpl.edges, ['refs_ok']) if i != None]
     print(sum(x)/len(x))
@@ -419,11 +416,16 @@ if __name__ == "__main__":
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
 
-    occ_map = OccupancyMap.fromVoxelMapBag('data/test2d.bag')
-    start_state[0:2] = [0, -18]
-    goal_state[0:2] = [7, -7]
-    goal_state[0:2] = [5, 4]
-
+    # occ_map = OccupancyMap.fromVoxelMapBag('data/maps/test2d.bag')
+    # start_state[0:2] = [0, -18]
+    # goal_state[0:2] = [7, -7]
+    # goal_state[0:2] = [5, 4]
+    bag_name = f'data/maps/random/trees_long0.4_13.png.bag'
+    occ_map = OccupancyMap.fromVoxelMapBag(bag_name, force_2d=True)
+    start_state = np.zeros((4))
+    goal_state = np.zeros_like(start_state)
+    start_state[0:2] = [2, 6]
+    goal_state[0:2] = [48, 6]
     goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
 
     mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
@@ -435,55 +437,20 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(2, 1, sharex=True)
 
-    gs = GraphSearch.from_yaml("data/corridor.yaml", mpt, heuristic='min_time')
-    path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
-    gs.plot_path(path, sampled_path, path_cost, ax[0])
+    # gs = GraphSearch.from_yaml("data/maps/corridor.yaml", mpt, heuristic='min_time')
+    # path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
+    # gs.plot_path(path, sampled_path, path_cost, ax[0])
 
-    gs = GraphSearch.from_yaml("data/corridor.yaml", mpl, heuristic='min_time')
-    path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
-    gs.plot_path(path, sampled_path, path_cost, ax[1])
+    # gs = GraphSearch.from_yaml("data/maps/corridor.yaml", mpl, heuristic='min_time')
+    print(mpl.mp_subclass_specific_data)
+    mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .5
+    mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 1
+
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+        gs.run_graph_search()
+    gs.plot_path(gs.path, gs.sampled_path, gs.path_cost, ax[1])
 
     # plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
 
     plt.show()
-
-    # for dt in np.arange(.1,.7,.1):
-    #     for num_u in range(3,6):
-    #         print(dt,num_u)
-    #         mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
-    #         mpt.mp_subclass_specific_data['dt'] = dt
-    #         mpt.mp_subclass_specific_data['num_u_per_dimension'] = num_u
-    #         mpt.mp_subclass_specific_data['rho'] = mpl.mp_subclass_specific_data['rho']
-
-    #         gs = GraphSearch.from_yaml("data/corridor.yaml", mpt, heuristic='min_time')
-    #         path, sampled_path, path_cost = gs.run_graph_search()
-    #         print(path_cost)
-
-    # resolution = .4
-    # origin = [0, 0]
-    # dims = [20, 40]
-    # data = np.zeros(dims)
-    # data[5:10, 4:6] = 100
-    # data[5:10, 19:21] = 100
-    # data[0:5, 11:13] = 100
-    # data = data.flatten('F')
-    # occ_map = OccupancyMap(resolution, origin, dims, data)
-    # start_state[0:3] = np.array([3, 1, 0])*resolution
-    # goal_state[0:3] = np.array([3, 25, 0])*resolution
-
-    # resolution = .4
-    # origin = [0, 0, 0 ]
-    # dims = [20, 40, 20]
-    # data = np.zeros(dims)
-    # data[5:10, 4:6, 0:20] = 100
-    # data[5:10, 19:21, 0:20] = 100
-    # data[0:5, 11:13, 0:20] = 100
-    # data = data.flatten('F')
-    # occ_map = OccupancyMap(resolution, origin, dims, data)
-    # start_state[0:3] = np.array([3, 1, 0])*resolution
-    # goal_state[0:3] = np.array([3, 15, 10])*resolution
-
-    # occ_map = OccupancyMap.fromVoxelMapBag('trees_dispersion_1.1.bag')
-    # start_state[0:2] = [10, 6]
-    # goal_state[0:2] = [70, 6]
-    #

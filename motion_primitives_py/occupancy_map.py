@@ -5,21 +5,22 @@ import matplotlib.pyplot as plt
 
 
 class OccupancyMap():
-    def __init__(self, resolution, origin, dims, data, force_2d=False):
+    def __init__(self, resolution, origin, dims, data, force_2d=False, unknown_is_free=False):
         self.resolution = resolution
         self.voxels = np.squeeze(np.array(data).reshape(dims, order='F'))
         self.dims = np.array(self.voxels.shape)
         if force_2d:
             self.dims = self.dims[:2]
-            self.voxels = self.voxels[:,:,0]
+            self.voxels = self.voxels[:, :, 0]
         self.origin = origin[:len(self.dims)]
         map_size = self.dims*self.resolution
         map_min = self.origin
         map_max = map_size + self.origin
         self.extent = [map_min[0], map_max[0], map_min[1], map_max[1]]
+        self.unknown_is_free = unknown_is_free
 
     @classmethod
-    def fromVoxelMapBag(cls, filename, topic=None, force_2d=False):
+    def fromVoxelMapBag(cls, filename, topic=None, force_2d=False, unknown_is_free=False):
         try:
             import rosbag
         except:
@@ -33,7 +34,7 @@ class OccupancyMap():
         resolution = msgs[0].resolution
         dims = np.array([msgs[0].dim.x, msgs[0].dim.y, msgs[0].dim.z]).astype(int)
         origin = np.array([msgs[0].origin.x, msgs[0].origin.y, msgs[0].origin.z])
-        return cls(resolution, origin, dims, np.array(msgs[0].data),force_2d=force_2d)
+        return cls(resolution, origin, dims, np.array(msgs[0].data), force_2d=force_2d, unknown_is_free=unknown_is_free)
 
     def get_indices_from_position(self, point):
         return np.floor((point - self.origin) / self.resolution).astype(int)
@@ -52,10 +53,10 @@ class OccupancyMap():
         return self.is_valid_indices(self.get_indices_from_position(position))
 
     def is_free_and_valid_indices(self, indices):
-        if not self.is_valid_indices(indices) or not self.voxels[tuple(indices)] <= 0:
-            return False
-        else:
+        if (self.is_valid_indices(indices) and self.voxels[tuple(indices)] <= 0) or (not self.is_valid_indices(indices) and self.unknown_is_free):
             return True
+        else:
+            return False
 
     def is_free_and_valid_position(self, position):
         indices = self.get_indices_from_position(position)
@@ -95,17 +96,21 @@ class OccupancyMap():
                           * self.resolution + self.origin[1], self.voxels.T, cmap='Greys', zorder=1)
             ax.add_patch(plt.Rectangle(self.origin, self.dims[0]*self.resolution, self.dims[1]*self.resolution, ec='r', fill=False))
             ax.set_aspect('equal')
+        return ax
 
 
 if __name__ == "__main__":
     from motion_primitives_py import *
+    import rospkg
 
     # problem parameters
     num_dims = 2
     control_space_q = 3
 
     # setup occupancy map
-    occ_map = OccupancyMap.fromVoxelMapBag('test2d.bag')
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('motion_primitives')
+    occ_map = OccupancyMap.fromVoxelMapBag(f'{pkg_path}/motion_primitives_py/data/maps/test2d.bag')
     occ_map.plot()
     print(occ_map.extent)
 
