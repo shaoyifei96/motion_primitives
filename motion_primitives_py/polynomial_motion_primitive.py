@@ -106,6 +106,11 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         return self.evaluate_polynomial_at_derivative_static(deriv_num, st, self.subclass_specific_data['dynamics'], self.polys, self.num_dims)
 
+    def translate_start_position(self, start_pt):
+        self.polys[:, -1] = start_pt
+        self.end_state[:self.num_dims] = self.end_state[:self.num_dims] - self.start_state[:self.num_dims] + start_pt
+        self.start_state[:self.num_dims] = start_pt
+
     @staticmethod
     def evaluate_polynomial_at_derivative_static(deriv_num, st, dynamics, polys, num_dims):
         """
@@ -285,6 +290,9 @@ if __name__ == "__main__":
     mp = PolynomialMotionPrimitive.from_dict(dictionary, num_dims, max_state)
 
     # plot
+    mp.translate_start_position([1, 5])
     samples = mp.get_sampled_states()
     mp.plot_from_sampled_states(samples)
+    plt.figure()
+    mp.plot(position_only=True)
     plt.show()

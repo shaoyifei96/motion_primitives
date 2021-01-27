@@ -66,6 +66,10 @@ class ReedsSheppMotionPrimitive(MotionPrimitive):
     def get_sampled_input(self, step_size=0.1):
         raise NotImplementedError
 
+    def translate_start_position(self, start_pt):
+        self.end_state[:self.num_dims] = self.end_state[:self.num_dims] - self.start_state[:self.num_dims] + start_pt
+        self.start_state[:self.num_dims] = start_pt        
+
 
 if __name__ == "__main__":
     start_state = np.zeros(3,)

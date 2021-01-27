@@ -51,8 +51,7 @@ class GraphSearch:
         self.control_space_q = self.motion_primitive_graph.control_space_q
         self.n = self.motion_primitive_graph.n
 
-        # Create comparators for extreme states
-        map_size = self.map.extent
+        self.mp_list = None
 
         # Parameter used in min time heuristic from Sikang's paper
         self.rho = 1000.0
@@ -63,7 +62,6 @@ class GraphSearch:
             'bvp': self.bvp_heuristic, }
         self.heuristic = self.heuristic_dict[heuristic]
 
-        self.start_position_offset = np.hstack((self.start_state[:self.num_dims], np.zeros_like(self.start_state[self.num_dims:])))
         # self.mp_start_pts_tree = spatial.KDTree(start_state)  # self.motion_primitive_graph.start_pts)
 
         if type(self.motion_primitive_graph) is MotionPrimitiveTree:
@@ -113,39 +111,29 @@ class GraphSearch:
         """
         Build path from start point to goal point using the goal node's parents.
         """
-        path = [node.state]
-        sampled_path = []
         self.path_cost = 0
         self.mp_list = []
-        while node.parent is not None:
-            path.append(node.parent)
-            mp = node.mp
-            _, sp = mp.get_sampled_position()
-            sampled_path.append(sp + node.parent[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis])
-            self.path_cost += mp.cost
-            node = self.node_dict[node.parent.tobytes()]
-            self.mp_list.append(mp)
-        if node.mp is not None:
-            _, sp = node.mp.get_sampled_position()
-            sampled_path.append(sp + self.start_position_offset[:self.num_dims][:, np.newaxis])
+        while node.mp is not None:
+            self.mp_list.append(node.mp)
             self.path_cost += node.mp.cost
+            if node.parent is not None:
+                node = self.node_dict[node.parent.tobytes()]
+            else:
+                break
+        self.mp_list.reverse()
 
-        path.reverse()
-        sampled_path.reverse()
-        self.path = np.vstack(path).transpose()
-        self.sampled_path = np.hstack(sampled_path)
-
-    def plot_path(self, path, sampled_path, path_cost, ax=None):
+    def plot_path(self, ax=None):
 
         if ax is None:
             _, ax = plt.subplots()
         ax.plot(self.start_state[0], self.start_state[1], 'go', zorder=5)
         ax.plot(self.goal_state[0], self.goal_state[1], 'or', zorder=5)
 
+        sampled_path = np.hstack([mp.get_sampled_states()[1:1+self.num_dims, :] for mp in self.mp_list])
+        path = np.vstack([mp.start_state for mp in self.mp_list]).T
         if sampled_path is not None:
-            # print(path.T)
             ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
-            print(f'cost: {path_cost}')
+            print(f'cost: {self.path_cost}')
             ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4)
 
         if self.goal_tolerance.size > 1:
@@ -178,20 +166,16 @@ class GraphSearch:
     def get_neighbor_nodes_lattice(self, node):
         neighbors = []
         reset_map_index = int(np.floor(node.index / self.motion_primitive_graph.num_tiles))
-        for i, mp in enumerate(self.motion_primitive_graph.edges[:, reset_map_index]):
-            if mp is not None and self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, start_position_override=node.state[:self.num_dims]):
-                state = deepcopy(node.state)
-                state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
-                state[self.num_dims:] = mp.end_state[self.num_dims:]
-                neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp,
-                                     index=i, parent_index=node.index, graph_depth=node.graph_depth+1)
-                # sikang g
-                # _, u_sampled = mp.get_sampled_input(.1)
-                # u_int = np.sum(np.linalg.norm(u_sampled, axis=0))*.1
-                # neighbor_node = Node(mp.cost*(self.rho + u_int**2), self.heuristic(state), state, node.state, mp,
-                #                      index=i, parent_index=node.index, graph_depth=node.graph_depth+1)
-
-                neighbors.append(neighbor_node)
+        for i, mp in enumerate(deepcopy(self.motion_primitive_graph.edges[:, reset_map_index])):
+            if mp is not None:
+                mp.translate_start_position(node.state[:self.num_dims])
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
+                    state = deepcopy(node.state)
+                    state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
+                    state[self.num_dims:] = mp.end_state[self.num_dims:]
+                    neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp,
+                                         index=i, parent_index=node.index, graph_depth=node.graph_depth+1)
+                    neighbors.append(neighbor_node)
         node.is_closed = True
         return neighbors
 
@@ -204,7 +188,7 @@ class GraphSearch:
         self.sampled_path = None
         self.path_cost = None
         self.nodes_expanded = 0
-        
+
         if not self.map.is_free_and_valid_position(self.start_state[:self.num_dims]):
             print("start invalid")
             self.queue = None
@@ -215,13 +199,14 @@ class GraphSearch:
             return
 
         if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
-            starting_neighbors = self.motion_primitive_graph.find_mps_to_lattice(deepcopy(self.start_state) - self.start_position_offset)
+            start_position_offset = np.hstack((self.start_state[:self.num_dims], np.zeros_like(self.start_state[self.num_dims:])))
+            starting_neighbors = self.motion_primitive_graph.find_mps_to_lattice(deepcopy(self.start_state) - start_position_offset)
             self.start_edges = []
             for i, mp in starting_neighbors:
-                state = mp.end_state + self.start_position_offset
-                node = Node(mp.cost, self.heuristic(state), state, None, mp, index=i, parent_index=None, graph_depth=0)
+                mp.translate_start_position(self.start_state[:self.num_dims])
+                node = Node(mp.cost, self.heuristic(mp.end_state), mp.end_state, None, mp, index=i, parent_index=None, graph_depth=0)
                 self.start_edges.append(mp)
-                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, start_position_override=self.start_position_offset):
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
                     heappush(self.queue, node)
                     self.node_dict[node.state.tobytes()] = node
         else:
@@ -233,7 +218,7 @@ class GraphSearch:
         self.reset_graph_search()
 
         while self.queue:
-            node = heappop(self.queue)# While queue is not empty, pop the next smallest total cost f node
+            node = heappop(self.queue)  # While queue is not empty, pop the next smallest total cost f node
             # If node has been closed already, skip.
             if node.is_closed:
                 continue
@@ -264,7 +249,6 @@ class GraphSearch:
                 if (norm <= self.goal_tolerance[:self.control_space_q]).all():
                     print("Path found")
                     self.build_path(node)
-                    return self.path, self.sampled_path, self.mp_list
                     break
 
             # JUST FOR TESTING
@@ -295,7 +279,7 @@ class GraphSearch:
             self.neighbor_nodes = np.array(self.neighbor_nodes)
             self.closed_nodes = np.array(self.closed_nodes)
 
-        if self.path is None:
+        if self.mp_list is None:
             print("No path found")
 
     def expand_all_nodes(self, max_depth, plot=False):
@@ -317,12 +301,8 @@ class GraphSearch:
                 # plt.plot(neighbor_node.state[0], neighbor_node.state[1], '*',
                 #         color=colors[neighbor_node.graph_depth], zorder=10-neighbor_node.graph_depth)
             if neighbor_node.mp is not None:
-                if type(self.motion_primitive_graph) is MotionPrimitiveLattice:
-                    start_position_override = neighbor_node.parent
-                else:
-                    start_position_override = None
                 if plot:
-                    neighbor_node.mp.plot(position_only=True, start_position_override=start_position_override)
+                    neighbor_node.mp.plot(position_only=True)
                 vertices.append(neighbor_node)
         return vertices
 
@@ -349,11 +329,11 @@ class GraphSearch:
             elif type(self.motion_primitive_graph) is MotionPrimitiveTree:
                 iterator = enumerate(self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension))
             for j, mp in iterator:
-                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size, start_position_override=node.state):
+                mp.translate_start_position(node.state[:self.num_dims])
+                if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
                     _, sp = mp.get_sampled_position()
-                    shifted_sp = sp + node.state[:self.num_dims][:, np.newaxis] - mp.start_state[:self.num_dims][:, np.newaxis]
-                    open_list.append(shifted_sp[:, -1])
-                    self.lines[0][j].set_data(shifted_sp[0, :], shifted_sp[1, :])
+                    open_list.append(sp[:, -1])
+                    self.lines[0][j].set_data(sp[0, :], sp[1, :])
             if open_list != []:
                 self.open_list_states_animation = np.vstack((self.open_list_states_animation, np.array(open_list)))
                 self.lines[4].set_data(self.open_list_states_animation[:, 0], self.open_list_states_animation[:, 1])
@@ -409,9 +389,9 @@ if __name__ == "__main__":
 
     mpl = MotionPrimitiveLattice.load(
         "data/lattices/dispersion100.json")
-    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i.item() != None])/len(mpl.vertices))
+    # print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i.item() != None])/len(mpl.vertices))
     x = [i.item().traj_time for i in np.nditer(mpl.edges, ['refs_ok']) if i != None]
-    print(sum(x)/len(x))
+    # print(sum(x)/len(x))
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
@@ -432,7 +412,6 @@ if __name__ == "__main__":
     mpt.mp_subclass_specific_data['dt'] = .3
     # int(np.ceil(np.sqrt(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))))
     mpt.mp_subclass_specific_data['num_u_per_dimension'] = 4
-    print(mpt.mp_subclass_specific_data['num_u_per_dimension'])
     mpt.mp_subclass_specific_data['rho'] = mpl.mp_subclass_specific_data['rho']
 
     fig, ax = plt.subplots(2, 1, sharex=True)
@@ -447,9 +426,9 @@ if __name__ == "__main__":
     mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 1
 
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
-    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
-        gs.run_graph_search()
-    gs.plot_path(gs.path, gs.sampled_path, gs.path_cost, ax[1])
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    gs.run_graph_search()
+    gs.plot_path(ax[1])
 
     # plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
 
