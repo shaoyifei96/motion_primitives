@@ -8,6 +8,7 @@ import matplotlib.animation as animation
 from motion_primitives_py import *
 import matplotlib.pyplot as plt
 import argparse
+import rospkg
 """
 Run the dispersion algorithm, and save the lattices at a specified set of desired dispersions (all starting from the same dense set).
 Run graph search on the same map with said lattices.
@@ -21,7 +22,6 @@ max_state = [1.51, 3, 10, 100]
 mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
 num_dense_samples = 1000
 num_output_pts = num_dense_samples
-# dispersion_threshholds = [190,185,177,123]
 dispersion_threshholds = np.arange(200, 30, -5).tolist()
 check_backwards_dispersion = True
 costs_list = []
@@ -51,11 +51,11 @@ def animation_helper(i,  dts, plot_type='maps'):
     gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n],
                      heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
 
-    path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
+    gs.run_graph_search()
     ax0.clear()
-    gs.plot_path(path, sampled_path, path_cost, ax0)
-    costs_list.append(path_cost)
-    nodes_expanded_list.append(nodes_expanded)
+    gs.plot_path(ax0)
+    costs_list.append(gs.path_cost)
+    nodes_expanded_list.append(gs.nodes_expanded)
 
 
 def animation_helper2(i):
@@ -94,7 +94,9 @@ if __name__ == '__main__':
     print(dispersion_threshholds)
 
     f, ax0 = plt.subplots(1, 1)
-    occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag', 0)
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('motion_primitives')
+    occ_map = OccupancyMap.fromVoxelMapBag(f'{pkg_path}/motion_primitives_py/data/maps/trees_dispersion_1.1.bag')
     occ_map.plot(ax=ax0)
     f.tight_layout()
 
