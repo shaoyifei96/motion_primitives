@@ -23,7 +23,7 @@ def generate_data():
             print("No lattice file")
             dispersion_threshholds.remove(dispersion_threshhold)
 
-    data_array = np.zeros((2, 100, len(dispersion_threshholds)))
+    data_array = np.zeros((3, 100, len(dispersion_threshholds)))
     for n in range(1, 101):  # iterate over maps
         bag_name = f'{pkg_path}data/maps/random/trees_long0.4_{n}.png.bag'
         # bag_name = f'data/maps/random/trees_dispersion_0.6_{n}.png.bag'
@@ -44,6 +44,7 @@ def generate_data():
             gs.run_graph_search()
             data_array[0, n-1, i] = gs.path_cost
             data_array[1, n-1, i] = gs.nodes_expanded
+            data_array[2, n-1, i] = len(gs.neighbor_nodes)
     np.save('random_data', data_array)
 
 

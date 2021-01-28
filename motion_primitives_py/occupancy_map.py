@@ -9,7 +9,7 @@ class OccupancyMap():
         self.resolution = resolution
         self.voxels = np.squeeze(np.array(data).reshape(dims, order='F'))
         self.dims = np.array(self.voxels.shape)
-        if force_2d:
+        if force_2d and self.dims.shape[0]==3:
             self.dims = self.dims[:2]
             self.voxels = self.voxels[:, :, 0]
         self.origin = origin[:len(self.dims)]

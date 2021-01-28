@@ -128,28 +128,22 @@ class GraphSearch:
             _, ax = plt.subplots()
         ax.plot(self.start_state[0], self.start_state[1], 'go', zorder=5)
         ax.plot(self.goal_state[0], self.goal_state[1], 'or', zorder=5)
-
-        sampled_path = np.hstack([mp.get_sampled_states()[1:1+self.num_dims, :] for mp in self.mp_list])
-        path = np.vstack([mp.start_state for mp in self.mp_list]).T
-        if sampled_path is not None:
-            ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
-            print(f'cost: {self.path_cost}')
-            ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4)
-
-        if self.goal_tolerance.size > 1:
-            ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
-        closed_nodes_states = np.array([node.state for node in self.closed_nodes]).T
-        # ax.plot(closed_nodes_states[0, :], closed_nodes_states[1, :], 'm*', zorder=3)
         neighbor_nodes_states = np.array([node.state for node in self.neighbor_nodes]).T
         if neighbor_nodes_states.size > 0:
             ax.plot(neighbor_nodes_states[0, :], neighbor_nodes_states[1, :], '.',
                     color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k')
         self.map.plot(ax=ax)
+        if self.mp_list is None:
+            print("Error: Cannot plot path which does not exist.")
+            return
+        sampled_path = np.hstack([mp.get_sampled_states()[1:1+self.num_dims, :] for mp in self.mp_list])
+        path = np.vstack([mp.start_state for mp in self.mp_list]).T
+        ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
+        print(f'cost: {self.path_cost}')
+        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4)
 
-        # fig, ax = plt.subplots()
-        # ax.plot(closed_nodes_states[2, :], closed_nodes_states[3, :], 'm*', zorder=3)
-        # ax.plot(neighbor_nodes_states[2, :], neighbor_nodes_states[3, :], '.',
-        #         color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k')
+        if self.goal_tolerance.size > 1:
+            ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
 
     def get_neighbor_nodes_evenly_spaced(self, node):
         neighbor_mps = self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension)
@@ -276,6 +270,8 @@ class GraphSearch:
             # print(f"Closed nodes in queue at finish: {sum(node.is_closed for node in self.queue)}")
             # print()
             print(f"Nodes expanded: {self.nodes_expanded}, Path cost: {self.path_cost}")
+            x = len(self.neighbor_nodes)
+            print(f"neighbor nodes considered: {x}")
             self.neighbor_nodes = np.array(self.neighbor_nodes)
             self.closed_nodes = np.array(self.closed_nodes)
 
