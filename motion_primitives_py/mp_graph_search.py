@@ -51,7 +51,8 @@ class GraphSearch:
         self.control_space_q = self.motion_primitive_graph.control_space_q
         self.n = self.motion_primitive_graph.n
 
-        self.mp_list = None
+        self.mp_list = []
+        self.succeeded = False
 
         # Parameter used in min time heuristic from Sikang's paper
         self.rho = 1000.0
@@ -112,7 +113,6 @@ class GraphSearch:
         Build path from start point to goal point using the goal node's parents.
         """
         self.path_cost = 0
-        self.mp_list = []
         while node.mp is not None:
             self.mp_list.append(node.mp)
             self.path_cost += node.mp.cost
@@ -182,6 +182,8 @@ class GraphSearch:
         self.sampled_path = None
         self.path_cost = None
         self.nodes_expanded = 0
+        self.mp_list = []
+        self.succeeded = False
 
         if not self.map.is_free_and_valid_position(self.start_state[:self.num_dims]):
             print("start invalid")
@@ -246,8 +248,8 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            # if (nodes_expanded) > 100000:
-            #     break
+            if (self.nodes_expanded) > 10000:
+                break
             # if node.graph_depth > 2:
             #     break
             # if len(self.queue) > 1000:
@@ -275,14 +277,16 @@ class GraphSearch:
             self.neighbor_nodes = np.array(self.neighbor_nodes)
             self.closed_nodes = np.array(self.closed_nodes)
 
-        if self.mp_list is None:
+        if len(self.mp_list) == 0:
             print("No path found")
+        else:
+            self.succeeded = True
 
     def expand_all_nodes(self, max_depth, plot=False):
         self.reset_graph_search()
         node = heappop(self.queue)
         neighbors = self.get_neighbor_nodes(node)
-        colors = plt.cm.tab10(np.linspace(0, 1, 10))
+        # colors = plt.cm.tab10(np.linspace(0, 1, 10))
         vertices = [node]
         while neighbors:
             neighbor_node = neighbors.pop(0)
@@ -382,12 +386,13 @@ if __name__ == "__main__":
     import time
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
+    import rospkg
 
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('motion_primitives')
+    pkg_path = f'{pkg_path}/motion_primitives_py/'
     mpl = MotionPrimitiveLattice.load(
-        "data/lattices/dispersion100.json")
-    # print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i.item() != None])/len(mpl.vertices))
-    x = [i.item().traj_time for i in np.nditer(mpl.edges, ['refs_ok']) if i != None]
-    # print(sum(x)/len(x))
+        f"{pkg_path}data/lattices/2_dispersion35.json")
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
@@ -396,7 +401,9 @@ if __name__ == "__main__":
     # start_state[0:2] = [0, -18]
     # goal_state[0:2] = [7, -7]
     # goal_state[0:2] = [5, 4]
-    bag_name = f'data/maps/random/trees_long0.4_13.png.bag'
+    # bag_name = f'data/maps/trees_dispersion_1.1.bag'
+    bag_name = f'{pkg_path}data/maps/random/trees_long0.4_1.png.bag'
+    # bag_name = f'data/maps/random/trees_long0.4_13.png.bag'
     occ_map = OccupancyMap.fromVoxelMapBag(bag_name, force_2d=True)
     start_state = np.zeros((4))
     goal_state = np.zeros_like(start_state)
@@ -404,11 +411,11 @@ if __name__ == "__main__":
     goal_state[0:2] = [48, 6]
     goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
 
-    mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
-    mpt.mp_subclass_specific_data['dt'] = .3
-    # int(np.ceil(np.sqrt(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))))
-    mpt.mp_subclass_specific_data['num_u_per_dimension'] = 4
-    mpt.mp_subclass_specific_data['rho'] = mpl.mp_subclass_specific_data['rho']
+    # mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
+    # mpt.mp_subclass_specific_data['dt'] = .3
+    # # int(np.ceil(np.sqrt(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))))
+    # mpt.mp_subclass_specific_data['num_u_per_dimension'] = 4
+    # mpt.mp_subclass_specific_data['rho'] = mpl.mp_subclass_specific_data['rho']
 
     fig, ax = plt.subplots(2, 1, sharex=True)
 
@@ -417,14 +424,34 @@ if __name__ == "__main__":
     # gs.plot_path(path, sampled_path, path_cost, ax[0])
 
     # gs = GraphSearch.from_yaml("data/maps/corridor.yaml", mpl, heuristic='min_time')
-    print(mpl.mp_subclass_specific_data)
-    mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .5
-    mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 1
+    # mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .5
+    # mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
 
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     gs.run_graph_search()
     gs.plot_path(ax[1])
+    textstr = '\n'.join((
+        r'$dispersion=%.2f$' % (mpl.dispersion, ),
+        r'$cost=%.2f$' % (gs.path_cost, ),
+        r'$nodesExpanded=%.2f$' % (gs.nodes_expanded, ),
+        r'$nodesConsidered=%.2f$' % (len(gs.neighbor_nodes), )))
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax[1].text(1.0, .95, textstr, transform=ax[1].transAxes, fontsize=14,
+               verticalalignment='top', bbox=props)
+
+    mpl = MotionPrimitiveLattice.load(
+        f"{pkg_path}data/lattices/dispersion135.json")
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
+    gs.run_graph_search()
+    gs.plot_path(ax[0])
+    textstr = '\n'.join((
+        r'$dispersion=%.2f$' % (mpl.dispersion, ),
+        r'$cost=%.2f$' % (gs.path_cost, ),
+        r'$nodesExpanded=%.2f$' % (gs.nodes_expanded, ),
+        r'$nodesConsidered=%.2f$' % (len(gs.neighbor_nodes), )))
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax[0].text(1.0, .95, textstr, transform=ax[0].transAxes, fontsize=14,
+               verticalalignment='top', bbox=props)
 
     # plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
 

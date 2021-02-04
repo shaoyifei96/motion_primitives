@@ -42,8 +42,6 @@ class PlanningNode():
         traj.header.stamp = rospy.Time.now()
         traj.header.frame_id = 'world'  # TODO need to rotate into local coord frame?
         ax = occ_map.plot()
-        print([mp.start_state for mp in gs.mp_list])
-        print([mp.end_state for mp in gs.mp_list])
         for mp in deepcopy(gs.mp_list):
             primitive = Primitive()
             primitive.cx = np.zeros(6,)
