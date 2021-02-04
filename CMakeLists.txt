@@ -9,9 +9,6 @@ add_compile_options(-std=c++11)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS 
   roscpp 
-  message_generation 
-  std_msgs 
-  geometry_msgs 
   octomap_ros
   octomap_msgs)
 
@@ -63,11 +60,11 @@ find_package(octomap REQUIRED)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  VoxelMap.msg
-#   Message2.msg
-)
+# add_message_files(
+#   FILES
+#   VoxelMap.msg
+# #   Message2.msg
+# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -84,11 +81,11 @@ add_message_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs  # Or other packages containing msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs  # Or other packages containing msgs
+#   geometry_msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -123,7 +120,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES motion_primitives_py
 #  CATKIN_DEPENDS other_catkin_pkg
- DEPENDS message_runtime
+#  DEPENDS message_runtime
 )
 
 ###########
