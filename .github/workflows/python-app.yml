@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.txt ]; then cat requirements.txt | xargs -n 1 -L 1 pip install; fi
 
       - name: py-opt-control
         run: |
