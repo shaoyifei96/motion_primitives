@@ -19,7 +19,8 @@ class MotionPrimitive():
         self.max_state = np.array(max_state)
         # TODO probably cleaner to do this with kwargs
         self.subclass_specific_data = deepcopy(subclass_specific_data)
-        self.control_space_q = int(self.start_state.shape[0]/num_dims)
+        self.n = self.start_state.shape[0]
+        self.control_space_q = int(self.n/num_dims)
         self.is_valid = False
         self.cost = None
         self.traj_time = None
@@ -31,9 +32,9 @@ class MotionPrimitive():
         """
         if dict:
             mp = cls.__new__(cls)
-            super(cls, mp).__init__(np.array(dict["start_state"]),
-                                    np.array(dict["end_state"]),
-                                    num_dims, max_state)
+            MotionPrimitive.__init__(mp, np.array(dict["start_state"]),
+                                     np.array(dict["end_state"]),
+                                     num_dims, max_state)
             mp.cost = dict["cost"]
             mp.traj_time = dict["traj_time"]
             mp.is_valid = True

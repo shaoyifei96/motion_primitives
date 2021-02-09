@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 
-similarity_threshold = 10e-5
+similarity_threshold = 1e-1
 
 
 def test_is_valid(mp_fixture):

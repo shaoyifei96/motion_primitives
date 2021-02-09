@@ -24,6 +24,8 @@ sympy==1.7
 toml==0.10.2
 ujson==4.0.1
 zipp==3.4.0
+cvxpy==1.1.7
+scipy==1.5.4
 -e git+https://git@github.com/ghliu/pyReedsShepp#egg=reeds_shepp
 -e git+https://git@github.com/naught101/sobol_seq@v0.2.0#egg=sobol_seq
 --extra-index-url https://rospypi.github.io/simple/ rosbag
