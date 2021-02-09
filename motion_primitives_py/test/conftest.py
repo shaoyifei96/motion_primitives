@@ -8,7 +8,8 @@ import pytest
     params=[PolynomialMotionPrimitive,
             ReedsSheppMotionPrimitive,
             InputsMotionPrimitive,
-            JerksMotionPrimitive])
+            # JerksMotionPrimitive
+            ])
 def mp_fixture(request):
     # initialize to defaults
     subclass_specific_data = {}
@@ -20,8 +21,8 @@ def mp_fixture(request):
         control_space_q = 1.5  # corresponds to a 3 dimensional state
     elif request.param == InputsMotionPrimitive:
         subclass_specific_data = {"u": np.array([1, -1]), "dt": 1}
-    elif request.param == JerksMotionPrimitive:
-        subclass_specific_data["suppress_redirector"] = True
+    # elif request.param == JerksMotionPrimitive:
+    #     subclass_specific_data["suppress_redirector"] = True
     subclass_specific_data['rho'] = 1
     subclass_specific_data['iterative_bvp_max_t'] = 10
     # build motion primitive
@@ -38,15 +39,16 @@ def mp_fixture(request):
 @pytest.fixture(
     scope="module",
     params=[PolynomialMotionPrimitive,
-            JerksMotionPrimitive])
+            # JerksMotionPrimitive
+            ])
 def mp_state_input_fixture(request):
     # initialize to defaults
     subclass_specific_data = {}
     control_space_q = 3
     num_dims = 2
 
-    if request.param == JerksMotionPrimitive:
-        subclass_specific_data["suppress_redirector"] = True
+    # if request.param == JerksMotionPrimitive:
+    #     subclass_specific_data["suppress_redirector"] = True
     subclass_specific_data['rho'] = 1
     subclass_specific_data['iterative_bvp_max_t'] = 10
     # build motion primitive
@@ -98,6 +100,7 @@ def search_fixture(om_fixture, lattice_fixture):
     # build graph search
     yield GraphSearch(lattice_fixture, om_fixture, start_state, goal_state,
                       goal_tol, heuristic='min_time')
+
 
 @pytest.fixture(scope="module")
 def fail_search_fixture(om_fixture, lattice_fixture):
