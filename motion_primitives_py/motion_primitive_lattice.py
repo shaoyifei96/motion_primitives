@@ -569,29 +569,34 @@ if __name__ == "__main__":
     import time
     from pycallgraph import PyCallGraph, Config
     from pycallgraph.output import GraphvizOutput
+    import rospkg
+
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('motion_primitives')
+    pkg_path = f'{pkg_path}/motion_primitives_py/'
 
     tiling = True
     plot = False
-    animate = True
+    animate = False
     check_backwards_dispersion = True
     mp_subclass_specific_data = {}
 
     # %%
     # define parameters
-    control_space_q = 2
-    num_dims = 2
-    max_state = [3.5, 2*np.pi]
-    motion_primitive_type = ReedsSheppMotionPrimitive
-    # resolution = [.51, .5]
-    num_dense_samples = 100
-
-    # # # %%
-    # motion_primitive_type = PolynomialMotionPrimitive
     # control_space_q = 2
     # num_dims = 2
-    # max_state = [5.51, 1.51, 15, 100]
-    # mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 2, 'rho': 1000}
+    # max_state = [3.5, 2*np.pi]
+    # motion_primitive_type = ReedsSheppMotionPrimitive
+    # # resolution = [.51, .5]
     # num_dense_samples = 100
+
+    # # # %%
+    motion_primitive_type = OptimizationMotionPrimitive
+    control_space_q = 2
+    num_dims = 2
+    max_state = [1.51, 1.51, 8, 10]
+    mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
+    num_dense_samples = 1000
 
     # # # %%
     # motion_primitive_type = JerksMotionPrimitive
@@ -610,10 +615,10 @@ if __name__ == "__main__":
     toc = time.time()
     print(toc-tic)
     mpl.limit_connections(2*mpl.dispersion)
-    mpl.save("data/lattice_test.json")
+    mpl.save(f"{pkg_path}data/lattice_test.json")
 
     # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json", plot)
-    mpl = MotionPrimitiveLattice.load("data/lattice_test.json", plot)
+    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattice_test.json", plot)
     # mpl.limit_connections(np.inf)
     mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)

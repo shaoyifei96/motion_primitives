@@ -15,15 +15,23 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
                  subclass_specific_data={}):
         MotionPrimitive.__init__(self, start_state, end_state, num_dims, max_state,
                                  subclass_specific_data)
-        self.rho = subclass_specific_data.get('rho', 1)  # multiplier on time in cost function
+        self.rho = self.subclass_specific_data.get('rho', 1)  # multiplier on time in cost function
+
+        max_t = float(self.subclass_specific_data.get('iterative_bvp_max_t', 3))
+        self.steps = self.subclass_specific_data.get('iterative_bvp_steps', 4)  # number of time steps in inner_bvp
+        self.max_dt = max_t/self.steps
         self.c_A, self.c_B = OptimizationMotionPrimitive.A_and_B_matrices_quadrotor(self.num_dims, self.control_space_q)
-        self.steps = 10  # number of time steps in inner_bvp
+
+        self.max_state[0] = np.inf  # do not enforce position constraints
         self.x_box = np.repeat(self.max_state[:self.control_space_q], self.num_dims)
         self.u_box = np.repeat(self.max_state[self.control_space_q], self.num_dims)
 
         self.is_valid = False
+        self.poly_coeffs = None
+        self.traj_time = 0
         self.outer_bvp()
-        self.polynomial_setup(self.poly_coeffs.shape[1]-1)
+        if self.poly_coeffs is not None:
+            self.polynomial_setup(self.poly_coeffs.shape[1]-1)
 
     @staticmethod
     def A_and_B_matrices_quadrotor(num_dims, control_space_q):
@@ -60,17 +68,19 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         dt_start = end
 
         # optimization problem with lower bound on dt (since below this it is infeasible). Upper bound is arbitrary
-        sol = minimize_scalar(self.inner_bvp, bounds=[dt_start, 2], method='bounded')
+        if dt_start + 1e-4 > self.max_dt:
+            print(f"first feasible dt too high {dt_start} {self.max_dt}")
+            return
+        sol = minimize_scalar(self.inner_bvp, bounds=[dt_start, self.max_dt], method='bounded', options={'xatol': 1e-01, 'maxiter': 10})
         self.optimal_dt = sol.x
         self.is_valid = sol.success
         if not self.is_valid:
-            print("Did not find solution to outer BVP")
+            print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
         else:
             self.cost, self.traj, self.inputs = self.inner_bvp(self.optimal_dt, return_traj=True)
             self.traj_time = self.optimal_dt * self.steps
             time_vec = np.linspace(0, self.optimal_dt*(self.steps), self.traj.shape[0])
             self.poly_coeffs = np.polyfit(time_vec, self.traj[:, :self.num_dims], self.n).T  # TODO what degree polynomial
-        return self.is_valid
 
     def inner_bvp(self, dt, return_traj=False):
         """
@@ -118,7 +128,11 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         objective = cvx.Minimize(cost)
         constraints = state_constraints + dynamic_constraints + input_constraints
         prob = cvx.Problem(objective, constraints)
-        total_cost = prob.solve()
+        try:
+            total_cost = prob.solve()
+        except:
+            total_cost = np.inf
+            print(f"inner bvp failure {self.start_state}, {self.end_state}")
         # print("Solution is {}".format(prob.status))
         if return_traj:
             try:
@@ -133,12 +147,12 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
     def plot_inner_bvp_sweep_t(self):
         plt.figure()
         data = []
-        for t in np.arange(0.01, 1, .03):
-            cost = self.inner_bvp(t)
+        for t in np.arange(.1, 10, .6):
+            cost = self.inner_bvp(t/(self.steps))
             data.append((t, cost))
         data = np.array(data)
-        plt.plot(data[:, 0]*(self.steps), data[:, 1], 'bo', label="Feasible inner_bvp solutions")
-        infeasible = data[data[:, 1] == np.inf, 0]*self.steps
+        plt.plot(data[:, 0], data[:, 1], 'bo', label="Feasible inner_bvp solutions")
+        infeasible = data[data[:, 1] == np.inf, 0]
         plt.plot(infeasible, np.zeros_like(infeasible), 'ro', label="Infeasible inner_bvp at these times")
         plt.xlabel("Trajectory Time")
         plt.ylabel(r"Cost $\sum_{t} {(||u||^2 + \rho) * t}$")
@@ -190,21 +204,29 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
 
 
 if __name__ == "__main__":
+    from pycallgraph import PyCallGraph, Config
+    from pycallgraph.output import GraphvizOutput
+    import time
+
     num_dims = 2
     control_space_q = 2
-    rho = 1e2
+    rho = 1e3
 
-    start_state = np.array([5.3, .1, 2, -1])  # initial state
-    end_state = np.zeros(num_dims*control_space_q)  # terminal state
-    max_state = [np.inf, 2, 1, 10, 10]
+    start_state = np.array([0.63703125, 0.63703125, 0.40109375, 1.48640625])  # initial state
+    end_state = np.array([0.,  0, 0.,  0.])  # terminal state
+    # end_state = np.zeros(num_dims*control_space_q)  # terminal state
+    max_state = [1.51, 1.51, 15, 100]
     subclass_specific_data = {'rho': rho}
 
-    print('initial')
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+
+    t = time.time()
     mp = OptimizationMotionPrimitive(start_state, end_state, num_dims, max_state,
                                      subclass_specific_data=subclass_specific_data)
+    elapsed = time.time() - t
+    print(elapsed)
+
     dictionary = mp.to_dict()
-    # reconstruct
-    print('reconstruct')
     mp = OptimizationMotionPrimitive.from_dict(dictionary, num_dims, max_state)
 
     # mp.plot_inner_bvp_sweep_t()

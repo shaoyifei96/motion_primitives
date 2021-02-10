@@ -13,10 +13,10 @@ class MotionPrimitive():
     def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={'dynamics': None}):
         """
         """
-        self.start_state = np.array(start_state)
-        self.end_state = np.array(end_state)
-        self.num_dims = np.array(num_dims)
-        self.max_state = np.array(max_state)
+        self.start_state = np.array(start_state).astype(float)
+        self.end_state = np.array(end_state).astype(float)
+        self.num_dims = np.array(num_dims).astype(int)
+        self.max_state = np.array(max_state).astype(float)
         # TODO probably cleaner to do this with kwargs
         self.subclass_specific_data = deepcopy(subclass_specific_data)
         self.n = self.start_state.shape[0]

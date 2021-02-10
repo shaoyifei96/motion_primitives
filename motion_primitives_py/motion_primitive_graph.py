@@ -1,9 +1,10 @@
 #!/usr/bin/python3
-from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive
+from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive, OptimizationMotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import sobol_seq
+# from scipy.stats.qmc import Sobol
 
 
 class MotionPrimitiveGraph():
@@ -49,8 +50,8 @@ class MotionPrimitiveGraph():
         self.saving_file_prefix = saving_file_prefix
 
         # Setup specific to motion primitive being used TODO move elsewhere
-        if self.motion_primitive_type == PolynomialMotionPrimitive:
-            self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(self.control_space_q)
+        if self.motion_primitive_type == PolynomialMotionPrimitive or self.motion_primitive_type == OptimizationMotionPrimitive:
+            self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(self.control_space_q + 2)
         elif self.motion_primitive_type == InputsMotionPrimitive:
             self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(
                 self.control_space_q, self.num_dims)
