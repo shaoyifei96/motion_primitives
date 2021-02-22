@@ -12,7 +12,7 @@ Compare fully expanded graphs (up to a certain depth) of lattices vs trees
 depth = 1
 no_sampling_value = 0
 resolution = [.2, np.inf]
-mpl = MotionPrimitiveLattice.load("data/lattices/dispersion100.json")
+mpl = MotionPrimitiveLattice.load("data/lattices/dispersion75.json")
 mpl.check_backwards_dispersion = True
 
 colorbar_max = None
@@ -76,5 +76,4 @@ mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .1
 mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
 dispersion = mpl.compute_dispersion_from_graph(vertices, resolution, no_sampling_value=no_sampling_value,
                                                colorbar_max=dispersion, filename="data/plots/heatmap_lattice", middle_mp_plot=False)
-
 # # plt.show()
