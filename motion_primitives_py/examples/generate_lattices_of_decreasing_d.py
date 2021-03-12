@@ -53,7 +53,7 @@ def animation_helper(i,  dts, plot_type='maps'):
 
     gs.run_graph_search()
     ax0.clear()
-    gs.plot_path(ax0)
+    gs.plot(ax0)
     costs_list.append(gs.path_cost)
     nodes_expanded_list.append(gs.nodes_expanded)
 

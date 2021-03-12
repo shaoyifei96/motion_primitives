@@ -122,7 +122,7 @@ class GraphSearch:
                 break
         self.mp_list.reverse()
 
-    def plot_path(self, ax=None):
+    def plot(self, ax=None):
 
         if ax is None:
             _, ax = plt.subplots()
