@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from copy import deepcopy
 
-
+# TODO test graph search termination
 def test_search(search_fixture):
     search_fixture.run_graph_search()
     assert search_fixture.succeeded is True

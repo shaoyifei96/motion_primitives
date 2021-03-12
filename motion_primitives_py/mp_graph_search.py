@@ -163,6 +163,7 @@ class GraphSearch:
         for i, mp in enumerate(deepcopy(self.motion_primitive_graph.edges[:, reset_map_index])):
             if mp is not None:
                 mp.translate_start_position(node.state[:self.num_dims])
+                self.num_collision_checks += 1
                 if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
                     state = deepcopy(node.state)
                     state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
@@ -184,6 +185,7 @@ class GraphSearch:
         self.nodes_expanded = 0
         self.mp_list = []
         self.succeeded = False
+        self.num_collision_checks = 0
 
         if not self.map.is_free_and_valid_position(self.start_state[:self.num_dims]):
             print("start invalid")
@@ -248,7 +250,7 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            if (self.nodes_expanded) > 10000:
+            if len(self.neighbor_nodes) > 10000:
                 break
             # if node.graph_depth > 2:
             #     break
@@ -272,8 +274,7 @@ class GraphSearch:
             # print(f"Closed nodes in queue at finish: {sum(node.is_closed for node in self.queue)}")
             # print()
             print(f"Nodes expanded: {self.nodes_expanded}, Path cost: {self.path_cost}")
-            x = len(self.neighbor_nodes)
-            print(f"neighbor nodes considered: {x}")
+            print(f"Number of collision checks: {self.num_collision_checks}")
             self.neighbor_nodes = np.array(self.neighbor_nodes)
             self.closed_nodes = np.array(self.closed_nodes)
 
@@ -392,7 +393,9 @@ if __name__ == "__main__":
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
     mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/2_dispersion35.json")
+        f"{pkg_path}data/lattice_test.json")
+    # mpl = MotionPrimitiveLattice.load(
+    #     f"{pkg_path}data/lattices/2_dispersion35.json")
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
@@ -421,7 +424,7 @@ if __name__ == "__main__":
 
     # gs = GraphSearch.from_yaml("data/maps/corridor.yaml", mpt, heuristic='min_time')
     # path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
-    # gs.plot_path(path, sampled_path, path_cost, ax[0])
+    # gs.plot(path, sampled_path, path_cost, ax[0])
 
     # gs = GraphSearch.from_yaml("data/maps/corridor.yaml", mpl, heuristic='min_time')
     # mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .5
@@ -429,7 +432,7 @@ if __name__ == "__main__":
 
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
     gs.run_graph_search()
-    gs.plot_path(ax[1])
+    gs.plot(ax[1])
     textstr = '\n'.join((
         r'$dispersion=%.2f$' % (mpl.dispersion, ),
         r'$cost=%.2f$' % (gs.path_cost, ),
@@ -443,7 +446,7 @@ if __name__ == "__main__":
         f"{pkg_path}data/lattices/dispersion135.json")
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
     gs.run_graph_search()
-    gs.plot_path(ax[0])
+    gs.plot(ax[0])
     textstr = '\n'.join((
         r'$dispersion=%.2f$' % (mpl.dispersion, ),
         r'$cost=%.2f$' % (gs.path_cost, ),
