@@ -5,10 +5,13 @@
 namespace motion_primitives {
 
 template <int state_dim>
-void MotionPrimitive<state_dim>::translate(Eigen::Matrix<float, state_dim, 1> new_start){
-        // self.poly_coeffs[:, -1] = start_pt
-    end_state_.head(spatial_dims_) = end_state_.head(spatial_dims_) - start_state_.head(spatial_dims_) + new_start.head(spatial_dims_);
-    start_state_.head(spatial_dims_) = new_start.head(spatial_dims_);
+void MotionPrimitive<state_dim>::translate(
+    Eigen::Matrix<float, state_dim, 1> new_start) {
+  // self.poly_coeffs[:, -1] = start_pt
+  end_state_.head(spatial_dims_) = end_state_.head(spatial_dims_) -
+                                   start_state_.head(spatial_dims_) +
+                                   new_start.head(spatial_dims_);
+  start_state_.head(spatial_dims_) = new_start.head(spatial_dims_);
 }
 
 template <int state_dim>
@@ -46,8 +49,8 @@ void from_json(const nlohmann::json& json_data,
         edge.at("end_state").get_to(vec);
         Eigen::Matrix<float, state_dim, 1> end_state(vec.data());
         // std::cout << i << " " << j <<std::endl;
-        graph.edges_(i, j) =
-            MotionPrimitive<state_dim>(graph.spatial_dims_, start_state, end_state, edge.at("cost"));
+        graph.edges_(i, j) = MotionPrimitive<state_dim>(
+            graph.spatial_dims_, start_state, end_state, edge.at("cost"));
       }
     }
   }

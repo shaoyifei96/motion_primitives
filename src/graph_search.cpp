@@ -12,7 +12,8 @@ bool operator<(const Node<state_dim> &n1, const Node<state_dim> &n2) {
 }
 
 template <int state_dim>
-std::vector<Node<state_dim>> GraphSearch<state_dim>::get_neighbor_nodes_lattice(Node<state_dim> node) {
+std::vector<Node<state_dim>> GraphSearch<state_dim>::get_neighbor_nodes_lattice(
+    Node<state_dim> node) {
   std::vector<Node<state_dim>> neighbor_nodes;
   int reset_map_index = floor(node.index_ / graph_.num_tiles_);
   for (int i = 0; i < graph_.edges_.rows(); i++) {

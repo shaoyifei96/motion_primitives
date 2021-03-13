@@ -13,18 +13,18 @@ class Node {
   float f_;  // total-cost
   float g_;  // cost-to-come
   float h_;  // heuristic
-  Eigen::Matrix<float, state_dim, 1>  state_;
-  Eigen::Matrix<float, state_dim, 1>  parent_state_;
+  Eigen::Matrix<float, state_dim, 1> state_;
+  Eigen::Matrix<float, state_dim, 1> parent_state_;
   MotionPrimitive<state_dim> mp_;
   int index_;
   int parent_index_;
   int graph_depth_;
   bool is_closed_;
   Node(){};
-  Node(float g, float h, Eigen::Matrix<float, state_dim, 1>  state,
-       Eigen::Matrix<float, state_dim, 1>  parent_state, MotionPrimitive<state_dim> mp,
-       bool is_closed = false, int index = -1, int parent_index = -1,
-       int graph_depth = 0)
+  Node(float g, float h, Eigen::Matrix<float, state_dim, 1> state,
+       Eigen::Matrix<float, state_dim, 1> parent_state,
+       MotionPrimitive<state_dim> mp, bool is_closed = false, int index = -1,
+       int parent_index = -1, int graph_depth = 0)
       : g_(g),
         h_(h),
         f_(g + h),
@@ -46,7 +46,6 @@ class GraphSearch {
   std::vector<Node<state_dim>> get_neighbor_nodes_lattice(Node<state_dim> node);
   GraphSearch(MotionPrimitiveGraph<state_dim> graph) : graph_(graph) {}
 };
-
 
 }  // namespace motion_primitives
 
