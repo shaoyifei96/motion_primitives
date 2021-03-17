@@ -165,10 +165,7 @@ class GraphSearch:
                 mp.translate_start_position(node.state[:self.num_dims])
                 self.num_collision_checks += 1
                 if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
-                    state = deepcopy(node.state)
-                    state[:self.num_dims] += (mp.end_state - mp.start_state)[:self.num_dims]
-                    state[self.num_dims:] = mp.end_state[self.num_dims:]
-                    neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp,
+                    neighbor_node = Node(mp.cost + node.g, self.heuristic(mp.end_state), mp.end_state, node.state, mp,
                                          index=i, parent_index=node.index, graph_depth=node.graph_depth+1)
                     neighbors.append(neighbor_node)
         node.is_closed = True
