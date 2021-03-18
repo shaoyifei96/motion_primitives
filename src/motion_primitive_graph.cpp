@@ -1,12 +1,11 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
-#include <ros/ros.h>
+#include <nlohmann/json.hpp>
+#include <ostream>
 
 namespace motion_primitives {
 
-template <int state_dim>
-void MotionPrimitive<state_dim>::translate(
-    Eigen::Matrix<float, state_dim, 1> new_start) {
+void MotionPrimitive::translate(const Eigen::MatrixXd& new_start) {
   // self.poly_coeffs[:, -1] = start_pt
   end_state_.head(spatial_dims_) = end_state_.head(spatial_dims_) -
                                    start_state_.head(spatial_dims_) +
@@ -14,17 +13,13 @@ void MotionPrimitive<state_dim>::translate(
   start_state_.head(spatial_dims_) = new_start.head(spatial_dims_);
 }
 
-template <int state_dim>
-std::ostream& operator<<(std::ostream& os,
-                         const MotionPrimitive<state_dim>& m) {
+std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m) {
   os << "start state: " << m.start_state_.transpose()
      << ", end state:" << m.end_state_.transpose() << std::endl;
   return os;
 }
 
-template <int state_dim>
-void from_json(const nlohmann::json& json_data,
-               MotionPrimitiveGraph<state_dim>& graph) {
+void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
   json_data.at("dispersion").get_to(graph.dispersion_);
   json_data.at("tiling").get_to(graph.tiling_);
   json_data.at("num_dims").get_to(graph.spatial_dims_);
@@ -49,8 +44,8 @@ void from_json(const nlohmann::json& json_data,
         edge.at("end_state").get_to(vec);
         Eigen::Matrix<float, state_dim, 1> end_state(vec.data());
         // std::cout << i << " " << j <<std::endl;
-        graph.edges_(i, j) = MotionPrimitive<state_dim>(
-            graph.spatial_dims_, start_state, end_state, edge.at("cost"));
+        graph.edges_(i, j) = MotionPrimitive(graph.spatial_dims_, start_state,
+                                             end_state, edge.at("cost"));
       }
     }
   }

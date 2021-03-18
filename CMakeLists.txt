@@ -10,6 +10,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS 
   roscpp )
 find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(glog REQUIRED)
 
 include(FetchContent)
 
@@ -126,10 +127,10 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
-include
-${catkin_INCLUDE_DIRS}
-)
+# include_directories(
+# include
+# ${catkin_INCLUDE_DIRS}
+# )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -159,8 +160,10 @@ add_executable(${PROJECT_NAME}_graph_search src/graph_search.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
+target_include_directories(${PROJECT_NAME}_lib include ${catkin_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}_lib
   ${catkin_LIBRARIES}
+  glog::glog
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
 )

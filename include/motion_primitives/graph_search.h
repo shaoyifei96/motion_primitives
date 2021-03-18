@@ -7,24 +7,14 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
 namespace motion_primitives {
-template <int state_dim>
+
 class Node {
  public:
-  float f_;  // total-cost
-  float g_;  // cost-to-come
-  float h_;  // heuristic
-  Eigen::Matrix<float, state_dim, 1> state_;
-  Eigen::Matrix<float, state_dim, 1> parent_state_;
-  MotionPrimitive<state_dim> mp_;
-  int index_;
-  int parent_index_;
-  int graph_depth_;
-  bool is_closed_;
   Node(){};
-  Node(float g, float h, Eigen::Matrix<float, state_dim, 1> state,
-       Eigen::Matrix<float, state_dim, 1> parent_state,
-       MotionPrimitive<state_dim> mp, bool is_closed = false, int index = -1,
-       int parent_index = -1, int graph_depth = 0)
+  Node(float g, float h, const Eigen::MatrixXd& state,
+       const Eigen::MatrixXd& parent_state, const MotionPrimitive& mp,
+       bool is_closed = false, int index = -1, int parent_index = -1,
+       int graph_depth = 0)
       : g_(g),
         h_(h),
         f_(g + h),
@@ -35,16 +25,29 @@ class Node {
         is_closed_(is_closed),
         mp_(mp),
         graph_depth_(graph_depth) {}
-};
-template <int state_dim>
-bool operator<(const Node<state_dim> &n1, const Node<state_dim> &n2);
 
-template <int state_dim>
+  friend bool operator<(const Node& lhr, const Node& rhs);
+
+ private:
+  float f_;  // total-cost
+  float g_;  // cost-to-come
+  float h_;  // heuristic
+  Eigen::MatrixXd state_;
+  Eigen::MatrixXd parent_state_;
+  MotionPrimitive mp_;
+  int index_;
+  int parent_index_;
+  int graph_depth_;
+  bool is_closed_;
+};
+
+bool operator<(const Node& n1, const Node& n2) { return n1.f_ < n2.f_; }
+
 class GraphSearch {
  public:
-  MotionPrimitiveGraph<state_dim> graph_;
-  std::vector<Node<state_dim>> get_neighbor_nodes_lattice(Node<state_dim> node);
-  GraphSearch(MotionPrimitiveGraph<state_dim> graph) : graph_(graph) {}
+  MotionPrimitiveGraph graph_;
+  std::vector<Node> get_neighbor_nodes_lattice(Node node);
+  GraphSearch(MotionPrimitiveGraph graph) : graph_(graph) {}
 };
 
 }  // namespace motion_primitives

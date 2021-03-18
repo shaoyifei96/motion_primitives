@@ -1,57 +1,56 @@
-
-
 #ifndef MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
 #define MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
 
-#include <Eigen/Dense>
-#include <fstream>
-#include <iostream>
-#include <nlohmann/json.hpp>
+#include <glog/glog.h>
+
+#include <Eigen/Core>
+#include <iosfwd>
+#include <nlohmann/json_fwd.hpp>
 
 namespace motion_primitives {
 
-template <int state_dim>
 class MotionPrimitive {
  private:
  public:
-  int spatial_dims_;
-  Eigen::Matrix<float, state_dim, 1> start_state_;
-  Eigen::Matrix<float, state_dim, 1> end_state_;
+  int id_;
   float cost_;
-  bool initialized_;
-  template <int sd>
-  friend std::ostream& operator<<(std::ostream& os,
-                                  const MotionPrimitive<sd>& m);
+  int spatial_dims_;
+  Eigen::VectorXd start_state_;
+  Eigen::VectorXd end_state_;
+  // bool initialized_;
 
-  MotionPrimitive(){};
-  MotionPrimitive(int spatial_dims,
-                  Eigen::Matrix<float, state_dim, 1> start_state,
-                  Eigen::Matrix<float, state_dim, 1> end_state, float cost)
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const MotionPrimitive<state_dim>& m);
+
+  MotionPrimitive() = default;
+  MotionPrimitive(int spatial_dims, const Eigen::MatrixXd& start_state,
+                  const Eigen::MatrixXd& end_state, float cost)
       : spatial_dims_(spatial_dims),
         start_state_(start_state),
         end_state_(end_state),
         cost_(cost),
-        initialized_(true){};
-  void translate(Eigen::Matrix<float, state_dim, 1> new_start);
+        initialized_(true) {
+    CHECK_EQ(start_state_.rows(), end_state_.rows());
+  };
+  void translate(const Eigen::MatrixXd& new_start);
 };
 
-template <int state_dim>
 class MotionPrimitiveGraph {
- private:
  public:
-  Eigen::Array<MotionPrimitive<state_dim>, Eigen::Dynamic, Eigen::Dynamic>
-      edges_;
-  Eigen::MatrixXf vertices_;
-  float dispersion_;
+  MotionPrimitiveGraph();
+
+ private:
+  Eigen::ArrayXXi edges_;
+  Eigen::MatrixXd vertices_;
+  std::vector<MotionPrimitive> mps_;
+  double dispersion_;
   int spatial_dims_;
-  bool tiling_;
   int num_tiles_;
-  MotionPrimitiveGraph(){};
+  bool tiling_;
 };
 
-template <int state_dim>
-void from_json(const nlohmann::json& json_data,
-               MotionPrimitiveGraph<state_dim>& graph);
+void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph);
 
 }  // namespace motion_primitives
+
 #endif
