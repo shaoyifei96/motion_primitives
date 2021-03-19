@@ -11,8 +11,8 @@ namespace motion_primitives {
 class Node {
  public:
   Node(){};
-  Node(float g, float h, const Eigen::MatrixXd& state,
-       const Eigen::MatrixXd& parent_state, const MotionPrimitive& mp,
+  Node(float g, float h, const Eigen::VectorXd& state,
+       const Eigen::VectorXd& parent_state, const MotionPrimitive& mp,
        bool is_closed = false, int index = -1, int parent_index = -1,
        int graph_depth = 0)
       : g_(g),
@@ -26,14 +26,15 @@ class Node {
         mp_(mp),
         graph_depth_(graph_depth) {}
 
-  friend bool operator<(const Node& lhr, const Node& rhs);
+  friend bool operator<(const Node& s, const Node& rhs);
+  friend class GraphSearch;
 
  private:
   float f_;  // total-cost
   float g_;  // cost-to-come
   float h_;  // heuristic
-  Eigen::MatrixXd state_;
-  Eigen::MatrixXd parent_state_;
+  Eigen::VectorXd state_;
+  Eigen::VectorXd parent_state_;
   MotionPrimitive mp_;
   int index_;
   int parent_index_;

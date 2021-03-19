@@ -7,22 +7,23 @@ add_compile_options(-std=c++11)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS 
-  roscpp )
+find_package(catkin REQUIRED COMPONENTS roscpp)
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(glog REQUIRED)
+find_package(GTest 1.10.0 REQUIRED)
+find_package(glog 0.5.0 REQUIRED)
+find_package(nlohmann_json 3.2.0 REQUIRED)
 
-include(FetchContent)
+# include(FetchContent)
 
-FetchContent_Declare(json
-  GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
-  GIT_TAG v3.7.3)
+# FetchContent_Declare(json
+#   GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
+#   GIT_TAG v3.7.3)
 
-FetchContent_GetProperties(json)
-if(NOT json_POPULATED)
-  FetchContent_Populate(json)
-  add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
+# FetchContent_GetProperties(json)
+# if(NOT json_POPULATED)
+#   FetchContent_Populate(json)
+#   add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
+# endif()
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -136,7 +137,7 @@ catkin_package(
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/motion_primitives_py.cpp
 # )
-add_library(${PROJECT_NAME}_lib src/motion_primitive_graph.cpp)
+add_library(${PROJECT_NAME}_lib src/motion_primitive_graph.cpp src/graph_search.cpp)
 
 
 ## Add cmake target dependencies of the library
@@ -147,7 +148,7 @@ add_library(${PROJECT_NAME}_lib src/motion_primitive_graph.cpp)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_graph_search src/graph_search.cpp)
+add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -160,15 +161,15 @@ add_executable(${PROJECT_NAME}_graph_search src/graph_search.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_include_directories(${PROJECT_NAME}_lib include ${catkin_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME}_lib PUBLIC include ${catkin_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}_lib
   ${catkin_LIBRARIES}
-  glog::glog
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
+  GTest::GTest
+  glog::glog
 )
-target_link_libraries(${PROJECT_NAME}_graph_search ${PROJECT_NAME}_lib
-)
+target_link_libraries(${PROJECT_NAME}_graph_search ${PROJECT_NAME}_lib)
 
 #############
 ## Install ##

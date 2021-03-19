@@ -5,7 +5,7 @@
 
 namespace motion_primitives {
 
-void MotionPrimitive::translate(const Eigen::MatrixXd& new_start) {
+void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
   // self.poly_coeffs[:, -1] = start_pt
   end_state_.head(spatial_dims_) = end_state_.head(spatial_dims_) -
                                    start_state_.head(spatial_dims_) +
@@ -23,13 +23,17 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
   json_data.at("dispersion").get_to(graph.dispersion_);
   json_data.at("tiling").get_to(graph.tiling_);
   json_data.at("num_dims").get_to(graph.spatial_dims_);
+  json_data.at("control_space_q").get_to(graph.control_space_dim_);
 
   graph.num_tiles_ = graph.tiling_ ? pow(3, graph.spatial_dims_) : 1;
+  int state_dim = graph.spatial_dims_ * graph.control_space_dim_;
   graph.vertices_.resize(json_data["vertices"].size(), state_dim);
   for (int i = 0; i < json_data["vertices"].size(); i++) {
-    Eigen::Matrix<float, state_dim, 1> eigen_vec(
-        json_data.at("vertices")[i].get<std::vector<float>>().data());
-    graph.vertices_.row(i) = eigen_vec;
+    Eigen::Map<Eigen::VectorXd> eigen_vec(
+        json_data.at("vertices")[i].get<std::vector<double>>().data(),
+        state_dim);
+    graph.vertices_.row(i) = eigen
+_vec;
   }
   graph.edges_.resize(graph.vertices_.rows() * graph.num_tiles_,
                       graph.vertices_.rows());
@@ -37,15 +41,16 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
     for (int j = 0; j < graph.vertices_.rows(); j++) {
       auto edge = json_data.at("edges").at(i * graph.vertices_.size() + j);
       if (edge.size() > 0) {
-        std::vector<float> vec;
-        edge.at("start_state").get_to(vec);  // for some reason get won't work,
-                                             // using more verbose get_to
-        Eigen::Matrix<float, state_dim, 1> start_state(vec.data());
-        edge.at("end_state").get_to(vec);
-        Eigen::Matrix<float, state_dim, 1> end_state(vec.data());
-        // std::cout << i << " " << j <<std::endl;
-        graph.edges_(i, j) = MotionPrimitive(graph.spatial_dims_, start_state,
-                                             end_state, edge.at("cost"));
+        Eigen::Map<Eigen::VectorXd> start_state(
+            edge.at("start_state").get<std::vector<double>>().data(),
+            state_dim);
+        Eigen::Map<Eigen::VectorXd> end_state(
+            edge.at("end_state").get<std::vector<double>>().data(), state_dim);
+        graph.mps_.push_back(MotionPrimitive(graph.spatial_dims_, start_state,
+                                             end_state, edge.at("cost")));
+        graph.edges_(i, j) = graph.mps_.size();
+      } else {
+        graph.edges_(i, j) = -1;
       }
     }
   }
