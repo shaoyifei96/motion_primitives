@@ -2,7 +2,6 @@
 #define MOTION_PRIMITIVES_GRAPH_SEARCH_H
 
 #include <math.h>
-#include <ros/ros.h>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -45,8 +44,9 @@ class Node {
 bool operator<(const Node& n1, const Node& n2) { return n1.f_ < n2.f_; }
 
 class GraphSearch {
- public:
+private:
   MotionPrimitiveGraph graph_;
+public:
   std::vector<Node> get_neighbor_nodes_lattice(Node node);
   GraphSearch(MotionPrimitiveGraph graph) : graph_(graph) {}
 };

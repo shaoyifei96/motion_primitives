@@ -16,7 +16,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         # Initialize class
         super().__init__(start_state, end_state, num_dims, max_state,
                          subclass_specific_data)
-        self.polynomial_setup(2 * self.control_space_q - 1)
+        self.poly_order = 2 * self.control_space_q - 1
+        self.polynomial_setup(self.poly_order)
 
         # Solve boundary value problem
         self.poly_coeffs, self.traj_time = self.iteratively_solve_bvp_meam_620_style(
@@ -36,7 +37,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
             self.subclass_specific_data['dynamics'] = self.get_dynamics_polynomials(poly_order)
         self.poly_multiplier = np.array([np.concatenate((np.zeros(deriv_num), self.subclass_specific_data['dynamics'][deriv_num](1)))[
                                          :(poly_order+1)] for deriv_num in range(poly_order) for i in range(self.num_dims)])
-   
+
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
@@ -44,6 +45,7 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         """
         mp = super().from_dict(dict, num_dims, max_state)
         if mp:
+            mp.poly_multiplier = None
             mp.poly_coeffs = np.array(dict["polys"])
             if "dynamics" in subclass_specific_data:
                 mp.subclass_specific_data['dynamics'] = subclass_specific_data['dynamics']
@@ -114,6 +116,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Output:
             sampled, array of polynomial derivative evaluated at sample times
         """
+        if self.poly_multiplier is None:
+            self.polynomial_setup(self.poly_order)
+
         return self.evaluate_polynomial_at_derivative_static(deriv_num, st, self.subclass_specific_data['dynamics'], self.poly_coeffs, self.poly_multiplier)
 
     @staticmethod
