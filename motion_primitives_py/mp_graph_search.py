@@ -55,7 +55,7 @@ class GraphSearch:
         self.succeeded = False
 
         # Parameter used in min time heuristic from Sikang's paper
-        self.rho = 1000.0
+        self.rho = self.motion_primitive_graph.mp_subclass_specific_data.get('rho',100)*1.5
         self.heuristic_dict = {
             'zero': self.zero_heuristic,
             'euclidean': self.euclidean_distance_heuristic,
@@ -88,7 +88,7 @@ class GraphSearch:
         goal_state[:mpg.num_dims] = di['goal']
         if goal_tolerance is None:
             goal_tolerance = np.ones(mpg.n)
-        gs = cls(mpg, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.01, heuristic=heuristic)
+        gs = cls(mpg, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic=heuristic)
         return gs
 
     def zero_heuristic(self, state):
@@ -131,7 +131,7 @@ class GraphSearch:
         neighbor_nodes_states = np.array([node.state for node in self.neighbor_nodes]).T
         if neighbor_nodes_states.size > 0:
             ax.plot(neighbor_nodes_states[0, :], neighbor_nodes_states[1, :], '.',
-                    color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k')
+                    color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k', markersize=4)
         self.map.plot(ax=ax)
         if self.succeeded is False:
             print("Error: Cannot plot path which does not exist.")
@@ -140,7 +140,7 @@ class GraphSearch:
         path = np.vstack([mp.start_state for mp in self.mp_list]).T
         ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
         print(f'cost: {self.path_cost}')
-        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4)
+        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4,markersize=4)
 
         if self.goal_tolerance.size > 1:
             ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
@@ -248,7 +248,7 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            if len(self.neighbor_nodes) > 10000:
+            if self.num_collision_checks > 100000:
                 break
             # if node.graph_depth > 2:
             #     break

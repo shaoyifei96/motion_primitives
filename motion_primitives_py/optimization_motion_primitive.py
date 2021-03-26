@@ -71,7 +71,7 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
 
         # optimization problem with lower bound on dt (since below this it is infeasible). Upper bound is arbitrary
         if dt_start + 1e-4 > self.max_dt:
-            print(f"first feasible dt too high {dt_start} {self.max_dt}")
+            # print(f"first feasible dt too high {dt_start} {self.max_dt}")
             return
         sol = minimize_scalar(self.inner_bvp, bounds=[dt_start, self.max_dt], method='bounded', options={'xatol': 1e-01, 'maxiter': 10})
         self.optimal_dt = sol.x
