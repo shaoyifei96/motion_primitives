@@ -24,6 +24,7 @@ class MotionPrimitive():
         self.is_valid = False
         self.cost = None
         self.traj_time = None
+        #TODO error out if start/end state violate max_state
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state):

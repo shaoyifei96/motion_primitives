@@ -69,6 +69,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
+                            "rho" :self.mp_subclass_specific_data.get('rho'),
                             "dispersion": self.dispersion,
                             "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,
@@ -77,7 +78,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "vertices": self.vertices.tolist(),
                             "edges": mps,
                             }
-            saved_params['rho'] = self.mp_subclass_specific_data.get('rho')
 
             json.dump(saved_params, output_file, indent=4)
             print("Lattice successfully saved")
@@ -505,6 +505,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         max_state[0] = max(vertices[:, 0])
         dense_sampling, axis_sampling = self.uniform_state_set(
             max_state, resolution[:self.control_space_q], random=False, no_sampling_value=no_sampling_value)
+        print(dense_sampling.shape)
         pool = Pool(initializer=self.multiprocessing_init)
         self.vertices = None
         self.edges = None
@@ -527,10 +528,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             num_plots = 2
         fig, ax = plt.subplots(1, num_plots, sharey=True, sharex=True, constrained_layout=True)
 
-        ax[0].set_aspect('equal', 'box')
-        ax[1].set_aspect('equal', 'box')
-        if num_plots > 2:
-            ax[2].set_aspect('equal', 'box')
+        ax[1].set_aspect('equal', 'box' ,share=True)
+        ax[1].use_sticky_edges = False
+
 
         # ax[0].plot(dense_sampling[:, 0], dense_sampling[:, 1], '.', color='grey')
         ax[0].plot(vertices[:, 0], vertices[:, 1], 'go')

@@ -14,19 +14,19 @@ Run the dispersion algorithm, and save the lattices at a specified set of desire
 Run graph search on the same map with said lattices.
 """
 # # # %%
-name = 'poly'
-motion_primitive_type = PolynomialMotionPrimitive
+name = ''
+motion_primitive_type = OptimizationMotionPrimitive
 control_space_q = 2
 num_dims = 2
 max_state = [1.51, 3, 10, 100]
-mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
-num_dense_samples = 1000
+mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 100}
+num_dense_samples = 10
 num_output_pts = num_dense_samples
 dispersion_threshholds = np.arange(200, 30, -5).tolist()
 check_backwards_dispersion = True
 costs_list = []
 nodes_expanded_list = []
-file_prefix = 'data/lattices/dispersion'  # TODO don't overwrite every time
+file_prefix = 'data/lattices/dispersion' + name  # TODO don't overwrite every time
 
 
 def init():
@@ -44,9 +44,9 @@ def animation_helper(i,  dts, plot_type='maps'):
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
-    occ_map = OccupancyMap.fromVoxelMapBag('data/maps/trees_dispersion_1.1.bag')
-    start_state[0:2] = [10, 6]
-    goal_state[0:2] = [72, 6]
+    occ_map = OccupancyMap.fromVoxelMapBag('data/maps/random/trees_long0.4_1.png.bag', force_2d=True)
+    start_state[0:2] = [2, 6]
+    goal_state[0:2] = [48, 6]
 
     gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n],
                      heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])

@@ -55,7 +55,7 @@ class GraphSearch:
         self.succeeded = False
 
         # Parameter used in min time heuristic from Sikang's paper
-        self.rho = 1000.0
+        self.rho = self.motion_primitive_graph.mp_subclass_specific_data.get('rho',100)*1.5
         self.heuristic_dict = {
             'zero': self.zero_heuristic,
             'euclidean': self.euclidean_distance_heuristic,
@@ -88,7 +88,7 @@ class GraphSearch:
         goal_state[:mpg.num_dims] = di['goal']
         if goal_tolerance is None:
             goal_tolerance = np.ones(mpg.n)
-        gs = cls(mpg, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.01, heuristic=heuristic)
+        gs = cls(mpg, occupancy_map, start_state, goal_state, goal_tolerance, mp_sampling_step_size=0.1, heuristic=heuristic)
         return gs
 
     def zero_heuristic(self, state):
@@ -131,16 +131,16 @@ class GraphSearch:
         neighbor_nodes_states = np.array([node.state for node in self.neighbor_nodes]).T
         if neighbor_nodes_states.size > 0:
             ax.plot(neighbor_nodes_states[0, :], neighbor_nodes_states[1, :], '.',
-                    color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k')
+                    color=('.8'), zorder=2, markeredgewidth=.2, markeredgecolor='k', markersize=4)
         self.map.plot(ax=ax)
-        if self.mp_list is None:
+        if self.succeeded is False:
             print("Error: Cannot plot path which does not exist.")
             return
         sampled_path = np.hstack([mp.get_sampled_states()[1:1+self.num_dims, :] for mp in self.mp_list])
         path = np.vstack([mp.start_state for mp in self.mp_list]).T
         ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
         print(f'cost: {self.path_cost}')
-        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4)
+        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4,markersize=4)
 
         if self.goal_tolerance.size > 1:
             ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
@@ -149,6 +149,7 @@ class GraphSearch:
         neighbor_mps = self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension)
         neighbors = []
         for i, mp in enumerate(neighbor_mps):
+            self.num_collision_checks += 1
             if self.map.is_mp_collision_free(mp, step_size=self.mp_sampling_step_size):
                 state = mp.end_state
                 # neighbor_node = Node(mp.cost + node.g, self.heuristic(state), state, node.state, mp, graph_depth=node.graph_depth+1) # min time cost
@@ -247,7 +248,7 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            if len(self.neighbor_nodes) > 10000:
+            if self.num_collision_checks > 100000:
                 break
             # if node.graph_depth > 2:
             #     break
@@ -390,9 +391,7 @@ if __name__ == "__main__":
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
     mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattice_test.json")
-    # mpl = MotionPrimitiveLattice.load(
-    #     f"{pkg_path}data/lattices/2_dispersion35.json")
+        f"{pkg_path}data/lattices/dispersion40.json")
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
@@ -440,7 +439,7 @@ if __name__ == "__main__":
                verticalalignment='top', bbox=props)
 
     mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/dispersion135.json")
+        f"{pkg_path}data/lattices/dispersion80.json")
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
     gs.run_graph_search()
     gs.plot(ax[0])

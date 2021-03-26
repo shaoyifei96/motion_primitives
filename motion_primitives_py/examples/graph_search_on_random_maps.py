@@ -13,7 +13,8 @@ pkg_path = f'{pkg_path}/motion_primitives_py/'
 
 def generate_data():
     # get all lattices in directory
-    file_prefix = f'{pkg_path}data/lattices/dispersion'
+    # file_prefix = f'{pkg_path}data/lattices/dispersion'
+    file_prefix = f'{pkg_path}data/lattices/opt/dispersion'
     dispersion_threshholds = list(np.arange(1, 201))
     dispersion_threshholds.reverse()
     mpls = {}
@@ -28,7 +29,7 @@ def generate_data():
 
     data_array = np.zeros((3, 100, len(dispersion_threshholds)))
     for n in range(1, 101):  # iterate over maps
-        bag_name = f'{pkg_path}data/maps/random/trees_long0.4_{n}.png.bag'
+        bag_name = f'{pkg_path}data/maps/clutteredness/trees_long1_{n}.png.bag'
         # bag_name = f'data/maps/random/trees_dispersion_0.6_{n}.png.bag'
         print(bag_name)
         occ_map = OccupancyMap.fromVoxelMapBag(bag_name, force_2d=True)
@@ -36,30 +37,30 @@ def generate_data():
         goal_state = np.zeros_like(start_state)
         start_state[0:2] = [2, 6]
         goal_state[0:2] = [48, 6]
-        # occ_map.plot()
-        # plt.show()
 
         for i, dispersion_threshhold in enumerate(dispersion_threshholds):  # iterate over lattices
             mpl = mpls[dispersion_threshhold]
             print(f'Dispersion {mpl.dispersion}')
             gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n],
-                             heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1])
+                             heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1], goal_tolerance=np.ones(mpl.n))
             gs.run_graph_search()
             data_array[0, n-1, i] = gs.path_cost
             data_array[1, n-1, i] = gs.nodes_expanded
             data_array[2, n-1, i] = len(gs.neighbor_nodes)
+            gs.plot()
+            plt.show()
     np.save('random_data', data_array)
 
 
 def generate_data_clutteredness():
     # get all lattices in directory
     file_prefix = f'{pkg_path}data/lattices/dispersion'
-    dispersion_threshhold = 150
+    dispersion_threshhold = 70
     mpl = MotionPrimitiveLattice.load(f"{file_prefix}{dispersion_threshhold}.json")
 
     data_dict = {}
     counter = 0
-    for root, dirs, files in os.walk('/home/laura/Documents/research/quals/png_maps/'):
+    for root, dirs, files in os.walk( f'{pkg_path}data/maps/clutteredness/'):
         for f in files:
             if "bag" in f:
                 counter += 1
@@ -114,10 +115,10 @@ def process_data_clutteredness():
     plt.show()
 
 
-def process_data(data):
+def process_data():
+    data = np.load('random_data.npy')
     file_prefix = f'{pkg_path}data/lattices/dispersion'
     dispersion_threshholds = list(np.arange(1, 201))
-    dispersion_threshholds.remove(100)
     dispersion_threshholds.reverse()
     for dispersion_threshhold in deepcopy(dispersion_threshholds):
         filename = f"{file_prefix}{dispersion_threshhold}"
@@ -129,6 +130,7 @@ def process_data(data):
             dispersion_threshholds.remove(dispersion_threshhold)
     fig, ax = plt.subplots(2, 1, sharex=True)
     path_cost = data[0, :, :]
+    print(path_cost)
     average_path_cost = np.nanmean(path_cost, axis=0)
     ax[0].plot(dispersion_threshholds, average_path_cost)
     ax[0].set_ylabel("Cost")
@@ -143,7 +145,7 @@ def process_data(data):
     # ax[2].set_ylabel("Nodes Expanded")
 
     nodes_considered = data[2, :, :]
-    nodes_considered[nodes_expanded > 999] = np.nan
+    # nodes_considered[nodes_expanded > 999] = np.nan
     average_nodes_considered = np.nanmean(nodes_considered, axis=0)
     ax[1].plot(dispersion_threshholds, average_nodes_considered)
     # ax[2].xlabel("Dispersion")
@@ -160,7 +162,9 @@ def process_data(data):
 
 
 if __name__ == '__main__':
-    generate_data_clutteredness()
-    process_data_clutteredness()
+    # generate_data()
+    process_data()
+    # generate_data_clutteredness()
+    # process_data_clutteredness()
     # data = np.load('data/random_data_2.npy')
     # process_data(data)

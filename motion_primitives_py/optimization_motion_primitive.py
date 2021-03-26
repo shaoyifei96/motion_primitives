@@ -28,10 +28,12 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
 
         self.is_valid = False
         self.poly_coeffs = None
+        self.poly_multiplier = None
         self.traj_time = 0
+        self.setup_bvp()
         self.outer_bvp()
-        if self.poly_coeffs is not None:
-            self.polynomial_setup(self.poly_coeffs.shape[1]-1)
+        if self.is_valid:
+            self.poly_order = self.poly_coeffs.shape[1]-1
 
     @staticmethod
     def A_and_B_matrices_quadrotor(num_dims, control_space_q):
@@ -69,7 +71,7 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
 
         # optimization problem with lower bound on dt (since below this it is infeasible). Upper bound is arbitrary
         if dt_start + 1e-4 > self.max_dt:
-            print(f"first feasible dt too high {dt_start} {self.max_dt}")
+            # print(f"first feasible dt too high {dt_start} {self.max_dt}")
             return
         sol = minimize_scalar(self.inner_bvp, bounds=[dt_start, self.max_dt], method='bounded', options={'xatol': 1e-01, 'maxiter': 10})
         self.optimal_dt = sol.x
@@ -82,51 +84,58 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
             time_vec = np.linspace(0, self.optimal_dt*(self.steps), self.traj.shape[0])
             self.poly_coeffs = np.polyfit(time_vec, self.traj[:, :self.num_dims], self.n).T  # TODO what degree polynomial
 
+    def setup_bvp(self):
+        self.state_variables = []
+        self.state_constraints = []
+        self.input_variables = []
+        self.input_constraints = []
+        self.xts = []
+        self.uts = []
+        # obey starting condition
+        x0_var = cvx.Variable(self.start_state.shape)
+        self.state_constraints.append(x0_var == self.start_state)
+        self.state_variables.append(x0_var)
+        R = np.eye(self.num_dims)
+        for _ in range(self.steps):
+            xt = cvx.Variable(self.start_state.shape)
+            ut = cvx.Variable(R.shape[-1])
+            self.xts.append(xt)
+            self.uts.append(ut)
+
+            # make this obey dynamics and box constraints
+            self.state_constraints += [xt >= -self.x_box, xt <= self.x_box]
+            self.input_constraints += [ut >= -self.u_box, ut <= self.u_box]
+
+            # add these to state variables and input variables so we can extract them later
+            self.state_variables.append(xt)
+            self.input_variables.append(ut)
+
+        # obey terminal condition
+        self.state_constraints.append(self.state_variables[-1] == self.end_state)
+
+
     def inner_bvp(self, dt, return_traj=False):
         """
         Computes an optimal MP between a start and goal state, under bounding box constraints with a given time interval (dt) allocation.
         Accomplishes this by constraining x(t) and u(t) at discrete steps to obey the input, state, and dynamic constraints.
         Note that it is parameterized by time step size (dt), with a fixed number of time steps set in the constructor.
         """
-        if dt <= 0:  # Don't allow negative time (outer_bvp may try to do this)
-            return np.inf
 
         # Transform a continuous to a discrete state-space system, given dt
         sysd = cont2discrete((self.c_A, self.c_B, np.eye(self.n), 0), dt)
         A = sysd[0]
         B = sysd[1]
-
         cost = 0  # initializing cost
-        state_variables = []
-        state_constraints = []
-        input_variables = []
-        input_constraints = []
+
         dynamic_constraints = []
         R = np.eye(self.num_dims)
-
-        x0_var = cvx.Variable(self.start_state.shape)
-        # obey starting condition
-        state_constraints.append(x0_var == self.start_state)
-        state_variables.append(x0_var)
-        for _ in range(self.steps):
-            xt = cvx.Variable(self.start_state.shape)
-            ut = cvx.Variable(R.shape[-1])
-
+        for i in range(len(self.xts)):
             # make this obey dynamics and box constraints
-            dynamic_constraints.append(xt == A @ state_variables[-1] + B @ ut)
-            state_constraints += [xt >= -self.x_box, xt <= self.x_box]
-            input_constraints += [ut >= -self.u_box, ut <= self.u_box]
-
-            # add these to state variables and input variables so we can extract them later
-            state_variables.append(xt)
-            input_variables.append(ut)
-            cost += cvx.quad_form(ut, R*dt) + self.rho*dt  # $\sum_{t} {(||u||^2 + \rho) * t}$
-
-        # obey terminal condition
-        state_constraints.append(state_variables[-1] == self.end_state)
+            dynamic_constraints.append(self.xts[i] == A @ self.state_variables[i] + B @ self.uts[i])
+            cost += cvx.quad_form(self.uts[i], R*dt) + self.rho*dt  # $\sum_{t} {(||u||^2 + \rho) * t}$
 
         objective = cvx.Minimize(cost)
-        constraints = state_constraints + dynamic_constraints + input_constraints
+        constraints = self.state_constraints + dynamic_constraints + self.input_constraints
         prob = cvx.Problem(objective, constraints)
         try:
             total_cost = prob.solve()
@@ -134,14 +143,13 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
             total_cost = np.inf
             print(f"inner bvp failure {self.start_state}, {self.end_state}")
         # print("Solution is {}".format(prob.status))
-        if return_traj:
+        if return_traj and total_cost is not np.inf:
             try:
-                trajectory = np.array([state.value for state in state_variables])
-                inputs = np.array([control.value for control in input_variables])
+                trajectory = np.array([state.value for state in self.state_variables])
+                inputs = np.array([control.value for control in self.input_variables])
                 return total_cost, trajectory, inputs
             except:
                 print("No trajectory to return")
-                pass
         return total_cost
 
     def plot_inner_bvp_sweep_t(self):
@@ -190,7 +198,8 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         fig, ax = plt.subplots(self.n + self.num_dims)
         for _ in range(5):
             self.rho *= 10
-            if self.outer_bvp():
+            self.outer_bvp()
+            if self.is_valid:
                 time_vec = np.linspace(0, self.optimal_dt*(self.steps-1), self.inputs.shape[0])
                 for i in range(self.num_dims):
                     ax[i].plot(time_vec, self.inputs[:, i], label=rf"$\rho =$ {self.rho}")
@@ -208,30 +217,33 @@ if __name__ == "__main__":
     from pycallgraph.output import GraphvizOutput
     import time
 
+    rho = 1e-3
+    max_t = 10
     num_dims = 2
-    control_space_q = 2
-    rho = 1e3
 
-    start_state = np.array([0.63703125, 0.63703125, 0.40109375, 1.48640625])  # initial state
-    end_state = np.array([0.,  0, 0.,  0.])  # terminal state
+    start_state = np.array([0.63703125, 0.63703125, 0.40109375, 1.48640625]) *1e1 # initial state
+    end_state = np.array([0.,  0, 0.,  0., ])  # terminal state
     # end_state = np.zeros(num_dims*control_space_q)  # terminal state
-    max_state = [1.51, 1.51, 15, 100]
-    subclass_specific_data = {'rho': rho}
+    max_state = [0, 1.51, 5, 100]
+    subclass_specific_data = {'rho': rho, 'iterative_bvp_max_t': max_t}
 
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
 
+    #     mp = OptimizationMotionPrimitive(start_state, end_state, num_dims, max_state,
+    #                                      subclass_specific_data=subclass_specific_data)
     t = time.time()
+
     mp = OptimizationMotionPrimitive(start_state, end_state, num_dims, max_state,
                                      subclass_specific_data=subclass_specific_data)
     elapsed = time.time() - t
     print(elapsed)
 
-    dictionary = mp.to_dict()
-    mp = OptimizationMotionPrimitive.from_dict(dictionary, num_dims, max_state)
-
     # mp.plot_inner_bvp_sweep_t()
     # mp.plot_outer_bvp_x()
-    # q.plot_outer_bvp_sweep_rho()
+    # mp.plot_outer_bvp_sweep_rho()
 
-    # mp.plot()
+    # dictionary = mp.to_dict()
+    # mp = OptimizationMotionPrimitive.from_dict(dictionary, num_dims, max_state)
+
+    mp.plot()
     plt.show()
