@@ -7,7 +7,7 @@ add_compile_options(-std=c++11)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs)
+find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(GTest 1.10.0 REQUIRED)
 find_package(glog 0.5.0 REQUIRED)

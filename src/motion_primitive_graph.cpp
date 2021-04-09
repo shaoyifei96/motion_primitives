@@ -1,15 +1,34 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
+#include <fstream>
 #include <nlohmann/json.hpp>
-#include <ostream>
 namespace motion_primitives {
 
 void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
-  // self.poly_coeffs[:, -1] = start_pt //TODO also translate poly coeffs
+  poly_coeffs_.col(poly_coeffs_.cols() - 1) = new_start.head(spatial_dim_);
   end_state_.head(spatial_dim_) = end_state_.head(spatial_dim_) -
                                   start_state_.head(spatial_dim_) +
                                   new_start.head(spatial_dim_);
   start_state_.head(spatial_dim_) = new_start.head(spatial_dim_);
+}
+
+Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const{
+  Eigen::VectorXd time_multiplier;
+  time_multiplier.resize(poly_coeffs_.cols());
+  for (int i = 0; i < poly_coeffs_.cols(); i++) {
+    time_multiplier[poly_coeffs_.cols()-i-1] = std::pow(t, i);
+  }
+  return poly_coeffs_ * time_multiplier;
+}
+
+Eigen::MatrixXd MotionPrimitive::get_sampled_position(double step_size=0.1) const{
+  Eigen::MatrixXd result;
+  int num_samples = ceil(traj_time_/step_size)+1;
+  result.resize(num_samples,spatial_dim_);
+  for (int i = 0; i <num_samples; i++){
+    result.row(i) = evaluate_polynomial(i*step_size);
+  }
+  return result;
 }
 
 std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m) {
@@ -72,4 +91,10 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
   }
 }
 
+MotionPrimitiveGraph read_motion_primitive_graph(std::string s) {
+  std::ifstream json_file(s);
+  nlohmann::json json_data;
+  json_file >> json_data;
+  return json_data.get<motion_primitives::MotionPrimitiveGraph>();
+}
 }  // namespace motion_primitives

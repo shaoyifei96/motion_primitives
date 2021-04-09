@@ -36,6 +36,8 @@ class MotionPrimitive {
     CHECK_EQ(start_state_.rows(), end_state_.rows());
   };
   void translate(const Eigen::VectorXd& new_start);
+  Eigen::VectorXd evaluate_polynomial(float t) const;
+  Eigen::MatrixXd get_sampled_position(double step_size) const;
 };
 
 class MotionPrimitiveGraph {
@@ -63,6 +65,7 @@ class MotionPrimitiveGraph {
 };
 
 void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph);
+MotionPrimitiveGraph read_motion_primitive_graph(std::string s);
 
 template <typename T>
 std::ostream& operator<<(std::ostream& output, std::vector<T> const& values) {
