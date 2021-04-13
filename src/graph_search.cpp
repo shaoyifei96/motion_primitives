@@ -19,10 +19,9 @@ bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
   for (int i = 0; i < graph_.spatial_dim_; i++) {
     if (indices[i] < 0 || (map_dims_[i] - indices[i]) <= 0) {
       return false;
-    } else {
-      return true;
     }
   }
+  return true;
 }
 
 bool GraphSearch::is_free_and_valid_indices(
@@ -136,7 +135,7 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
   }
   std::reverse(path.begin(), path.end());
   ROS_INFO_STREAM(path);
-  ROS_INFO("Optimal trajectory cost %f",path_cost);
+  ROS_INFO("Optimal trajectory cost %f", path_cost);
   return path;
 }
 
