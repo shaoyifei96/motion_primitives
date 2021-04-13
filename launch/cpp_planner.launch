@@ -3,7 +3,8 @@
     type="motion_primitives_graph_search"
     name="graph_search_node"
     output="screen">
-    <param name="file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
-    <param name="topic" value="/voxel_map"/>
+    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
+    <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
+    <param name="map_topic" value="/voxel_map"/>
     </node>
 </launch>

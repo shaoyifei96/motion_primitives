@@ -21,6 +21,16 @@ class MotionPrimitive {
   Eigen::VectorXd start_state_;
   Eigen::VectorXd end_state_;
   Eigen::MatrixXd poly_coeffs_;
+  // Moves the motion primitive to a new position by modifying it's start, end,
+  // and polynomial coefficients
+  void translate(const Eigen::VectorXd& new_start);
+  // Evaluates a polynomial motion primitive at a time t and returns a vector of
+  // size spatial_dim_. TODO: make work with evaluating velocities,
+  // accelerations, etc., right now it only works for position
+  Eigen::VectorXd evaluate_polynomial(float t) const;
+  // Samples a motion primitive's position at regular temporal intervals
+  // step_size apart.
+  Eigen::MatrixXd get_sampled_position(double step_size) const;
 
  public:
   MotionPrimitive() = default;
@@ -35,9 +45,6 @@ class MotionPrimitive {
         poly_coeffs_(poly_coeffs) {
     CHECK_EQ(start_state_.rows(), end_state_.rows());
   };
-  void translate(const Eigen::VectorXd& new_start);
-  Eigen::VectorXd evaluate_polynomial(float t) const;
-  Eigen::MatrixXd get_sampled_position(double step_size) const;
 };
 
 class MotionPrimitiveGraph {
@@ -64,7 +71,11 @@ class MotionPrimitiveGraph {
   MotionPrimitiveGraph() = default;
 };
 
+// Overrides a function from nlohmann::json to convert a json file into a
+// MotionPrimitiveGraph object.
 void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph);
+// Creates the intermediate json objects to convert from a file location to a
+// MotionPrimitiveGraph.
 MotionPrimitiveGraph read_motion_primitive_graph(std::string s);
 
 template <typename T>

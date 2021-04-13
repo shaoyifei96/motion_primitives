@@ -11,6 +11,8 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
 namespace Eigen {
+// Allows comparison of two Eigen::VectorXd, in order to allow lookup in a
+// std::map where the shortest path history is stored.
 bool operator<(Eigen::VectorXd const& a, Eigen::VectorXd const& b) {
   CHECK_EQ(a.size(), b.size());
   for (size_t i = 0; i < a.size(); ++i) {
@@ -26,32 +28,29 @@ class Node {
   friend std::ostream& operator<<(std::ostream& out, const Node& node);
 
  private:
-  double f_;  // total-cost
-  double g_;  // cost-to-come
-  double h_;  // heuristic
+  double total_cost_;
+  double cost_to_come_;
+  double heuristic_cost_;
   Eigen::VectorXd state_;
-  Eigen::VectorXd parent_state_;
   int index_;
-  int parent_index_;
   friend class GraphSearch;
 
  public:
   Node() = default;
-  Node(double g, double h, const Eigen::VectorXd& state,
-       const Eigen::VectorXd& parent_state, int index, int parent_index = -1)
-      : g_(g),
-        h_(h),
-        f_(g + h),
+  Node(double g, double h, const Eigen::VectorXd& state, int index)
+      : cost_to_come_(g),
+        heuristic_cost_(h),
+        total_cost_(g + h),
         state_(state),
-        parent_state_(parent_state),
-        index_(index),
-        parent_index_(parent_index) {}
+        index_(index) {}
 
   friend bool operator>(const Node& n1, const Node& n2);
   friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
 };
 
-bool operator>(const Node& n1, const Node& n2) { return n1.f_ > n2.f_; }
+bool operator>(const Node& n1, const Node& n2) {
+  return n1.total_cost_ > n2.total_cost_;
+}
 
 class GraphSearch {
  private:
@@ -63,12 +62,17 @@ class GraphSearch {
   planning_ros_msgs::VoxelMap voxel_map_;
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
+  // Converts from vector of indices to single index into
+  // planning_ros_msgs::VoxelMap.data
   int get_linear_indices(const Eigen::Vector3i& indices) const;
   bool is_valid_indices(const Eigen::Vector3i& indices) const;
   bool is_free_and_valid_indices(const Eigen::Vector3i& indices) const;
   bool is_free_and_valid_position(Eigen::VectorXd v) const;
+  // Samples motion primitive along step_size time steps and checks for
+  // collisions
   bool is_mp_collision_free(const MotionPrimitive& mp, double step_size) const;
-
+  // Returns a vector of collision free nodes that are connected to the current
+  // node by graph_ edges
   std::vector<Node> get_neighbor_nodes_lattice(const Node& node) const;
   double heuristic(const Eigen::VectorXd& v) const;
   std::vector<MotionPrimitive> reconstruct_path(

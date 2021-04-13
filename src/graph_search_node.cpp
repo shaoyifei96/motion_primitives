@@ -42,30 +42,29 @@ int main(int argc, char **argv) {
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
 
   // Read map from bag file
-  std::string file_name, topic_name;
-  pnh.param("file", file_name, std::string("voxel_map"));
-  pnh.param("topic", topic_name, std::string("voxel_map"));
+  std::string map_file, map_topic, graph_file;
+  pnh.param("map_file", map_file, std::string("voxel_map"));
+  pnh.param("map_topic", map_topic, std::string("voxel_map"));
   planning_ros_msgs::VoxelMap voxel_map =
-      read_bag<planning_ros_msgs::VoxelMap>(file_name, topic_name, 0).back();
+      read_bag<planning_ros_msgs::VoxelMap>(map_file, map_topic, 0).back();
 
-  std::string graph_file(
-      "/home/laura/dispersion_ws/src/motion_primitives/motion_primitives_py/"
-      "data/lattices/opt2/dispersionopt101.json");
+  pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   Eigen::Vector4d start(12.5, 1.4, 0, 0);
   Eigen::Vector4d goal(6.4, 16.6, 0, 0);
 
   GraphSearch gs(read_motion_primitive_graph(graph_file), start, goal,
                  voxel_map);
+  ROS_INFO("Started planning.");
+  ros::Time planner_start_time = ros::Time::now();
   auto path = gs.run_graph_search();
   if (path.size() > 0) {
     planning_ros_msgs::Trajectory traj = gs.path_to_traj_msg(path);
     traj_pub.publish(traj);
-  }
-  else {
+  } else {
     ROS_WARN("No trajectory found.");
   }
+  ROS_INFO("Finished planning. Planning time %f s",(ros::Time::now()-planner_start_time).toSec());
   map_pub.publish(voxel_map);
-  ROS_INFO("Finished planning.");
 
   ros::spin();
 }

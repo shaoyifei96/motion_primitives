@@ -15,6 +15,7 @@ int GraphSearch::get_linear_indices(const Eigen::Vector3i& indices) const {
 }
 
 bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
+  // TODO add back unknown_is_free option
   for (int i = 0; i < graph_.spatial_dim_; i++) {
     if (indices[i] < 0 || (map_dims_[i] - indices[i]) <= 0) {
       return false;
@@ -28,12 +29,12 @@ bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
   if (is_valid_indices(indices) &&
       voxel_map_.data[get_linear_indices(indices)] <= 0) {
-    // TODO add back unknown_is_free option
     return true;
   } else {
     return false;
   }
 }
+
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
   position.conservativeResize(3);
   return is_free_and_valid_indices(get_indices_from_position(position));
@@ -57,21 +58,24 @@ double GraphSearch::heuristic(const Eigen::VectorXd& v) const {
   for (int i = 0; i < graph_.spatial_dim_; i++) {
     x(i) = v(i) - goal_state_(i);
   }
-  return 1.5*graph_.rho_ * x.lpNorm<Eigen::Infinity>() / graph_.max_state_(1);
+  // TODO [theoretical] needs a lot of improvement. Not admissible, but too slow
+  // otherwise with higher velocities.
+  return 1.5 * graph_.rho_ * x.lpNorm<Eigen::Infinity>() / graph_.max_state_(1);
 }
 
 std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
     const Node& node) const {
   std::vector<Node> neighbor_nodes;
-  CHECK_GE(node.index_, 0);
+  // CHECK_GE(node.index_, 0);  // TODO do I need this?
+  // TODO explain reset_map_index
   int reset_map_index = floor(node.index_ / graph_.num_tiles_);
   for (int i = 0; i < graph_.edges_.rows(); i++) {
     if (graph_.edges_(i, reset_map_index) >= 0) {
       MotionPrimitive mp = graph_.mps_[graph_.edges_(i, reset_map_index)];
       mp.translate(node.state_);
       if (is_mp_collision_free(mp)) {
-        Node neighbor_node(node.g_ + mp.cost_, heuristic(mp.end_state_),
-                           mp.end_state_, node.state_, i, node.index_);
+        Node neighbor_node(node.cost_to_come_ + mp.cost_,
+                           heuristic(mp.end_state_), mp.end_state_, i);
         neighbor_nodes.push_back(neighbor_node);
       }
     }
@@ -80,12 +84,11 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
 }
 
 std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
-  Node start_node(1e-20, heuristic(start_state_), start_state_,
-                  Eigen::VectorXd(1), 0);
+  Node start_node(1e-20, heuristic(start_state_), start_state_, 0);
   std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
   std::map<Eigen::VectorXd, Node> shortest_path_history;
   pq.push(start_node);
-  shortest_path_history[start_state_] = start_node;
+
   while (!pq.empty() && ros::ok()) {
     Node current_node = pq.top();
     if ((current_node.state_ - goal_state_).norm() <
@@ -96,10 +99,12 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
     }
     pq.pop();
     for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
-      auto neighbor_past_g = shortest_path_history[neighbor_node.state_].g_;
-      if (neighbor_node.g_ < neighbor_past_g || neighbor_past_g == 0) {
+      double neighbor_past_g =
+          shortest_path_history[neighbor_node.state_].cost_to_come_;
+      if (neighbor_node.cost_to_come_ < neighbor_past_g ||
+          neighbor_past_g == 0) {
         pq.push(neighbor_node);
-        shortest_path_history[neighbor_node.state_] = neighbor_node;
+        shortest_path_history[neighbor_node.state_] = current_node;
       }
     }
   }
@@ -114,22 +119,24 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
   // parents.
   double path_cost = 0;
   Node node = end_node;
+  Node parent_node;
   std::vector<MotionPrimitive> path;
   while (true && ros::ok()) {
-    if (node.parent_state_.size() > 1) {
-      int reset_map_index = floor(node.parent_index_ / graph_.num_tiles_);
-      MotionPrimitive mp =
-          graph_.mps_[graph_.edges_(node.index_, reset_map_index)];
-      path_cost += mp.cost_;
-      mp.translate(node.parent_state_);
-      path.push_back(mp);
-
-      node = shortest_path_history.at(node.parent_state_);
-    } else
+    parent_node = shortest_path_history.at(node.state_);
+    int reset_map_index = floor(parent_node.index_ / graph_.num_tiles_);
+    MotionPrimitive mp =
+        graph_.mps_[graph_.edges_(node.index_, reset_map_index)];
+    path_cost += mp.cost_;
+    mp.translate(parent_node.state_);
+    path.push_back(mp);
+    node = parent_node;
+    if (parent_node.state_ == start_state_) {
       break;
+    }
   }
   std::reverse(path.begin(), path.end());
   ROS_INFO_STREAM(path);
+  ROS_INFO("Optimal trajectory cost %f",path_cost);
   return path;
 }
 
@@ -143,6 +150,8 @@ planning_ros_msgs::Trajectory GraphSearch::path_to_traj_msg(
   trajectory.header.frame_id = voxel_map_.header.frame_id;
 
   for (int i = 0; i < pc_resized.rows(); i++) {
+    // These hardcoded coefficients come from how
+    // planning_ros_msgs::Primitive/MPL defines polynomial trajectories
     coeff_multiplier.row(i) << 120, 24, 6, 2, 1, 1;
   }
 
