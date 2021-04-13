@@ -1,17 +1,15 @@
 cmake_minimum_required(VERSION 3.11)
 project(motion_primitives)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+set(CMAKE_CXX_STANDARD 11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(GTest 1.10.0 REQUIRED)
-find_package(glog 0.5.0 REQUIRED)
-find_package(nlohmann_json 3.2.0 REQUIRED)
+find_package(glog REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 # include(FetchContent)
 
@@ -117,7 +115,7 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES ${PROJECT_NAME}_lib
+  LIBRARIES ${PROJECT_NAME}
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS xcc
 )
@@ -137,18 +135,11 @@ catkin_package(
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/motion_primitives_py.cpp
 # )
-add_library(${PROJECT_NAME}_lib src/motion_primitive_graph.cpp src/graph_search.cpp)
-
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-## Declare a C++ executable
-## With catkin_make all packages are built within a single CMake context
-## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -161,15 +152,17 @@ add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_include_directories(${PROJECT_NAME}_lib PUBLIC include ${catkin_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}_lib
+add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp)
+target_include_directories(${PROJECT_NAME} PUBLIC include ${catkin_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
-  GTest::GTest
   glog::glog
 )
-target_link_libraries(${PROJECT_NAME}_graph_search ${PROJECT_NAME}_lib)
+
+add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
+target_link_libraries(${PROJECT_NAME}_graph_search PRIVATE ${PROJECT_NAME})
 
 #############
 ## Install ##
@@ -193,7 +186,7 @@ install(TARGETS ${PROJECT_NAME}_graph_search
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
-install(TARGETS ${PROJECT_NAME}_lib
+install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
@@ -217,11 +210,4 @@ install(DIRECTORY include/${PROJECT_NAME}/
 ## Testing ##
 #############
 
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_motion_primitives_py.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
-
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
+add_subdirectory(tests)
