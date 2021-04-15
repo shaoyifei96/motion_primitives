@@ -76,7 +76,7 @@ class MotionPrimitiveGraph {
 void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph);
 // Creates the intermediate json objects to convert from a file location to a
 // MotionPrimitiveGraph.
-MotionPrimitiveGraph read_motion_primitive_graph(std::string s);
+MotionPrimitiveGraph read_motion_primitive_graph(const std::string &s); 
 
 template <typename T>
 std::ostream& operator<<(std::ostream& output, std::vector<T> const& values) {

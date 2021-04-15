@@ -1,9 +1,10 @@
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <boost/foreach.hpp>
-#include <sensor_msgs/PointCloud.h>
+
 #include "motion_primitives/graph_search.h"
 
 using namespace motion_primitives;
@@ -41,7 +42,7 @@ int main(int argc, char **argv) {
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
-      pnh.advertise<sensor_msgs::PointCloud>("start_and_goal", 1, true);
+      pnh.advertise<visualization_msgs::MarkerArray>("start_and_goal", 1, true);
 
   // Read map from bag file
   std::string map_file, map_topic, graph_file;
@@ -52,9 +53,9 @@ int main(int argc, char **argv) {
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   std::vector<double> s, g;
-  Eigen::Vector4d start,goal;
-  pnh.param("start_state", s, std::vector<double>{0,0,0,0});
-  pnh.param("goal_state", g, std::vector<double>{0,0,0,0});
+  Eigen::Vector4d start, goal;
+  pnh.param("start_state", s, std::vector<double>{0, 0, 0, 0});
+  pnh.param("goal_state", g, std::vector<double>{0, 0, 0, 0});
   start = Eigen::Map<Eigen::VectorXd>(s.data(), s.size());
   goal = Eigen::Map<Eigen::VectorXd>(g.data(), g.size());
 
@@ -69,16 +70,33 @@ int main(int argc, char **argv) {
   } else {
     ROS_WARN("No trajectory found.");
   }
-  ROS_INFO("Finished planning. Planning time %f s",(ros::Time::now()-planner_start_time).toSec());
+  ROS_INFO("Finished planning. Planning time %f s",
+           (ros::Time::now() - planner_start_time).toSec());
+  voxel_map.header.stamp = ros::Time::now();
   map_pub.publish(voxel_map);
 
-  sensor_msgs::PointCloud sg_cloud;
-  sg_cloud.header = voxel_map.header;
-  geometry_msgs::Point32 pt1, pt2;
-  pt1.x = start[0], pt1.y = start[1], pt1.z = start[2];
-  pt2.x = goal[0], pt2.y = goal[1], pt2.z = goal[2];
-  sg_cloud.points.push_back(pt1), sg_cloud.points.push_back(pt2);
-  sg_pub.publish(sg_cloud);
+  visualization_msgs::MarkerArray sg_markers;
+  visualization_msgs::Marker start_marker, goal_marker;
+  start_marker.header = voxel_map.header;
+  start_marker.pose.position.x = start[0],
+  start_marker.pose.position.y = start[1],
+  start_marker.pose.position.z = start[2];
+  start_marker.pose.orientation.w = 1;
+  start_marker.color.g = 1;
+  start_marker.color.a = 1;
+  start_marker.type = 2;
+  start_marker.scale.x = .5;
+  start_marker.scale.y = .5;
+  start_marker.scale.z = .5;
+  goal_marker = start_marker;
+  goal_marker.id=1;
+  goal_marker.pose.position.x = goal[0], goal_marker.pose.position.y = goal[1],
+  goal_marker.pose.position.z = goal[2];
+  goal_marker.color.g = 0;
+  goal_marker.color.r = 1;
+  sg_markers.markers.push_back(start_marker);
+  sg_markers.markers.push_back(goal_marker);
+  sg_pub.publish(sg_markers);
 
   ros::spin();
 }

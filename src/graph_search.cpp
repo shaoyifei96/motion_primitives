@@ -1,6 +1,9 @@
 
 #include "motion_primitives/graph_search.h"
 
+#include <planning_ros_msgs/Primitive.h>
+#include <ros/init.h>
+
 namespace motion_primitives {
 
 Eigen::Vector3i GraphSearch::get_indices_from_position(
@@ -91,24 +94,23 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
 
   while (!pq.empty() && ros::ok()) {
     Node current_node = pq.top();
-    if ((current_node.state_ - goal_state_).norm() <
-        2) {  // TODO parameterize termination conditions, add BVP end
-              // condition
+    if ((current_node.state_.head(graph_.spatial_dim_) -
+         goal_state_.head(graph_.spatial_dim_))
+            .norm() < .5) {  // TODO parameterize termination conditions, add
+                             // BVP end condition
       return reconstruct_path(current_node, shortest_path_history);
     }
     pq.pop();
     for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
       double neighbor_past_g =
           shortest_path_history[neighbor_node.state_].cost_to_come_;
-      if (neighbor_node.cost_to_come_ < neighbor_past_g ||
-          neighbor_past_g == 0) {
+      if (neighbor_node.cost_to_come_ < neighbor_past_g) {
         pq.push(neighbor_node);
         shortest_path_history[neighbor_node.state_] = current_node;
       }
     }
   }
-  std::vector<MotionPrimitive> path;
-  return path;
+  return {};
 }
 
 std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
@@ -122,7 +124,7 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
   std::vector<MotionPrimitive> path;
   while (ros::ok()) {
     parent_node = shortest_path_history.at(node.state_);
-    if (node.index_ == -1) {
+    if (node.index_ == node.kInvalidIndex) {
       break;
     }
     int reset_map_index = floor(parent_node.index_ / graph_.num_tiles_);

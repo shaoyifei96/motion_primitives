@@ -12,21 +12,22 @@ void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
   start_state_.head(spatial_dim_) = new_start.head(spatial_dim_);
 }
 
-Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const{
+Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
   Eigen::VectorXd time_multiplier;
   time_multiplier.resize(poly_coeffs_.cols());
   for (int i = 0; i < poly_coeffs_.cols(); i++) {
-    time_multiplier[poly_coeffs_.cols()-i-1] = std::pow(t, i);
+    time_multiplier[poly_coeffs_.cols() - i - 1] = std::pow(t, i);
   }
   return poly_coeffs_ * time_multiplier;
 }
 
-Eigen::MatrixXd MotionPrimitive::get_sampled_position(double step_size=0.1) const{
+Eigen::MatrixXd MotionPrimitive::get_sampled_position(
+    double step_size = 0.1) const {
   Eigen::MatrixXd result;
-  int num_samples = ceil(traj_time_/step_size)+1;
-  result.resize(num_samples,spatial_dim_);
-  for (int i = 0; i <num_samples; i++){
-    result.row(i) = evaluate_polynomial(i*step_size);
+  int num_samples = ceil(traj_time_ / step_size) + 1;
+  result.resize(num_samples, spatial_dim_);
+  for (int i = 0; i < num_samples; i++) {
+    result.row(i) = evaluate_polynomial(i * step_size);
   }
   return result;
 }
@@ -85,13 +86,13 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
             edge.at("traj_time"), poly_coeffs));
         graph.edges_(i, j) = graph.mps_.size() - 1;
       } else {
-        graph.edges_(i, j) = -1;
+        graph.edges_(i, j) = -1; //TODO make constant
       }
     }
   }
 }
 
-MotionPrimitiveGraph read_motion_primitive_graph(std::string s) {
+MotionPrimitiveGraph read_motion_primitive_graph(const std::string& s) {
   std::ifstream json_file(s);
   nlohmann::json json_data;
   json_file >> json_data;

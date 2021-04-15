@@ -1,10 +1,8 @@
 #ifndef MOTION_PRIMITIVES_GRAPH_SEARCH_H
 #define MOTION_PRIMITIVES_GRAPH_SEARCH_H
 
-#include <planning_ros_msgs/Primitive.h>
 #include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
-#include <ros/init.h>
 
 #include <queue>
 
@@ -25,14 +23,13 @@ bool operator<(Eigen::VectorXd const& a, Eigen::VectorXd const& b) {
 namespace motion_primitives {
 
 class Node {
-  friend std::ostream& operator<<(std::ostream& out, const Node& node);
-
  private:
-  double total_cost_;
-  double cost_to_come_;
-  double heuristic_cost_;
+  double total_cost_{std::numeric_limits<double>::max()};
+  double cost_to_come_{std::numeric_limits<double>::max()};
+  double heuristic_cost_{0};
   Eigen::VectorXd state_;
-  int index_;
+  int index_{kInvalidIndex};
+  static constexpr int kInvalidIndex = -1;
   friend class GraphSearch;
 
  public:
@@ -43,9 +40,8 @@ class Node {
         total_cost_(g + h),
         state_(state),
         index_(index) {}
-
   friend bool operator>(const Node& n1, const Node& n2);
-  friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
+  friend std::ostream& operator<<(std::ostream& out, const Node& node);
 };
 
 bool operator>(const Node& n1, const Node& n2) {
