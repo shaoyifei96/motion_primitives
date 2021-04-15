@@ -83,10 +83,11 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
 }
 
 std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
-  Node start_node(1e-20, heuristic(start_state_), start_state_, 0);
+  Node start_node(1e-20, heuristic(start_state_), start_state_, -1);
   std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
   std::map<Eigen::VectorXd, Node> shortest_path_history;
   pq.push(start_node);
+  shortest_path_history[start_state_] = start_node;
 
   while (!pq.empty() && ros::ok()) {
     Node current_node = pq.top();
@@ -94,7 +95,6 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
         2) {  // TODO parameterize termination conditions, add BVP end
               // condition
       return reconstruct_path(current_node, shortest_path_history);
-      break;
     }
     pq.pop();
     for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
@@ -120,8 +120,11 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
   Node node = end_node;
   Node parent_node;
   std::vector<MotionPrimitive> path;
-  while (true && ros::ok()) {
+  while (ros::ok()) {
     parent_node = shortest_path_history.at(node.state_);
+    if (node.index_ == -1) {
+      break;
+    }
     int reset_map_index = floor(parent_node.index_ / graph_.num_tiles_);
     MotionPrimitive mp =
         graph_.mps_[graph_.edges_(node.index_, reset_map_index)];
@@ -129,9 +132,6 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
     mp.translate(parent_node.state_);
     path.push_back(mp);
     node = parent_node;
-    if (parent_node.state_ == start_state_) {
-      break;
-    }
   }
   std::reverse(path.begin(), path.end());
   ROS_INFO_STREAM(path);

@@ -3,7 +3,7 @@
 #include <rosbag/view.h>
 
 #include <boost/foreach.hpp>
-
+#include <sensor_msgs/PointCloud.h>
 #include "motion_primitives/graph_search.h"
 
 using namespace motion_primitives;
@@ -40,6 +40,8 @@ int main(int argc, char **argv) {
       pnh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
+  ros::Publisher sg_pub =
+      pnh.advertise<sensor_msgs::PointCloud>("start_and_goal", 1, true);
 
   // Read map from bag file
   std::string map_file, map_topic, graph_file;
@@ -49,8 +51,12 @@ int main(int argc, char **argv) {
       read_bag<planning_ros_msgs::VoxelMap>(map_file, map_topic, 0).back();
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
-  Eigen::Vector4d start(12.5, 1.4, 0, 0);
-  Eigen::Vector4d goal(6.4, 16.6, 0, 0);
+  std::vector<double> s, g;
+  Eigen::Vector4d start,goal;
+  pnh.param("start_state", s, std::vector<double>{0,0,0,0});
+  pnh.param("goal_state", g, std::vector<double>{0,0,0,0});
+  start = Eigen::Map<Eigen::VectorXd>(s.data(), s.size());
+  goal = Eigen::Map<Eigen::VectorXd>(g.data(), g.size());
 
   GraphSearch gs(read_motion_primitive_graph(graph_file), start, goal,
                  voxel_map);
@@ -65,6 +71,14 @@ int main(int argc, char **argv) {
   }
   ROS_INFO("Finished planning. Planning time %f s",(ros::Time::now()-planner_start_time).toSec());
   map_pub.publish(voxel_map);
+
+  sensor_msgs::PointCloud sg_cloud;
+  sg_cloud.header = voxel_map.header;
+  geometry_msgs::Point32 pt1, pt2;
+  pt1.x = start[0], pt1.y = start[1], pt1.z = start[2];
+  pt2.x = goal[0], pt2.y = goal[1], pt2.z = goal[2];
+  sg_cloud.points.push_back(pt1), sg_cloud.points.push_back(pt2);
+  sg_pub.publish(sg_cloud);
 
   ros::spin();
 }
