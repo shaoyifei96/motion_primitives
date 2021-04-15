@@ -5,21 +5,29 @@
 #include <planning_ros_msgs/VoxelMap.h>
 
 #include <queue>
+#include <unordered_map>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
-namespace Eigen {
-// Allows comparison of two Eigen::VectorXd, in order to allow lookup in a
-// std::map where the shortest path history is stored.
-bool operator<(Eigen::VectorXd const& a, Eigen::VectorXd const& b) {
-  CHECK_EQ(a.size(), b.size());
-  for (size_t i = 0; i < a.size(); ++i) {
-    if (a[i] < b[i]) return true;
-    if (a[i] > b[i]) return false;
+// A hash function for Eigen matrix/vector from the internet: 
+// https://wjngkoh.wordpress.com/2015/03/04/c-hash-function-for-eigen-matrix-and-vector/
+template <typename T>
+struct matrix_hash : std::unary_function<T, size_t> {
+  std::size_t operator()(T const& matrix) const {
+    // Note that it is oblivious to the storage order of Eigen matrix (column-
+    // or row-major). It will give you the same hash value for two different
+    // matrices if they are the transpose of each other in different storage
+    // order.
+    size_t seed = 0;
+    for (size_t i = 0; i < matrix.size(); ++i) {
+      auto elem = *(matrix.data() + i);
+      seed ^= std::hash<typename T::Scalar>()(elem) + 0x9e3779b9 + (seed << 6) +
+              (seed >> 2);
+    }
+    return seed;
   }
-  return false;
-}
-}  // namespace Eigen
+};
+
 namespace motion_primitives {
 
 class Node {
@@ -28,8 +36,7 @@ class Node {
   double cost_to_come_{std::numeric_limits<double>::max()};
   double heuristic_cost_{0};
   Eigen::VectorXd state_;
-  int index_{kInvalidIndex};
-  static constexpr int kInvalidIndex = -1;
+  int index_{-1};
   friend class GraphSearch;
 
  public:
@@ -73,7 +80,11 @@ class GraphSearch {
   double heuristic(const Eigen::VectorXd& v) const;
   std::vector<MotionPrimitive> reconstruct_path(
       const Node& end_node,
-      const std::map<Eigen::VectorXd, Node>& shortest_path_history) const;
+      const std::unordered_map<Eigen::VectorXd, Node,
+                               matrix_hash<Eigen::VectorXd>>&
+          shortest_path_history) const;
+  MotionPrimitive get_mp_between_indices(int i1, int i2) const;
+  MotionPrimitive get_mp_between_nodes(const Node& n1, const Node& n2) const;
 
  public:
   planning_ros_msgs::Trajectory path_to_traj_msg(

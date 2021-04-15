@@ -3,7 +3,6 @@
 
 #include <planning_ros_msgs/Primitive.h>
 #include <ros/init.h>
-
 namespace motion_primitives {
 
 Eigen::Vector3i GraphSearch::get_indices_from_position(
@@ -68,12 +67,11 @@ double GraphSearch::heuristic(const Eigen::VectorXd& v) const {
 std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
     const Node& node) const {
   std::vector<Node> neighbor_nodes;
-  // CHECK_GE(node.index_, 0);  // TODO do I need this?
   // TODO explain reset_map_index
   int reset_map_index = floor(node.index_ / graph_.num_tiles_);
   for (int i = 0; i < graph_.edges_.rows(); i++) {
     if (graph_.edges_(i, reset_map_index) >= 0) {
-      MotionPrimitive mp = graph_.mps_[graph_.edges_(i, reset_map_index)];
+      MotionPrimitive mp = get_mp_between_indices(i, reset_map_index);
       mp.translate(node.state_);
       if (is_mp_collision_free(mp)) {
         Node neighbor_node(node.cost_to_come_ + mp.cost_,
@@ -86,11 +84,11 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
 }
 
 std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
-  Node start_node(1e-20, heuristic(start_state_), start_state_, -1);
+  Node start_node(0, heuristic(start_state_), start_state_, 0);
   std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
-  std::map<Eigen::VectorXd, Node> shortest_path_history;
+  std::unordered_map<Eigen::VectorXd, Node, matrix_hash<Eigen::VectorXd>>
+      shortest_path_history;
   pq.push(start_node);
-  shortest_path_history[start_state_] = start_node;
 
   while (!pq.empty() && ros::ok()) {
     Node current_node = pq.top();
@@ -115,30 +113,40 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
 
 std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
     const Node& end_node,
-    const std::map<Eigen::VectorXd, Node>& shortest_path_history) const {
-  // Build path from start point to goal point using the goal node's
-  // parents.
-  double path_cost = 0;
+    const std::unordered_map<Eigen::VectorXd, Node,
+                             matrix_hash<Eigen::VectorXd>>&
+        shortest_path_history) const {
   Node node = end_node;
   Node parent_node;
   std::vector<MotionPrimitive> path;
+  if (end_node.cost_to_come_ == 0) {
+    ROS_WARN("No trajectory found due to start being too close to the goal.");
+    return {};
+  }
   while (ros::ok()) {
     parent_node = shortest_path_history.at(node.state_);
-    if (node.index_ == node.kInvalidIndex) {
+    path.push_back(get_mp_between_nodes(parent_node, node));
+    if (parent_node.cost_to_come_ == 0) {
       break;
     }
-    int reset_map_index = floor(parent_node.index_ / graph_.num_tiles_);
-    MotionPrimitive mp =
-        graph_.mps_[graph_.edges_(node.index_, reset_map_index)];
-    path_cost += mp.cost_;
-    mp.translate(parent_node.state_);
-    path.push_back(mp);
     node = parent_node;
   }
   std::reverse(path.begin(), path.end());
   ROS_INFO_STREAM(path);
-  ROS_INFO("Optimal trajectory cost %f", path_cost);
+  ROS_INFO("Optimal trajectory cost %f", end_node.cost_to_come_);
   return path;
+}
+
+MotionPrimitive GraphSearch::get_mp_between_indices(int i1, int i2) const {
+  return graph_.mps_[graph_.edges_(i1, i2)];
+}
+
+MotionPrimitive GraphSearch::get_mp_between_nodes(const Node& start_node,
+                                                  const Node& end_node) const {
+  int reset_map_index = floor(start_node.index_ / graph_.num_tiles_);
+  MotionPrimitive mp = get_mp_between_indices(end_node.index_, reset_map_index);
+  mp.translate(start_node.state_);
+  return mp;
 }
 
 planning_ros_msgs::Trajectory GraphSearch::path_to_traj_msg(

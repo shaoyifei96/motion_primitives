@@ -1,5 +1,6 @@
 # see https://catkin-tools.readthedocs.io/en/latest/verbs/catkin_build.html for details
 # or just do `catkin run_tests motion_primitives`
+find_package(GTest REQUIRED)
 catkin_add_gtest(test_motion_primitive test_motion_primitive.cpp)
 target_link_libraries(test_motion_primitive ${PROJECT_NAME} GTest::Main)
 

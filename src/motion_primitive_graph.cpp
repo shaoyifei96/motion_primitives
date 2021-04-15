@@ -33,8 +33,9 @@ Eigen::MatrixXd MotionPrimitive::get_sampled_position(
 }
 
 std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m) {
-  os << "start state: " << m.start_state_.transpose()
-     << ", end state:" << m.end_state_.transpose() << std::endl;
+  os << "start state: " << m.start_state_.transpose() << std::endl;
+  os << "end state: " << m.end_state_.transpose() << std::endl;
+  os << "cost: " << m.cost_ << std::endl;
   return os;
 }
 
