@@ -30,7 +30,7 @@ class MotionPrimitive {
   Eigen::VectorXd evaluate_polynomial(float t) const;
   // Samples a motion primitive's position at regular temporal intervals
   // step_size apart.
-  Eigen::MatrixXd get_sampled_position(double step_size) const;
+  Eigen::MatrixXd get_sampled_position(double step_size = 0.1) const;
 
  public:
   MotionPrimitive() = default;
@@ -45,6 +45,9 @@ class MotionPrimitive {
         poly_coeffs_(poly_coeffs) {
     CHECK_EQ(start_state_.rows(), end_state_.rows());
   };
+
+  double traj_time() const noexcept { return traj_time_; }
+  const Eigen::MatrixXd poly_coeffs() const noexcept { return poly_coeffs_; }
 };
 
 class MotionPrimitiveGraph {
@@ -54,11 +57,17 @@ class MotionPrimitiveGraph {
   friend std::ostream& operator<<(std::ostream& out,
                                   const MotionPrimitiveGraph& graph);
 
+ public:
+  MotionPrimitive get_mp_between_indices(int i, int j) const {
+    return mps_[edges_(i, j)];
+  }
+
  private:
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;
   std::vector<MotionPrimitive> mps_;
   Eigen::VectorXd max_state_;
+
   double dispersion_;
   double rho_;
   int spatial_dim_;
@@ -66,9 +75,6 @@ class MotionPrimitiveGraph {
   int state_dim_;
   int num_tiles_;
   bool tiling_;
-
- public:
-  MotionPrimitiveGraph() = default;
 };
 
 // Overrides a function from nlohmann::json to convert a json file into a
@@ -76,12 +82,12 @@ class MotionPrimitiveGraph {
 void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph);
 // Creates the intermediate json objects to convert from a file location to a
 // MotionPrimitiveGraph.
-MotionPrimitiveGraph read_motion_primitive_graph(const std::string &s); 
+MotionPrimitiveGraph read_motion_primitive_graph(const std::string& s);
 
 template <typename T>
 std::ostream& operator<<(std::ostream& output, std::vector<T> const& values) {
   for (auto const& value : values) {
-    output << value << std::endl;
+    output << value << "\n";
   }
   return output;
 }

@@ -5,6 +5,23 @@
 #include <ros/init.h>
 namespace motion_primitives {
 
+namespace {
+
+// Check if two position are within d meters apart
+bool position_within(const Eigen::Ref<const Eigen::VectorXd>& p1,
+                     const Eigen::Ref<const Eigen::VectorXd>& p2, double d) {
+  return (p1 - p2).squaredNorm() < (d * d);
+}
+
+}  // namespace
+
+Node::Node(double g, double h, const Eigen::VectorXd& state, int index)
+    : cost_to_come_(g),
+      heuristic_cost_(h),
+      total_cost_(g + h),
+      state_(state),
+      index_(index) {}
+
 Eigen::Vector3i GraphSearch::get_indices_from_position(
     const Eigen::Vector3d& position) const {
   return floor(((position - map_origin_) / voxel_map_.resolution).array())
@@ -18,7 +35,7 @@ int GraphSearch::get_linear_indices(const Eigen::Vector3i& indices) const {
 
 bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
   // TODO add back unknown_is_free option
-  for (int i = 0; i < graph_.spatial_dim_; i++) {
+  for (int i = 0; i < spatial_dim(); ++i) {
     if (indices[i] < 0 || (map_dims_[i] - indices[i]) <= 0) {
       return false;
     }
@@ -55,8 +72,8 @@ bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
 double GraphSearch::heuristic(const Eigen::VectorXd& v) const {
   CHECK_EQ(v.size(), goal_state_.size());
   Eigen::VectorXd x;
-  x.resize(graph_.spatial_dim_);
-  for (int i = 0; i < graph_.spatial_dim_; i++) {
+  x.resize(spatial_dim());
+  for (int i = 0; i < graph_.spatial_dim_; ++i) {
     x(i) = v(i) - goal_state_(i);
   }
   // TODO [theoretical] needs a lot of improvement. Not admissible, but too slow
@@ -69,9 +86,9 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
   std::vector<Node> neighbor_nodes;
   // TODO explain reset_map_index
   int reset_map_index = floor(node.index_ / graph_.num_tiles_);
-  for (int i = 0; i < graph_.edges_.rows(); i++) {
+  for (int i = 0; i < graph_.edges_.rows(); ++i) {
     if (graph_.edges_(i, reset_map_index) >= 0) {
-      MotionPrimitive mp = get_mp_between_indices(i, reset_map_index);
+      MotionPrimitive mp = graph_.get_mp_between_indices(i, reset_map_index);
       mp.translate(node.state_);
       if (is_mp_collision_free(mp)) {
         Node neighbor_node(node.cost_to_come_ + mp.cost_,
@@ -92,10 +109,10 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
 
   while (!pq.empty() && ros::ok()) {
     Node current_node = pq.top();
-    if ((current_node.state_.head(graph_.spatial_dim_) -
-         goal_state_.head(graph_.spatial_dim_))
-            .norm() < .5) {  // TODO parameterize termination conditions, add
-                             // BVP end condition
+    if (position_within(current_node.state_.head(spatial_dim()),
+                        goal_state_.head(spatial_dim()), 0.5)) {
+      // TODO parameterize termination conditions, add
+      // BVP end condition
       return reconstruct_path(current_node, shortest_path_history);
     }
     pq.pop();
@@ -111,6 +128,22 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
   return {};
 }
 
+GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
+                         const Eigen::VectorXd& start_state,
+                         const Eigen::VectorXd& goal_state,
+                         const planning_ros_msgs::VoxelMap& voxel_map)
+    : graph_(graph),
+      start_state_(start_state),
+      goal_state_(goal_state),
+      voxel_map_(voxel_map) {
+  map_dims_[0] = voxel_map_.dim.x;
+  map_dims_[1] = voxel_map_.dim.y;
+  map_dims_[2] = voxel_map_.dim.z;
+  map_origin_[0] = voxel_map_.origin.x;
+  map_origin_[1] = voxel_map_.origin.y;
+  map_origin_[2] = voxel_map_.origin.z;
+}
+
 std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
     const Node& end_node,
     const std::unordered_map<Eigen::VectorXd, Node,
@@ -119,10 +152,12 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
   Node node = end_node;
   Node parent_node;
   std::vector<MotionPrimitive> path;
+
   if (end_node.cost_to_come_ == 0) {
     ROS_WARN("No trajectory found due to start being too close to the goal.");
     return {};
   }
+
   while (ros::ok()) {
     parent_node = shortest_path_history.at(node.state_);
     path.push_back(get_mp_between_nodes(parent_node, node));
@@ -131,60 +166,20 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
     }
     node = parent_node;
   }
+
   std::reverse(path.begin(), path.end());
   ROS_INFO_STREAM(path);
   ROS_INFO("Optimal trajectory cost %f", end_node.cost_to_come_);
   return path;
 }
 
-MotionPrimitive GraphSearch::get_mp_between_indices(int i1, int i2) const {
-  return graph_.mps_[graph_.edges_(i1, i2)];
-}
-
 MotionPrimitive GraphSearch::get_mp_between_nodes(const Node& start_node,
                                                   const Node& end_node) const {
   int reset_map_index = floor(start_node.index_ / graph_.num_tiles_);
-  MotionPrimitive mp = get_mp_between_indices(end_node.index_, reset_map_index);
+  MotionPrimitive mp =
+      graph_.get_mp_between_indices(end_node.index_, reset_map_index);
   mp.translate(start_node.state_);
   return mp;
-}
-
-planning_ros_msgs::Trajectory GraphSearch::path_to_traj_msg(
-    const std::vector<motion_primitives::MotionPrimitive>& mp_vec) const {
-  Eigen::ArrayXXd pc_resized(graph_.spatial_dim_, 6);
-  Eigen::ArrayXXd coeff_multiplier(pc_resized.rows(), pc_resized.cols());
-  planning_ros_msgs::Trajectory trajectory;
-
-  trajectory.header.stamp = ros::Time::now();
-  trajectory.header.frame_id = voxel_map_.header.frame_id;
-
-  for (int i = 0; i < pc_resized.rows(); i++) {
-    // These hardcoded coefficients come from how
-    // planning_ros_msgs::Primitive/MPL defines polynomial trajectories
-    coeff_multiplier.row(i) << 120, 24, 6, 2, 1, 1;
-  }
-
-  for (auto mp : mp_vec) {
-    planning_ros_msgs::Primitive primitive;
-    pc_resized.block(0, pc_resized.cols() - mp.poly_coeffs_.cols(),
-                     pc_resized.rows(), mp.poly_coeffs_.cols()) =
-        mp.poly_coeffs_;
-
-    pc_resized *= coeff_multiplier;
-    for (int i = 0; i < pc_resized.cols(); i++) {
-      primitive.cx.push_back(pc_resized(0, i));
-      primitive.cy.push_back(pc_resized(1, i));
-      if (graph_.spatial_dim_ > 2) {
-        primitive.cz.push_back(pc_resized(2, i));
-      } else {
-        primitive.cz.push_back(0.);
-      }
-      primitive.cyaw.push_back(0.);
-    }
-    primitive.t = mp.traj_time_;
-    trajectory.primitives.push_back(primitive);
-  }
-  return trajectory;
 }
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {

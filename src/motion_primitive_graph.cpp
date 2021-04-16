@@ -2,6 +2,8 @@
 
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <ostream>
+
 namespace motion_primitives {
 
 void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
@@ -21,8 +23,7 @@ Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
   return poly_coeffs_ * time_multiplier;
 }
 
-Eigen::MatrixXd MotionPrimitive::get_sampled_position(
-    double step_size = 0.1) const {
+Eigen::MatrixXd MotionPrimitive::get_sampled_position(double step_size) const {
   Eigen::MatrixXd result;
   int num_samples = ceil(traj_time_ / step_size) + 1;
   result.resize(num_samples, spatial_dim_);
@@ -33,15 +34,14 @@ Eigen::MatrixXd MotionPrimitive::get_sampled_position(
 }
 
 std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m) {
-  os << "start state: " << m.start_state_.transpose() << std::endl;
-  os << "end state: " << m.end_state_.transpose() << std::endl;
-  os << "cost: " << m.cost_ << std::endl;
+  os << "start state: " << m.start_state_.transpose() << "\n";
+  os << "end state: " << m.end_state_.transpose() << "\n";
+  os << "cost: " << m.cost_ << "\n";
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const MotionPrimitiveGraph& mpg) {
-  os << "Vertices:" << std::endl;
-  os << mpg.vertices_ << std::endl;
+  os << "Vertices:\n" << mpg.vertices_ << "\n";
   return os;
 }
 
@@ -87,7 +87,7 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
             edge.at("traj_time"), poly_coeffs));
         graph.edges_(i, j) = graph.mps_.size() - 1;
       } else {
-        graph.edges_(i, j) = -1; //TODO make constant
+        graph.edges_(i, j) = -1;  // TODO make constant
       }
     }
   }
@@ -99,4 +99,5 @@ MotionPrimitiveGraph read_motion_primitive_graph(const std::string& s) {
   json_file >> json_data;
   return json_data.get<motion_primitives::MotionPrimitiveGraph>();
 }
+
 }  // namespace motion_primitives

@@ -1,7 +1,6 @@
 #ifndef MOTION_PRIMITIVES_GRAPH_SEARCH_H
 #define MOTION_PRIMITIVES_GRAPH_SEARCH_H
 
-#include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
 
 #include <queue>
@@ -9,7 +8,7 @@
 
 #include "motion_primitives/motion_primitive_graph.h"
 
-// A hash function for Eigen matrix/vector from the internet: 
+// A hash function for Eigen matrix/vector from the internet:
 // https://wjngkoh.wordpress.com/2015/03/04/c-hash-function-for-eigen-matrix-and-vector/
 template <typename T>
 struct matrix_hash : std::unary_function<T, size_t> {
@@ -41,12 +40,8 @@ class Node {
 
  public:
   Node() = default;
-  Node(double g, double h, const Eigen::VectorXd& state, int index)
-      : cost_to_come_(g),
-        heuristic_cost_(h),
-        total_cost_(g + h),
-        state_(state),
-        index_(index) {}
+  Node(double g, double h, const Eigen::VectorXd& state, int index);
+
   friend bool operator>(const Node& n1, const Node& n2);
   friend std::ostream& operator<<(std::ostream& out, const Node& node);
 };
@@ -63,6 +58,7 @@ class GraphSearch {
   Eigen::Vector3i map_dims_;
   Eigen::Vector3d map_origin_;
   planning_ros_msgs::VoxelMap voxel_map_;
+
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
   // Converts from vector of indices to single index into
@@ -83,28 +79,17 @@ class GraphSearch {
       const std::unordered_map<Eigen::VectorXd, Node,
                                matrix_hash<Eigen::VectorXd>>&
           shortest_path_history) const;
-  MotionPrimitive get_mp_between_indices(int i1, int i2) const;
+
   MotionPrimitive get_mp_between_nodes(const Node& n1, const Node& n2) const;
 
  public:
-  planning_ros_msgs::Trajectory path_to_traj_msg(
-      const std::vector<motion_primitives::MotionPrimitive>& mp_vec) const;
-  std::vector<MotionPrimitive> run_graph_search() const;
   GraphSearch(const MotionPrimitiveGraph& graph,
               const Eigen::VectorXd& start_state,
               const Eigen::VectorXd& goal_state,
-              const planning_ros_msgs::VoxelMap& voxel_map)
-      : graph_(graph),
-        start_state_(start_state),
-        goal_state_(goal_state),
-        voxel_map_(voxel_map) {
-    map_dims_[0] = voxel_map_.dim.x;
-    map_dims_[1] = voxel_map_.dim.y;
-    map_dims_[2] = voxel_map_.dim.z;
-    map_origin_[0] = voxel_map_.origin.x;
-    map_origin_[1] = voxel_map_.origin.y;
-    map_origin_[2] = voxel_map_.origin.z;
-  }
+              const planning_ros_msgs::VoxelMap& voxel_map);
+
+  std::vector<MotionPrimitive> run_graph_search() const;
+  int spatial_dim() const noexcept { return graph_.spatial_dim_; }
 };
 
 }  // namespace motion_primitives

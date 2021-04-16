@@ -6,6 +6,7 @@
 #include <boost/foreach.hpp>
 
 #include "motion_primitives/graph_search.h"
+#include "motion_primitives/utils.h"
 
 using namespace motion_primitives;
 // num indicates the max number of elements to read, -1 means read till the end
@@ -48,8 +49,9 @@ int main(int argc, char **argv) {
   std::string map_file, map_topic, graph_file;
   pnh.param("map_file", map_file, std::string("voxel_map"));
   pnh.param("map_topic", map_topic, std::string("voxel_map"));
-  planning_ros_msgs::VoxelMap voxel_map =
+  auto voxel_map =
       read_bag<planning_ros_msgs::VoxelMap>(map_file, map_topic, 0).back();
+  voxel_map.header.stamp = ros::Time::now();
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   std::vector<double> s, g;
@@ -61,18 +63,21 @@ int main(int argc, char **argv) {
 
   GraphSearch gs(read_motion_primitive_graph(graph_file), start, goal,
                  voxel_map);
+
   ROS_INFO("Started planning.");
-  ros::Time planner_start_time = ros::Time::now();
-  auto path = gs.run_graph_search();
-  if (path.size() > 0) {
-    planning_ros_msgs::Trajectory traj = gs.path_to_traj_msg(path);
+  const auto planner_start_time = ros::Time::now();
+  const auto path = gs.run_graph_search();
+  ROS_INFO("Finished planning. Planning time %f s",
+           (ros::Time::now() - planner_start_time).toSec());
+
+  if (!path.empty()) {
+    const auto traj =
+        path_to_traj_msg(path, gs.spatial_dim(), voxel_map.header);
     traj_pub.publish(traj);
   } else {
     ROS_WARN("No trajectory found.");
   }
-  ROS_INFO("Finished planning. Planning time %f s",
-           (ros::Time::now() - planner_start_time).toSec());
-  voxel_map.header.stamp = ros::Time::now();
+
   map_pub.publish(voxel_map);
 
   visualization_msgs::MarkerArray sg_markers;
@@ -89,7 +94,7 @@ int main(int argc, char **argv) {
   start_marker.scale.y = .5;
   start_marker.scale.z = .5;
   goal_marker = start_marker;
-  goal_marker.id=1;
+  goal_marker.id = 1;
   goal_marker.pose.position.x = goal[0], goal_marker.pose.position.y = goal[1],
   goal_marker.pose.position.z = goal[2];
   goal_marker.color.g = 0;
