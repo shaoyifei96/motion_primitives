@@ -152,7 +152,7 @@ catkin_package(
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp src/utils.cpp)
+add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp src/utils.cpp src/search.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC include ${catkin_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}

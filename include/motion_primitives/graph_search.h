@@ -42,13 +42,12 @@ class Node {
   Node() = default;
   Node(double g, double h, const Eigen::VectorXd& state, int index);
 
-  friend bool operator>(const Node& n1, const Node& n2);
+  friend bool operator>(const Node& n1, const Node& n2) {
+    return n1.total_cost_ > n2.total_cost_;
+  }
+
   friend std::ostream& operator<<(std::ostream& out, const Node& node);
 };
-
-bool operator>(const Node& n1, const Node& n2) {
-  return n1.total_cost_ > n2.total_cost_;
-}
 
 class GraphSearch {
  private:
@@ -69,7 +68,8 @@ class GraphSearch {
   bool is_free_and_valid_position(Eigen::VectorXd v) const;
   // Samples motion primitive along step_size time steps and checks for
   // collisions
-  bool is_mp_collision_free(const MotionPrimitive& mp, double step_size) const;
+  bool is_mp_collision_free(const MotionPrimitive& mp,
+                            double step_size = 0.1) const;
   // Returns a vector of collision free nodes that are connected to the current
   // node by graph_ edges
   std::vector<Node> get_neighbor_nodes_lattice(const Node& node) const;
@@ -82,6 +82,8 @@ class GraphSearch {
 
   MotionPrimitive get_mp_between_nodes(const Node& n1, const Node& n2) const;
 
+  std::vector<MotionPrimitive> expand_mp(const MotionPrimitive& mp) const;
+
  public:
   GraphSearch(const MotionPrimitiveGraph& graph,
               const Eigen::VectorXd& start_state,
@@ -89,6 +91,9 @@ class GraphSearch {
               const planning_ros_msgs::VoxelMap& voxel_map);
 
   std::vector<MotionPrimitive> run_graph_search() const;
+  std::vector<MotionPrimitive> search_path(const Eigen::VectorXd& start_state,
+                                           const Eigen::VectorXd& end_state,
+                                           double distance_threshold) const;
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
 };
 

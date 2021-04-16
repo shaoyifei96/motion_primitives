@@ -6,7 +6,6 @@
 namespace motion_primitives {
 
 namespace {
-
 // Check if two position are within d meters apart
 bool position_within(const Eigen::Ref<const Eigen::VectorXd>& p1,
                      const Eigen::Ref<const Eigen::VectorXd>& p2, double d) {
@@ -45,23 +44,22 @@ bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
 
 bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
-  if (is_valid_indices(indices) &&
-      voxel_map_.data[get_linear_indices(indices)] <= 0) {
-    return true;
-  } else {
-    return false;
-  }
+  return is_valid_indices(indices) &&
+         voxel_map_.data[get_linear_indices(indices)] <= 0;
 }
 
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
-  position.conservativeResize(3);
+  if (position.rows() < 3) {
+    position.conservativeResize(3);
+    position(2) = 0;
+  }
   return is_free_and_valid_indices(get_indices_from_position(position));
 }
 
 bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
-                                       double step_size = .1) const {
+                                       double step_size) const {
   auto samples = mp.get_sampled_position(step_size);
-  for (int i = 0; i < samples.rows(); i++) {
+  for (int i = 0; i < samples.rows(); ++i) {
     if (!is_free_and_valid_position(samples.row(i))) {
       return false;
     }
@@ -85,7 +83,7 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
     const Node& node) const {
   std::vector<Node> neighbor_nodes;
   // TODO explain reset_map_index
-  int reset_map_index = floor(node.index_ / graph_.num_tiles_);
+  int reset_map_index = std::floor(node.index_ / graph_.num_tiles_);
   for (int i = 0; i < graph_.edges_.rows(); ++i) {
     if (graph_.edges_(i, reset_map_index) >= 0) {
       MotionPrimitive mp = graph_.get_mp_between_indices(i, reset_map_index);

@@ -37,17 +37,19 @@ class MotionPrimitive {
   MotionPrimitive(int spatial_dims, const Eigen::VectorXd& start_state,
                   const Eigen::VectorXd& end_state, double cost,
                   double traj_time, const Eigen::MatrixXd& poly_coeffs)
-      : spatial_dim_(spatial_dims),
+      : cost_(cost),
+        traj_time_(traj_time),
+        spatial_dim_(spatial_dims),
         start_state_(start_state),
         end_state_(end_state),
-        cost_(cost),
-        traj_time_(traj_time),
         poly_coeffs_(poly_coeffs) {
     CHECK_EQ(start_state_.rows(), end_state_.rows());
   };
 
+  int id() const noexcept { return id_; }
   double traj_time() const noexcept { return traj_time_; }
-  const Eigen::MatrixXd poly_coeffs() const noexcept { return poly_coeffs_; }
+  const Eigen::VectorXd& end_state() const noexcept { return end_state_; }
+  const Eigen::MatrixXd& poly_coeffs() const noexcept { return poly_coeffs_; }
 };
 
 class MotionPrimitiveGraph {

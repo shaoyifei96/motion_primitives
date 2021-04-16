@@ -65,10 +65,11 @@ int main(int argc, char **argv) {
                  voxel_map);
 
   ROS_INFO("Started planning.");
-  const auto planner_start_time = ros::Time::now();
-  const auto path = gs.run_graph_search();
+  auto planner_start_time = ros::Time::now();
+  auto path = gs.run_graph_search();
   ROS_INFO("Finished planning. Planning time %f s",
            (ros::Time::now() - planner_start_time).toSec());
+  ROS_INFO_STREAM("path size: " << path.size());
 
   if (!path.empty()) {
     const auto traj =
@@ -77,6 +78,12 @@ int main(int argc, char **argv) {
   } else {
     ROS_WARN("No trajectory found.");
   }
+
+  planner_start_time = ros::Time::now();
+  path = gs.search_path(start, goal, 0.5);
+  ROS_INFO("Finished planning. Planning time %f s",
+           (ros::Time::now() - planner_start_time).toSec());
+  ROS_INFO_STREAM("path size: " << path.size());
 
   map_pub.publish(voxel_map);
 
