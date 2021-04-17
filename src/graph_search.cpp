@@ -76,7 +76,8 @@ double GraphSearch::heuristic(const Eigen::VectorXd& v) const {
   }
   // TODO [theoretical] needs a lot of improvement. Not admissible, but too slow
   // otherwise with higher velocities.
-  return 1.2 * graph_.rho_ * x.lpNorm<Eigen::Infinity>() / graph_.max_state_(1);
+  return 1.18 * graph_.rho_ * x.lpNorm<Eigen::Infinity>() /
+         graph_.max_state_(1);
 }
 
 std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
@@ -111,6 +112,8 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
                         goal_state_.head(spatial_dim()), 0.5)) {
       // TODO parameterize termination conditions, add
       // BVP end condition
+      LOG(INFO) << "pq: " << pq.size();
+      LOG(INFO) << "hist: " << shortest_path_history.size();
       return reconstruct_path(current_node, shortest_path_history);
     }
     pq.pop();
@@ -168,7 +171,7 @@ std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
   }
 
   std::reverse(path.begin(), path.end());
-  ROS_INFO_STREAM(path);
+  //  ROS_INFO_STREAM(path);
   ROS_INFO("Optimal trajectory cost %f", end_node.cost_to_come_);
   return path;
 }

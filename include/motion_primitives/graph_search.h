@@ -88,6 +88,7 @@ class GraphSearch {
   MotionPrimitive get_mp_between_nodes(const Node& n1, const Node& n2) const;
 
   std::vector<MotionPrimitive> expand_mp(const MotionPrimitive& mp) const;
+  std::vector<MotionPrimitive> expand_mp_par(const MotionPrimitive& mp) const;
 
  public:
   GraphSearch(const MotionPrimitiveGraph& graph,

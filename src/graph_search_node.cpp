@@ -69,43 +69,6 @@ int main(int argc, char** argv) {
   const auto mp_graph = read_motion_primitive_graph(graph_file);
   GraphSearch gs(mp_graph, start, goal, voxel_map);
 
-  ROS_INFO("Started planning.");
-  auto start_time = ros::Time::now();
-  auto path = gs.run_graph_search();
-  ROS_INFO("Finished planning. Planning time %f s",
-           (ros::Time::now() - start_time).toSec());
-  ROS_INFO_STREAM("path size: " << path.size());
-
-  if (!path.empty()) {
-    const auto traj = path_to_traj_msg(path, voxel_map.header);
-    traj_pub.publish(traj);
-  } else {
-    ROS_WARN("No trajectory found.");
-  }
-
-  GraphSearch gs2(mp_graph, start, goal, voxel_map);
-  start_time = ros::Time::now();
-  path = gs2.search_path(start, goal, 0.5);
-  const auto total_time = (ros::Time::now() - start_time).toSec();
-  ROS_INFO("Finished planning. Planning time %f s", total_time);
-  ROS_INFO_STREAM("path size: " << path.size());
-  ROS_INFO_STREAM("expanded mps: " << gs.expanded_mps().size());
-  for (const auto& [k, v] : gs2.timings) {
-    ROS_INFO_STREAM(k << " " << v << "s, " << (v / total_time * 100) << "%");
-  }
-
-  if (!path.empty()) {
-    const auto traj = path_to_traj_msg(path, voxel_map.header);
-    traj_pub2.publish(traj);
-
-    const auto mps_marray =
-        mps_to_marker_array(gs.expanded_mps(), voxel_map.header, 0.05, true);
-    mps_pub.publish(mps_marray);
-
-  } else {
-    ROS_WARN("No trajectory found.");
-  }
-
   visualization_msgs::MarkerArray sg_markers;
   visualization_msgs::Marker start_marker, goal_marker;
   start_marker.header = voxel_map.header;
@@ -126,6 +89,44 @@ int main(int argc, char** argv) {
   sg_markers.markers.push_back(start_marker);
   sg_markers.markers.push_back(goal_marker);
   sg_pub.publish(sg_markers);
+
+  ROS_INFO("Started planning.");
+  auto start_time = ros::Time::now();
+  auto path = gs.run_graph_search();
+  ROS_INFO("Finished planning. Planning time %f s",
+           (ros::Time::now() - start_time).toSec());
+  ROS_INFO_STREAM("path size: " << path.size());
+
+  if (!path.empty()) {
+    const auto traj = path_to_traj_msg(path, voxel_map.header);
+    traj_pub.publish(traj);
+  } else {
+    ROS_WARN("No trajectory found.");
+  }
+
+  GraphSearch gs2(mp_graph, start, goal, voxel_map);
+  start_time = ros::Time::now();
+  path = gs2.search_path(start, goal, 0.5);
+  const auto total_time = (ros::Time::now() - start_time).toSec();
+  ROS_INFO("Finished planning. Planning time %f s", total_time);
+  ROS_INFO_STREAM("path size: " << path.size());
+  ROS_INFO_STREAM("expanded mps: " << gs2.expanded_mps().size());
+  for (const auto& [k, v] : gs2.timings) {
+    ROS_INFO_STREAM(k << " " << v << "s, " << (v / total_time * 100) << "%");
+  }
+
+  if (!path.empty()) {
+    //    ROS_INFO_STREAM(path);
+    const auto traj = path_to_traj_msg(path, voxel_map.header);
+    traj_pub2.publish(traj);
+
+    const auto mps_marray =
+        mps_to_marker_array(gs2.expanded_mps(), voxel_map.header, 0.05, true);
+    mps_pub.publish(mps_marray);
+
+  } else {
+    ROS_WARN("No trajectory found.");
+  }
 
   ros::spin();
 }

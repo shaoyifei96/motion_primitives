@@ -1,6 +1,8 @@
 //#include <absl/container/flat_hash_map.h>
 #include <glog/logging.h>
 #include <ros/init.h>  // ok()
+#include <tbb/enumerable_thread_specific.h>
+#include <tbb/parallel_for.h>
 
 #include <boost/timer/timer.hpp>
 
@@ -46,14 +48,56 @@ std::vector<MotionPrimitive> recover_path(
   return path_mps;
 }
 
+std::vector<MotionPrimitive> GraphSearch::expand_mp_par(
+    const MotionPrimitive& mp) const {
+  int reset_map_index = std::floor(mp.id() / graph_.num_tiles_);
+
+  using PrivVec = tbb::enumerable_thread_specific<std::vector<MotionPrimitive>>;
+  PrivVec priv_mps;
+
+  tbb::parallel_for(tbb::blocked_range<int>(0, graph_.edges_.rows()),
+                    [&, this](const tbb::blocked_range<int>& r) {
+                      auto& local = priv_mps.local();
+
+                      for (int i = r.begin(); i < r.end(); ++i) {
+                        // No edge
+                        if (graph_.edges_(i, reset_map_index) < 0) {
+                          continue;
+                        }
+
+                        // Get a copy and move into output later
+                        auto new_mp =
+                            graph_.get_mp_between_indices(i, reset_map_index);
+                        new_mp.translate(mp.end_state());
+
+                        // not collision free
+                        if (!is_mp_collision_free(new_mp)) {
+                          continue;
+                        }
+                        new_mp.id_ = i;
+                        local.push_back(std::move(new_mp));
+                      }
+                    });
+
+  // combine
+  std::vector<MotionPrimitive> mps;
+  mps.reserve(64);
+  for (auto i = priv_mps.begin(); i != priv_mps.end(); ++i) {
+    const auto& each = *i;
+    mps.insert(mps.end(), each.begin(), each.end());
+  }
+  return mps;
+}
+
 std::vector<MotionPrimitive> GraphSearch::expand_mp(
     const MotionPrimitive& mp) const {
   std::vector<MotionPrimitive> mps;
   mps.reserve(64);
 
-  boost::timer::cpu_timer timer;
+  //  boost::timer::cpu_timer timer;
 
   int reset_map_index = std::floor(mp.id() / graph_.num_tiles_);
+
   for (int i = 0; i < graph_.edges_.rows(); ++i) {
     // No edge
     if (graph_.edges_(i, reset_map_index) < 0) {
@@ -61,17 +105,17 @@ std::vector<MotionPrimitive> GraphSearch::expand_mp(
     }
 
     // Get a copy and move into output later
-    timer.start();
+    //    timer.start();
     MotionPrimitive new_mp = graph_.get_mp_between_indices(i, reset_map_index);
     new_mp.translate(mp.end_state());
-    timings["expand_get_mp"] += timer.elapsed().wall / 1e9;
+    //    timings["expand_get_mp"] += timer.elapsed().wall / 1e9;
 
     // not collision free
-    timer.start();
+    //    timer.start();
     if (!is_mp_collision_free(new_mp)) {
       continue;
     }
-    timings["expand_collision"] += timer.elapsed().wall / 1e9;
+    //    timings["expand_collision"] += timer.elapsed().wall / 1e9;
 
     new_mp.id_ = i;
     mps.push_back(std::move(new_mp));
@@ -84,7 +128,6 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     const Eigen::VectorXd& start_state, const Eigen::VectorXd& end_state,
     double distance_threshold) const {
   expanded_mps_.clear();  // clean up expansion
-  expanded_mps_.reserve(1024 * 96);
 
   // Early exit if start and end positions are close
   if (state_pos_within(start_state, end_state, spatial_dim(),
@@ -131,7 +174,8 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     if (state_pos_within(curr_mp.end_state(), end_state, spatial_dim(),
                          distance_threshold)) {
       timings["astar"] = timer_astar.elapsed().wall / 1e9;
-
+      LOG(INFO) << "pq: " << pq.size();
+      LOG(INFO) << "hist: " << history.size();
       return recover_path(history, expanded_mps_, curr_node);
     }
 
@@ -149,16 +193,16 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
       next_node.mp_index = expanded_mps_.size() - 1;
       next_node.motion_cost = curr_node.motion_cost + next_mp.cost_;
       next_node.heuristic_cost = heuristic(next_mp.end_state());
-      const auto last_cost = history[next_node.mp_index].motion_cost;
+      //      const auto last_cost = history[next_node.mp_index].motion_cost;
 
       // Check if we found a better path
-      if (next_node.motion_cost < last_cost) {
-        // push to min_heap
-        timer.start();
-        pq.push(next_node);
-        timings["astar_push"] += timer.elapsed().wall / 1e9;
-        history[next_node.mp_index] = curr_node;
-      }
+      //      if (next_node.motion_cost < last_cost) {
+      // push to min_heap
+      timer.start();
+      pq.push(next_node);
+      timings["astar_push"] += timer.elapsed().wall / 1e9;
+      history[next_node.mp_index] = curr_node;
+      //      }
     }
   }
 

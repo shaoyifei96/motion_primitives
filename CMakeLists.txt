@@ -11,6 +11,7 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(glog REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
+find_package(TBB REQUIRED)
 
 
 # include(FetchContent)
@@ -162,6 +163,7 @@ target_link_libraries(${PROJECT_NAME}
   Eigen3::Eigen
   glog::glog
   Boost::timer
+  TBB::tbb
 )
 
 add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
