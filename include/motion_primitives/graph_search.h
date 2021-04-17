@@ -59,6 +59,9 @@ class GraphSearch {
   Eigen::Vector3d map_origin_;
   planning_ros_msgs::VoxelMap voxel_map_;
 
+  // Expanded set
+  mutable std::vector<MotionPrimitive> expanded_mps_;
+
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
   // Converts from vector of indices to single index into
@@ -96,6 +99,9 @@ class GraphSearch {
                                            const Eigen::VectorXd& end_state,
                                            double distance_threshold) const;
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
+  const std::vector<MotionPrimitive>& expanded_mps() const noexcept {
+    return expanded_mps_;
+  }
 };
 
 }  // namespace motion_primitives

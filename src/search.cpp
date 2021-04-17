@@ -22,14 +22,15 @@ struct Node2 {
   double motion_cost{std::numeric_limits<double>::infinity()};
   double heuristic_cost{0.0};
 
+  // consider marking this [[nodiscard]]
   double total_cost() const noexcept { return motion_cost + heuristic_cost; }
 };
 
 std::vector<MotionPrimitive> recover_path(
     const boost::container::flat_map<int, Node2>& history,
-    const std::vector<MotionPrimitive>& expanded_mps, const Node2& node) {
+    const std::vector<MotionPrimitive>& expanded_mps, const Node2& end_node) {
   std::vector<MotionPrimitive> path_mps;
-  Node2 curr_node = node;
+  Node2 curr_node = end_node;
   while (ros::ok()) {
     // Stop if we reach the first dummy mp
     if (curr_node.mp_index == 0) {
@@ -41,7 +42,7 @@ std::vector<MotionPrimitive> recover_path(
   }
 
   std::reverse(path_mps.begin(), path_mps.end());
-  ROS_INFO("Optimal trajectory cost %f", node.motion_cost);
+  ROS_INFO("Optimal trajectory cost %f", end_node.motion_cost);
   return path_mps;
 }
 
@@ -76,14 +77,15 @@ std::vector<MotionPrimitive> GraphSearch::expand_mp(
 std::vector<MotionPrimitive> GraphSearch::search_path(
     const Eigen::VectorXd& start_state, const Eigen::VectorXd& end_state,
     double distance_threshold) const {
+  expanded_mps_.clear();  // clean up expansion
+
   // Early exit if start and end positions are close
   if (state_pos_within(start_state, end_state, spatial_dim(),
                        distance_threshold)) {
-    ROS_INFO("start and end too close");
     return {};
   }
 
-  // Start node is reached by a sentinel mp, and has 0 cost
+  // Start node is reached by a dummy mp, and has 0 cost
   Node2 start_node;
   start_node.mp_index = 0;
   start_node.motion_cost = 0.0;
@@ -99,16 +101,13 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
   MinHeap pq{cost_cmp};
   pq.push(start_node);
 
-  // All expaned primitives
-  std::vector<MotionPrimitive> expanded_mps;
-  expanded_mps.reserve(1024);
-
-  // Add a sentinel mp
+  // Add a sentinel mp (MP does not have a constructor)
   MotionPrimitive dummy_mp;
   dummy_mp.id_ = 0;
   dummy_mp.cost_ = 0;
+  dummy_mp.spatial_dim_ = spatial_dim();
   dummy_mp.end_state_ = start_state;
-  expanded_mps.push_back(dummy_mp);
+  expanded_mps_.push_back(dummy_mp);
 
   // Shortest path history, stores the parent node of a particular mp (int)
   boost::container::flat_map<int, Node2> history;
@@ -118,10 +117,10 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
 
     // Check if we are close enough to the end
     // Use at for safety, later change to []
-    const auto& curr_mp = expanded_mps.at(curr_node.mp_index);
+    const auto& curr_mp = expanded_mps_.at(curr_node.mp_index);
     if (state_pos_within(curr_mp.end_state(), end_state, spatial_dim(),
                          distance_threshold)) {
-      return recover_path(history, expanded_mps, curr_node);
+      return recover_path(history, expanded_mps_, curr_node);
     }
 
     pq.pop();
@@ -129,11 +128,11 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
 
     for (const auto& next_mp : neighbor_mps) {
       // Add this to the expaned mp set
-      expanded_mps.push_back(next_mp);
+      expanded_mps_.push_back(next_mp);
 
       // Create a corresponding node
       Node2 next_node;
-      next_node.mp_index = expanded_mps.size() - 1;
+      next_node.mp_index = expanded_mps_.size() - 1;
       next_node.motion_cost = curr_node.motion_cost + next_mp.cost_;
       next_node.heuristic_cost = heuristic(next_mp.end_state());
       const auto last_cost = history[next_node.mp_index].motion_cost;

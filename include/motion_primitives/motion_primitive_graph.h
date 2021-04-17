@@ -30,7 +30,6 @@ class MotionPrimitive {
   Eigen::VectorXd evaluate_polynomial(float t) const;
   // Samples a motion primitive's position at regular temporal intervals
   // step_size apart.
-  Eigen::MatrixXd get_sampled_position(double step_size = 0.1) const;
 
  public:
   MotionPrimitive() = default;
@@ -46,8 +45,11 @@ class MotionPrimitive {
     CHECK_EQ(start_state_.rows(), end_state_.rows());
   };
 
+  Eigen::MatrixXd get_sampled_position(double step_size = 0.1) const;
+
   int id() const noexcept { return id_; }
   double traj_time() const noexcept { return traj_time_; }
+  int spatial_dim() const noexcept { return spatial_dim_; }
   const Eigen::VectorXd& end_state() const noexcept { return end_state_; }
   const Eigen::MatrixXd& poly_coeffs() const noexcept { return poly_coeffs_; }
 };

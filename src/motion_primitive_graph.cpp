@@ -28,7 +28,8 @@ Eigen::MatrixXd MotionPrimitive::get_sampled_position(double step_size) const {
   int num_samples = std::ceil(traj_time_ / step_size) + 1;
   result.resize(num_samples, spatial_dim_);
   for (int i = 0; i < num_samples; ++i) {
-    result.row(i) = evaluate_polynomial(i * step_size);
+    const auto row = evaluate_polynomial(i * step_size);
+    result.row(i) = row;
   }
   return result;
 }

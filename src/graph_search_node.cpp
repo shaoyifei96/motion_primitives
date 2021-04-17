@@ -46,6 +46,8 @@ int main(int argc, char **argv) {
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
       pnh.advertise<visualization_msgs::MarkerArray>("start_and_goal", 1, true);
+  ros::Publisher mps_pub =
+      pnh.advertise<visualization_msgs::MarkerArray>("expanded", 1, true);
 
   // Read map from bag file
   std::string map_file, map_topic, graph_file;
@@ -76,8 +78,7 @@ int main(int argc, char **argv) {
   ROS_INFO_STREAM("path size: " << path.size());
 
   if (!path.empty()) {
-    const auto traj =
-        path_to_traj_msg(path, gs.spatial_dim(), voxel_map.header);
+    const auto traj = path_to_traj_msg(path, voxel_map.header);
     traj_pub.publish(traj);
   } else {
     ROS_WARN("No trajectory found.");
@@ -88,11 +89,16 @@ int main(int argc, char **argv) {
   ROS_INFO("Finished planning. Planning time %f s",
            (ros::Time::now() - planner_start_time).toSec());
   ROS_INFO_STREAM("path size: " << path.size());
+  ROS_INFO_STREAM("expanded mps: " << gs.expanded_mps().size());
 
   if (!path.empty()) {
-    const auto traj =
-        path_to_traj_msg(path, gs.spatial_dim(), voxel_map.header);
+    const auto traj = path_to_traj_msg(path, voxel_map.header);
     traj_pub2.publish(traj);
+
+    const auto mps_marray =
+        mps_to_marker_array(gs.expanded_mps(), voxel_map.header, 0.1, true);
+    mps_pub.publish(mps_marray);
+
   } else {
     ROS_WARN("No trajectory found.");
   }
@@ -107,9 +113,7 @@ int main(int argc, char **argv) {
   start_marker.color.g = 1;
   start_marker.color.a = 1;
   start_marker.type = 2;
-  start_marker.scale.x = .5;
-  start_marker.scale.y = .5;
-  start_marker.scale.z = .5;
+  start_marker.scale.x = start_marker.scale.y = start_marker.scale.z = 0.3;
   goal_marker = start_marker;
   goal_marker.id = 1;
   goal_marker.pose.position.x = goal[0], goal_marker.pose.position.y = goal[1],
