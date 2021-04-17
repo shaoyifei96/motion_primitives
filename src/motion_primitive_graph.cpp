@@ -23,13 +23,16 @@ Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
   return poly_coeffs_ * time_multiplier;
 }
 
-Eigen::MatrixXd MotionPrimitive::get_sampled_position(double step_size) const {
-  Eigen::MatrixXd result;
+Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
   int num_samples = std::ceil(traj_time_ / step_size) + 1;
+  Eigen::VectorXd times =
+      Eigen::VectorXd::LinSpaced(num_samples, 0, traj_time_);
+
+  Eigen::MatrixXd result;
   result.resize(num_samples, spatial_dim_);
-  for (int i = 0; i < num_samples; ++i) {
-    const auto row = evaluate_polynomial(i * step_size);
-    result.row(i) = row;
+
+  for (int i = 0; i < times.size(); ++i) {
+    result.row(i) = evaluate_polynomial(times(i));
   }
 
   // Cache the sampled positions

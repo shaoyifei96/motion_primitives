@@ -29,8 +29,6 @@ class MotionPrimitive {
   // size spatial_dim_. TODO: make work with evaluating velocities,
   // accelerations, etc., right now it only works for position
   Eigen::VectorXd evaluate_polynomial(float t) const;
-  // Samples a motion primitive's position at regular temporal intervals
-  // step_size apart.
 
  public:
   MotionPrimitive() = default;
@@ -46,7 +44,10 @@ class MotionPrimitive {
     CHECK_EQ(start_state_.rows(), end_state_.rows());
   };
 
-  Eigen::MatrixXd get_sampled_position(double step_size = 0.1) const;
+  // Samples a motion primitive's position at regular temporal intervals
+  // step_size apart.
+  // Each row is a position
+  Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
   int id() const noexcept { return id_; }
   double traj_time() const noexcept { return traj_time_; }

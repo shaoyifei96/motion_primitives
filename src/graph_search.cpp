@@ -58,7 +58,7 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
 
 bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
                                        double step_size) const {
-  const auto samples = mp.get_sampled_position(step_size);
+  const auto samples = mp.sample_positions(step_size);
   for (int i = 0; i < samples.rows(); ++i) {
     if (!is_free_and_valid_position(samples.row(i))) {
       return false;
