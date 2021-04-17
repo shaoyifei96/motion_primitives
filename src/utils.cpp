@@ -84,7 +84,6 @@ MarkerArray mps_to_marker_array(const std::vector<MotionPrimitive>& mps,
     m_mps.id = 0;
     m_mps.ns = "edge";
     m_mps.color = m_end.color;
-    m_mps.color.a /= 2.0;
     m_mps.type = Marker::LINE_LIST;
     m_mps.scale.x = scale / 3.0;  // traj should be thinner than end point
     m_mps.pose.orientation.w = 1.0;
@@ -108,6 +107,14 @@ MarkerArray mps_to_marker_array(const std::vector<MotionPrimitive>& mps,
         p1.z = mp.spatial_dim() == 3 ? points.row(i + 1).z() : 0;
         m_mps.points.push_back(p1);
         m_mps.points.push_back(p2);
+
+        // Gradually change alpha from 0 to 1 to indicate start to end of mp
+        std_msgs::ColorRGBA c1 = m_mps.color;
+        c1.a = (i * 1.0f) / points.rows();
+        std_msgs::ColorRGBA c2 = m_mps.color;
+        c2.a = (i + 1.0f) / points.rows();
+        m_mps.colors.push_back(c1);
+        m_mps.colors.push_back(c2);
       }
     }
     marray.markers.push_back(std::move(m_mps));
