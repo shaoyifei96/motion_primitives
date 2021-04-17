@@ -2,7 +2,6 @@
 #include <glog/logging.h>
 #include <ros/init.h>  // ok()
 
-#include <boost/container/flat_map.hpp>
 #include <boost/timer/timer.hpp>
 
 #include "motion_primitives/graph_search.h"
@@ -28,7 +27,7 @@ struct Node2 {
 };
 
 std::vector<MotionPrimitive> recover_path(
-    const boost::container::flat_map<int, Node2>& history,
+    const std::unordered_map<int, Node2>& history,
     const std::vector<MotionPrimitive>& expanded_mps, const Node2& end_node) {
   std::vector<MotionPrimitive> path_mps;
   Node2 curr_node = end_node;
@@ -52,6 +51,8 @@ std::vector<MotionPrimitive> GraphSearch::expand_mp(
   std::vector<MotionPrimitive> mps;
   mps.reserve(64);
 
+  boost::timer::cpu_timer timer;
+
   int reset_map_index = std::floor(mp.id() / graph_.num_tiles_);
   for (int i = 0; i < graph_.edges_.rows(); ++i) {
     // No edge
@@ -60,13 +61,17 @@ std::vector<MotionPrimitive> GraphSearch::expand_mp(
     }
 
     // Get a copy and move into output later
+    timer.start();
     MotionPrimitive new_mp = graph_.get_mp_between_indices(i, reset_map_index);
     new_mp.translate(mp.end_state());
+    timings["expand_get_mp"] += timer.elapsed().wall / 1e9;
 
     // not collision free
+    timer.start();
     if (!is_mp_collision_free(new_mp)) {
       continue;
     }
+    timings["expand_collision"] += timer.elapsed().wall / 1e9;
 
     new_mp.id_ = i;
     mps.push_back(std::move(new_mp));
@@ -79,6 +84,7 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     const Eigen::VectorXd& start_state, const Eigen::VectorXd& end_state,
     double distance_threshold) const {
   expanded_mps_.clear();  // clean up expansion
+  expanded_mps_.reserve(1024 * 96);
 
   // Early exit if start and end positions are close
   if (state_pos_within(start_state, end_state, spatial_dim(),
@@ -111,12 +117,10 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
   expanded_mps_.push_back(dummy_mp);
 
   // Shortest path history, stores the parent node of a particular mp (int)
-  boost::container::flat_map<int, Node2> history;
+  std::unordered_map<int, Node2> history;
 
   // timer
-  boost::timer::cpu_timer timer_astar, timer_expand;
-  timer_astar.start();
-  timer_expand.stop();
+  boost::timer::cpu_timer timer_astar, timer;
 
   while (!pq.empty() && ros::ok()) {
     Node2 curr_node = pq.top();
@@ -126,16 +130,15 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     const auto& curr_mp = expanded_mps_.at(curr_node.mp_index);
     if (state_pos_within(curr_mp.end_state(), end_state, spatial_dim(),
                          distance_threshold)) {
-      timer_astar.stop();
       timings["astar"] = timer_astar.elapsed().wall / 1e9;
+
       return recover_path(history, expanded_mps_, curr_node);
     }
 
     pq.pop();
-    timer_expand.start();
+    timer.start();
     const auto neighbor_mps = expand_mp(curr_mp);
-    timer_expand.stop();
-    timings["expand"] += timer_expand.elapsed().wall / 1e9;
+    timings["astar_expand"] += timer.elapsed().wall / 1e9;
 
     for (const auto& next_mp : neighbor_mps) {
       // Add this to the expaned mp set
@@ -151,7 +154,9 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
       // Check if we found a better path
       if (next_node.motion_cost < last_cost) {
         // push to min_heap
+        timer.start();
         pq.push(next_node);
+        timings["astar_push"] += timer.elapsed().wall / 1e9;
         history[next_node.mp_index] = curr_node;
       }
     }

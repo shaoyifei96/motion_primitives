@@ -72,9 +72,9 @@ class MotionPrimitiveGraph {
   }
 
  private:
+  std::vector<MotionPrimitive> mps_;
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;
-  std::vector<MotionPrimitive> mps_;
   Eigen::VectorXd max_state_;
 
   double dispersion_;

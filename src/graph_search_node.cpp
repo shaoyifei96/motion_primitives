@@ -66,15 +66,14 @@ int main(int argc, char** argv) {
   pnh.param("goal_state", g, std::vector<double>{0, 0, 0, 0});
   start = Eigen::Map<Eigen::VectorXd>(s.data(), s.size());
   goal = Eigen::Map<Eigen::VectorXd>(g.data(), g.size());
-
-  GraphSearch gs(read_motion_primitive_graph(graph_file), start, goal,
-                 voxel_map);
+  const auto mp_graph = read_motion_primitive_graph(graph_file);
+  GraphSearch gs(mp_graph, start, goal, voxel_map);
 
   ROS_INFO("Started planning.");
-  auto planner_start_time = ros::Time::now();
+  auto start_time = ros::Time::now();
   auto path = gs.run_graph_search();
   ROS_INFO("Finished planning. Planning time %f s",
-           (ros::Time::now() - planner_start_time).toSec());
+           (ros::Time::now() - start_time).toSec());
   ROS_INFO_STREAM("path size: " << path.size());
 
   if (!path.empty()) {
@@ -84,14 +83,15 @@ int main(int argc, char** argv) {
     ROS_WARN("No trajectory found.");
   }
 
-  planner_start_time = ros::Time::now();
-  path = gs.search_path(start, goal, 0.5);
-  ROS_INFO("Finished planning. Planning time %f s",
-           (ros::Time::now() - planner_start_time).toSec());
+  GraphSearch gs2(mp_graph, start, goal, voxel_map);
+  start_time = ros::Time::now();
+  path = gs2.search_path(start, goal, 0.5);
+  const auto total_time = (ros::Time::now() - start_time).toSec();
+  ROS_INFO("Finished planning. Planning time %f s", total_time);
   ROS_INFO_STREAM("path size: " << path.size());
   ROS_INFO_STREAM("expanded mps: " << gs.expanded_mps().size());
-  for (const auto& [k, v] : gs.timings) {
-    ROS_INFO_STREAM(k << " " << v);
+  for (const auto& [k, v] : gs2.timings) {
+    ROS_INFO_STREAM(k << " " << v << "s, " << (v / total_time * 100) << "%");
   }
 
   if (!path.empty()) {

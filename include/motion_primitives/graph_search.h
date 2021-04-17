@@ -61,6 +61,7 @@ class GraphSearch {
 
   // Expanded set
   mutable std::vector<MotionPrimitive> expanded_mps_;
+  //  mutable std::unordered_map<int, MotionPrimitive> expanded_mps_;
 
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
@@ -99,9 +100,7 @@ class GraphSearch {
                                            const Eigen::VectorXd& end_state,
                                            double distance_threshold) const;
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
-  const std::vector<MotionPrimitive>& expanded_mps() const noexcept {
-    return expanded_mps_;
-  }
+  const auto& expanded_mps() const noexcept { return expanded_mps_; }
 
   mutable std::unordered_map<std::string, double> timings;
 };
