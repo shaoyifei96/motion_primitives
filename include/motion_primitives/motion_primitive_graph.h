@@ -21,6 +21,7 @@ class MotionPrimitive {
   Eigen::VectorXd start_state_;
   Eigen::VectorXd end_state_;
   Eigen::MatrixXd poly_coeffs_;
+  mutable Eigen::MatrixXd sampled_positions_;
   // Moves the motion primitive to a new position by modifying it's start, end,
   // and polynomial coefficients
   void translate(const Eigen::VectorXd& new_start);
@@ -52,6 +53,9 @@ class MotionPrimitive {
   int spatial_dim() const noexcept { return spatial_dim_; }
   const Eigen::VectorXd& end_state() const noexcept { return end_state_; }
   const Eigen::MatrixXd& poly_coeffs() const noexcept { return poly_coeffs_; }
+  const Eigen::MatrixXd& sampled_positions() const noexcept {
+    return sampled_positions_;
+  }
 };
 
 class MotionPrimitiveGraph {

@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     traj_pub2.publish(traj);
 
     const auto mps_marray =
-        mps_to_marker_array(gs.expanded_mps(), voxel_map.header, 0.1, true);
+        mps_to_marker_array(gs.expanded_mps(), voxel_map.header, 0.05, true);
     mps_pub.publish(mps_marray);
 
   } else {

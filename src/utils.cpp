@@ -86,17 +86,17 @@ MarkerArray mps_to_marker_array(const std::vector<MotionPrimitive>& mps,
     m_mps.color = m_end.color;
     m_mps.color.a /= 2.0;
     m_mps.type = Marker::LINE_LIST;
-    m_mps.scale.x = scale / 2.0;  // traj should be thinner than end point
+    m_mps.scale.x = scale / 3.0;  // traj should be thinner than end point
     m_mps.pose.orientation.w = 1.0;
 
     for (const auto& mp : mps) {
       // TODO: we have a dummy mp in the expanded set, maybe need a better way
       // to get rid of it
-      if (mp.poly_coeffs().rows() == 0) {
+      if (mp.sampled_positions().size() == 0) {
         continue;
       }
 
-      const auto points = mp.get_sampled_position();
+      const auto& points = mp.sampled_positions();
       for (int i = 0; i < points.rows() - 1; ++i) {
         Point p1;
         p1.x = points.row(i).x();
