@@ -61,6 +61,8 @@ MarkerArray mps_to_marker_array(const std::vector<MotionPrimitive>& mps,
   // end point of each mps, put them in the same marker as a sphere list to
   // speed up rendering
   Marker m_end;
+  m_end.id = 0;
+  m_end.ns = "node";
   m_end.header = header;
   m_end.color.b = 1.0;
   m_end.color.a = 0.5;
@@ -79,10 +81,13 @@ MarkerArray mps_to_marker_array(const std::vector<MotionPrimitive>& mps,
   if (draw_traj) {
     Marker m_mps;
     m_mps.header = header;
+    m_mps.id = 0;
+    m_mps.ns = "edge";
     m_mps.color = m_end.color;
     m_mps.color.a /= 2.0;
     m_mps.type = Marker::LINE_LIST;
     m_mps.scale.x = scale / 2.0;  // traj should be thinner than end point
+    m_mps.pose.orientation.w = 1.0;
 
     for (const auto& mp : mps) {
       // TODO: we have a dummy mp in the expanded set, maybe need a better way
