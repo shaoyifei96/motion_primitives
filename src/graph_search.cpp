@@ -37,10 +37,12 @@ bool GraphSearch::is_free_and_valid_indices(
 }
 
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
-  position.conservativeResize(3);
+  if (position.rows() < 3) {
+    position.conservativeResize(3);
+    position(2) = 0;
+  }
   return is_free_and_valid_indices(get_indices_from_position(position));
 }
-
 bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
                                        double step_size = .1) const {
   auto samples = mp.get_sampled_position(step_size);
@@ -101,7 +103,9 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
     for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
       double neighbor_past_g =
           shortest_path_history[neighbor_node.state_].cost_to_come_;
-      if (neighbor_node.cost_to_come_ < neighbor_past_g) {
+      if (neighbor_node.cost_to_come_ <
+          neighbor_past_g +
+              get_mp_between_nodes(current_node, neighbor_node).cost_) {
         pq.push(neighbor_node);
         shortest_path_history[neighbor_node.state_] = current_node;
       }
@@ -187,7 +191,8 @@ planning_ros_msgs::Trajectory GraphSearch::path_to_traj_msg(
 }
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {
-  os << node.state_.transpose() << std::endl;
+  os << "state: " << node.state_.transpose() << std::endl;
+  os << "g:" << node.cost_to_come_ << " f:" << node.total_cost_ << std::endl;
   return os;
 }
 
