@@ -94,8 +94,7 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
     Node current_node = pq.top();
     if ((current_node.state_.head(graph_.spatial_dim_) -
          goal_state_.head(graph_.spatial_dim_))
-            .norm() < .5) {  // TODO parameterize termination conditions, add
-                             // BVP end condition
+            .norm() < goal_pos_tolerance_) {  // TODO add BVP end condition
       return reconstruct_path(current_node, shortest_path_history);
     }
     pq.pop();

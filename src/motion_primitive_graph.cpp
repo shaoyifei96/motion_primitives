@@ -87,7 +87,7 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
             edge.at("traj_time"), poly_coeffs));
         graph.edges_(i, j) = graph.mps_.size() - 1;
       } else {
-        graph.edges_(i, j) = -1; //TODO make constant
+        graph.edges_(i, j) = -1;  // TODO make constant
       }
     }
   }

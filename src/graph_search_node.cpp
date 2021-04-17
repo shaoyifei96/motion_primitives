@@ -53,14 +53,17 @@ int main(int argc, char **argv) {
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   std::vector<double> s, g;
-  Eigen::Vector4d start, goal;
+  Eigen::VectorXd start, goal;
   pnh.param("start_state", s, std::vector<double>{0, 0, 0, 0});
   pnh.param("goal_state", g, std::vector<double>{0, 0, 0, 0});
   start = Eigen::Map<Eigen::VectorXd>(s.data(), s.size());
   goal = Eigen::Map<Eigen::VectorXd>(g.data(), g.size());
 
+  double goal_pos_tolerance;
+  pnh.param("goal_pos_tolerance", goal_pos_tolerance, .5);
+
   GraphSearch gs(read_motion_primitive_graph(graph_file), start, goal,
-                 voxel_map);
+                 voxel_map, goal_pos_tolerance);
   ROS_INFO("Started planning.");
   ros::Time planner_start_time = ros::Time::now();
   auto path = gs.run_graph_search();
@@ -89,7 +92,7 @@ int main(int argc, char **argv) {
   start_marker.scale.y = .5;
   start_marker.scale.z = .5;
   goal_marker = start_marker;
-  goal_marker.id=1;
+  goal_marker.id = 1;
   goal_marker.pose.position.x = goal[0], goal_marker.pose.position.y = goal[1],
   goal_marker.pose.position.z = goal[2];
   goal_marker.color.g = 0;

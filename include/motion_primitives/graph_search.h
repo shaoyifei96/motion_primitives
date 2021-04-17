@@ -63,6 +63,7 @@ class GraphSearch {
   Eigen::Vector3i map_dims_;
   Eigen::Vector3d map_origin_;
   planning_ros_msgs::VoxelMap voxel_map_;
+  double goal_pos_tolerance_;
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
   // Converts from vector of indices to single index into
@@ -93,11 +94,12 @@ class GraphSearch {
   GraphSearch(const MotionPrimitiveGraph& graph,
               const Eigen::VectorXd& start_state,
               const Eigen::VectorXd& goal_state,
-              const planning_ros_msgs::VoxelMap& voxel_map)
+              const planning_ros_msgs::VoxelMap& voxel_map, double goal_pos_tolerance)
       : graph_(graph),
         start_state_(start_state),
         goal_state_(goal_state),
-        voxel_map_(voxel_map) {
+        voxel_map_(voxel_map),
+        goal_pos_tolerance_(goal_pos_tolerance) {
     map_dims_[0] = voxel_map_.dim.x;
     map_dims_[1] = voxel_map_.dim.y;
     map_dims_[2] = voxel_map_.dim.z;
