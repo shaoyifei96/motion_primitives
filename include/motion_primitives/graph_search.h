@@ -1,6 +1,7 @@
 #ifndef MOTION_PRIMITIVES_GRAPH_SEARCH_H
 #define MOTION_PRIMITIVES_GRAPH_SEARCH_H
 
+#include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
 
 #include <queue>

@@ -183,7 +183,7 @@ MotionPrimitive GraphSearch::get_mp_between_nodes(const Node& start_node,
 }
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {
-  os << node.state_.transpose() << std::endl;
+  os << node.state_.transpose() << "\n";
   return os;
 }
 
