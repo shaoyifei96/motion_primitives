@@ -30,15 +30,14 @@ std::vector<MotionPrimitive> recover_path(
   int i = 0;
   while (ros::ok()) {
     // Stop if we reach the first dummy mp
-    LOG(INFO) << curr_node.mp_index;
     if (curr_node.mp_index == 0) {
       break;
     }
     // Get the mp
-    const auto& mp = expanded_mps.at(node.mp_index);
+    const auto& mp = expanded_mps.at(curr_node.mp_index);
     // Get the parent node given this mp
     path_mps.push_back(mp);
-    curr_node = history.at(node.mp_index);
+    curr_node = history.at(curr_node.mp_index);
   }
 
   std::reverse(path_mps.begin(), path_mps.end());
@@ -101,7 +100,7 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
 
   // All expaned primitives
   std::vector<MotionPrimitive> expanded_mps;
-  expanded_mps.reserve(64);
+  expanded_mps.reserve(1024);
 
   // Add a sentinel mp
   MotionPrimitive dummy_mp;
@@ -122,9 +121,7 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     if (state_pos_within(curr_mp.end_state(), end_state, spatial_dim(),
                          distance_threshold)) {
       ROS_INFO("Close to goal, stop");
-      //      return recover_path(history, expanded_mps, curr_node);
-      LOG(INFO) << history.size();
-      return {};
+      return recover_path(history, expanded_mps, curr_node);
     }
 
     pq.pop();
