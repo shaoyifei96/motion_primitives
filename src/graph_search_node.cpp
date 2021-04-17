@@ -35,7 +35,7 @@ std::vector<T> read_bag(std::string file_name, std::string topic,
   return msgs;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ros::init(argc, argv, "motion_primitive_graph_search_cpp");
   ros::NodeHandle pnh("~");
   ros::Publisher traj_pub =
@@ -90,6 +90,9 @@ int main(int argc, char **argv) {
            (ros::Time::now() - planner_start_time).toSec());
   ROS_INFO_STREAM("path size: " << path.size());
   ROS_INFO_STREAM("expanded mps: " << gs.expanded_mps().size());
+  for (const auto& [k, v] : gs.timings) {
+    ROS_INFO_STREAM(k << " " << v);
+  }
 
   if (!path.empty()) {
     const auto traj = path_to_traj_msg(path, voxel_map.header);

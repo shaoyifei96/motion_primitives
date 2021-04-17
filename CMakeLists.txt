@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(glog REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(Boost REQUIRED COMPONENTS timer)
+
 
 # include(FetchContent)
 
@@ -159,6 +161,7 @@ target_link_libraries(${PROJECT_NAME}
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
   glog::glog
+  Boost::timer
 )
 
 add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)

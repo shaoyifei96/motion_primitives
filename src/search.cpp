@@ -3,6 +3,7 @@
 #include <ros/init.h>  // ok()
 
 #include <boost/container/flat_map.hpp>
+#include <boost/timer/timer.hpp>
 
 #include "motion_primitives/graph_search.h"
 
@@ -112,6 +113,11 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
   // Shortest path history, stores the parent node of a particular mp (int)
   boost::container::flat_map<int, Node2> history;
 
+  // timer
+  boost::timer::cpu_timer timer_astar, timer_expand;
+  timer_astar.start();
+  timer_expand.stop();
+
   while (!pq.empty() && ros::ok()) {
     Node2 curr_node = pq.top();
 
@@ -120,11 +126,16 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     const auto& curr_mp = expanded_mps_.at(curr_node.mp_index);
     if (state_pos_within(curr_mp.end_state(), end_state, spatial_dim(),
                          distance_threshold)) {
+      timer_astar.stop();
+      timings["astar"] = timer_astar.elapsed().wall / 1e9;
       return recover_path(history, expanded_mps_, curr_node);
     }
 
     pq.pop();
+    timer_expand.start();
     const auto neighbor_mps = expand_mp(curr_mp);
+    timer_expand.stop();
+    timings["expand"] += timer_expand.elapsed().wall / 1e9;
 
     for (const auto& next_mp : neighbor_mps) {
       // Add this to the expaned mp set

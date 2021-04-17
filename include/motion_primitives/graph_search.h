@@ -102,6 +102,8 @@ class GraphSearch {
   const std::vector<MotionPrimitive>& expanded_mps() const noexcept {
     return expanded_mps_;
   }
+
+  mutable std::unordered_map<std::string, double> timings;
 };
 
 }  // namespace motion_primitives
