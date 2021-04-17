@@ -1,5 +1,8 @@
+//#include <absl/container/flat_hash_map.h>
 #include <glog/logging.h>
 #include <ros/init.h>  // ok()
+
+#include <boost/container/flat_map.hpp>
 
 #include "motion_primitives/graph_search.h"
 
@@ -23,20 +26,17 @@ struct Node2 {
 };
 
 std::vector<MotionPrimitive> recover_path(
-    const std::unordered_map<int, Node2>& history,
+    const boost::container::flat_map<int, Node2>& history,
     const std::vector<MotionPrimitive>& expanded_mps, const Node2& node) {
   std::vector<MotionPrimitive> path_mps;
   Node2 curr_node = node;
-  int i = 0;
   while (ros::ok()) {
     // Stop if we reach the first dummy mp
     if (curr_node.mp_index == 0) {
       break;
     }
-    // Get the mp
-    const auto& mp = expanded_mps.at(curr_node.mp_index);
-    // Get the parent node given this mp
-    path_mps.push_back(mp);
+    // Get the parent node given the current mp
+    path_mps.push_back(expanded_mps.at(curr_node.mp_index));
     curr_node = history.at(curr_node.mp_index);
   }
 
@@ -48,6 +48,7 @@ std::vector<MotionPrimitive> recover_path(
 std::vector<MotionPrimitive> GraphSearch::expand_mp(
     const MotionPrimitive& mp) const {
   std::vector<MotionPrimitive> mps;
+  mps.reserve(64);
 
   int reset_map_index = std::floor(mp.id() / graph_.num_tiles_);
   for (int i = 0; i < graph_.edges_.rows(); ++i) {
@@ -95,7 +96,9 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
   using MinHeap =
       std::priority_queue<Node2, std::vector<Node2>, decltype(cost_cmp)>;
 
-  MinHeap pq{cost_cmp};
+  std::vector<Node2> cont;
+  cont.reserve(1024);
+  MinHeap pq{cost_cmp, std::move(cont)};
   pq.push(start_node);
 
   // All expaned primitives
@@ -110,7 +113,7 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
   expanded_mps.push_back(dummy_mp);
 
   // Shortest path history, stores the parent node of a particular mp (int)
-  std::unordered_map<int, Node2> history;
+  boost::container::flat_map<int, Node2> history;
 
   while (!pq.empty() && ros::ok()) {
     Node2 curr_node = pq.top();

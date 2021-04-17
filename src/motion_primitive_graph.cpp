@@ -17,7 +17,7 @@ void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
 Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
   Eigen::VectorXd time_multiplier;
   time_multiplier.resize(poly_coeffs_.cols());
-  for (int i = 0; i < poly_coeffs_.cols(); i++) {
+  for (int i = 0; i < poly_coeffs_.cols(); ++i) {
     time_multiplier[poly_coeffs_.cols() - i - 1] = std::pow(t, i);
   }
   return poly_coeffs_ * time_multiplier;
@@ -25,9 +25,9 @@ Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
 
 Eigen::MatrixXd MotionPrimitive::get_sampled_position(double step_size) const {
   Eigen::MatrixXd result;
-  int num_samples = ceil(traj_time_ / step_size) + 1;
+  int num_samples = std::ceil(traj_time_ / step_size) + 1;
   result.resize(num_samples, spatial_dim_);
-  for (int i = 0; i < num_samples; i++) {
+  for (int i = 0; i < num_samples; ++i) {
     result.row(i) = evaluate_polynomial(i * step_size);
   }
   return result;

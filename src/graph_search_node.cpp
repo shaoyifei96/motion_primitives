@@ -40,6 +40,8 @@ int main(int argc, char **argv) {
   ros::NodeHandle pnh("~");
   ros::Publisher traj_pub =
       pnh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
+  ros::Publisher traj_pub2 =
+      pnh.advertise<planning_ros_msgs::Trajectory>("trajectory2", 1, true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
@@ -52,6 +54,8 @@ int main(int argc, char **argv) {
   auto voxel_map =
       read_bag<planning_ros_msgs::VoxelMap>(map_file, map_topic, 0).back();
   voxel_map.header.stamp = ros::Time::now();
+  map_pub.publish(voxel_map);
+  ROS_INFO("Publish map");
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   std::vector<double> s, g;
@@ -85,7 +89,13 @@ int main(int argc, char **argv) {
            (ros::Time::now() - planner_start_time).toSec());
   ROS_INFO_STREAM("path size: " << path.size());
 
-  map_pub.publish(voxel_map);
+  if (!path.empty()) {
+    const auto traj =
+        path_to_traj_msg(path, gs.spatial_dim(), voxel_map.header);
+    traj_pub2.publish(traj);
+  } else {
+    ROS_WARN("No trajectory found.");
+  }
 
   visualization_msgs::MarkerArray sg_markers;
   visualization_msgs::Marker start_marker, goal_marker;

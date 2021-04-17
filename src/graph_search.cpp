@@ -1,8 +1,8 @@
-
 #include "motion_primitives/graph_search.h"
 
 #include <planning_ros_msgs/Primitive.h>
 #include <ros/init.h>
+
 namespace motion_primitives {
 
 namespace {
@@ -58,7 +58,7 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
 
 bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
                                        double step_size) const {
-  auto samples = mp.get_sampled_position(step_size);
+  const auto samples = mp.get_sampled_position(step_size);
   for (int i = 0; i < samples.rows(); ++i) {
     if (!is_free_and_valid_position(samples.row(i))) {
       return false;
@@ -117,7 +117,9 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
     for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
       double neighbor_past_g =
           shortest_path_history[neighbor_node.state_].cost_to_come_;
-      if (neighbor_node.cost_to_come_ < neighbor_past_g) {
+      if (neighbor_node.cost_to_come_ <
+          neighbor_past_g +
+              get_mp_between_nodes(current_node, neighbor_node).cost_) {
         pq.push(neighbor_node);
         shortest_path_history[neighbor_node.state_] = current_node;
       }
