@@ -96,9 +96,7 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
   using MinHeap =
       std::priority_queue<Node2, std::vector<Node2>, decltype(cost_cmp)>;
 
-  std::vector<Node2> cont;
-  cont.reserve(1024);
-  MinHeap pq{cost_cmp, std::move(cont)};
+  MinHeap pq{cost_cmp};
   pq.push(start_node);
 
   // All expaned primitives
@@ -123,7 +121,6 @@ std::vector<MotionPrimitive> GraphSearch::search_path(
     const auto& curr_mp = expanded_mps.at(curr_node.mp_index);
     if (state_pos_within(curr_mp.end_state(), end_state, spatial_dim(),
                          distance_threshold)) {
-      ROS_INFO("Close to goal, stop");
       return recover_path(history, expanded_mps, curr_node);
     }
 
