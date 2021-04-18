@@ -121,7 +121,7 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
           shortest_path_history[neighbor_node.state_].cost_to_come_;
       if (neighbor_node.cost_to_come_ <
           neighbor_past_g +
-              get_mp_between_nodes(current_node, neighbor_node).cost_) {
+              get_mp_between_nodes(shortest_path_history[neighbor_node.state_], neighbor_node).cost_) {
         pq.push(neighbor_node);
         shortest_path_history[neighbor_node.state_] = current_node;
       }
