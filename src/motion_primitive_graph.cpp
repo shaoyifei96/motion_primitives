@@ -35,8 +35,6 @@ Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
     result.row(i) = evaluate_polynomial(times(i));
   }
 
-  // Cache the sampled positions
-  sampled_positions_ = result;
   return result;
 }
 

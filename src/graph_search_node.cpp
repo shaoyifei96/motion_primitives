@@ -6,6 +6,7 @@
 #include <boost/foreach.hpp>
 
 #include "motion_primitives/graph_search.h"
+#include "motion_primitives/graph_search2.h"
 #include "motion_primitives/utils.h"
 
 using namespace motion_primitives;
@@ -46,8 +47,8 @@ int main(int argc, char** argv) {
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
       pnh.advertise<visualization_msgs::MarkerArray>("start_and_goal", 1, true);
-  ros::Publisher mps_pub =
-      pnh.advertise<visualization_msgs::MarkerArray>("expanded", 1, true);
+  ros::Publisher visited_pub =
+      pnh.advertise<visualization_msgs::MarkerArray>("visited", 1, true);
 
   // Read map from bag file
   std::string map_file, map_topic, graph_file;
@@ -104,26 +105,23 @@ int main(int argc, char** argv) {
     ROS_WARN("No trajectory found.");
   }
 
-  GraphSearch gs2(mp_graph, start, goal, voxel_map);
+  GraphSearch2 gs2(mp_graph, start, goal, voxel_map);
   start_time = ros::Time::now();
-  path = gs2.search_path(start, goal, 0.5);
+  path = gs2.Search(start, goal, 0.5, true);
   const auto total_time = (ros::Time::now() - start_time).toSec();
   ROS_INFO("Finished planning. Planning time %f s", total_time);
   ROS_INFO_STREAM("path size: " << path.size());
-  ROS_INFO_STREAM("expanded mps: " << gs2.expanded_mps().size());
   for (const auto& [k, v] : gs2.timings) {
-    ROS_INFO_STREAM(k << " " << v << "s, " << (v / total_time * 100) << "%");
+    ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
   }
 
   if (!path.empty()) {
-    //    ROS_INFO_STREAM(path);
     const auto traj = path_to_traj_msg(path, voxel_map.header);
     traj_pub2.publish(traj);
 
-    const auto mps_marray =
-        mps_to_marker_array(gs2.expanded_mps(), voxel_map.header, 0.05, true);
-    mps_pub.publish(mps_marray);
-
+    const auto visited_marray = StatesToMarkerArray(
+        gs2.GetVisitedStates(), gs2.spatial_dim(), voxel_map.header);
+    visited_pub.publish(visited_marray);
   } else {
     ROS_WARN("No trajectory found.");
   }

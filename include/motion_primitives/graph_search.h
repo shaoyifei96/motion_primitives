@@ -51,17 +51,13 @@ class Node {
 };
 
 class GraphSearch {
- private:
+ protected:
   MotionPrimitiveGraph graph_;
   Eigen::VectorXd start_state_;
   Eigen::VectorXd goal_state_;
   Eigen::Vector3i map_dims_;
   Eigen::Vector3d map_origin_;
   planning_ros_msgs::VoxelMap voxel_map_;
-
-  // Expanded set
-  mutable std::vector<MotionPrimitive> expanded_mps_;
-  //  mutable std::unordered_map<int, MotionPrimitive> expanded_mps_;
 
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
@@ -87,9 +83,6 @@ class GraphSearch {
 
   MotionPrimitive get_mp_between_nodes(const Node& n1, const Node& n2) const;
 
-  std::vector<MotionPrimitive> expand_mp(const MotionPrimitive& mp) const;
-  std::vector<MotionPrimitive> expand_mp_par(const MotionPrimitive& mp) const;
-
  public:
   GraphSearch(const MotionPrimitiveGraph& graph,
               const Eigen::VectorXd& start_state,
@@ -97,13 +90,7 @@ class GraphSearch {
               const planning_ros_msgs::VoxelMap& voxel_map);
 
   std::vector<MotionPrimitive> run_graph_search() const;
-  std::vector<MotionPrimitive> search_path(const Eigen::VectorXd& start_state,
-                                           const Eigen::VectorXd& end_state,
-                                           double distance_threshold) const;
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
-  const auto& expanded_mps() const noexcept { return expanded_mps_; }
-
-  mutable std::unordered_map<std::string, double> timings;
 };
 
 }  // namespace motion_primitives
