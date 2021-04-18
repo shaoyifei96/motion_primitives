@@ -172,7 +172,6 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
     Node2 curr_node = pq.top();
 
     // Check if we are close enough to the end
-    // Use at for safety, later change to []
     if (state_pos_within(curr_node.state, end_state, spatial_dim(),
                          distance_threshold)) {
       LOG(INFO) << "== pq: " << pq.size();
@@ -194,8 +193,12 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
       // const bool has_best_cost = it != history.end();
       // const auto best_cost = has_best_cost ? it->second.cost :
       // Node2::kInfCost;
+
+      // this is the best cost reaching this state (next_node) so far
+      // could be inf if this state has never been visited
       const auto best_cost = history[next_node.state].cost;
 
+      // compare reaching next_node from curr_node and mp to best cost
       if (next_node.motion_cost < best_cost) {
         timer.start();
         pq.push(next_node);

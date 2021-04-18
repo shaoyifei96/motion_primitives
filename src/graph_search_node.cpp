@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
   sg_markers.markers.push_back(goal_marker);
   sg_pub.publish(sg_markers);
 
-  if (false) {
+  if (true) {
     GraphSearch gs(mp_graph, start, goal, voxel_map);
     ROS_INFO("Started planning gs.");
     const auto start_time = ros::Time::now();
