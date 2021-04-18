@@ -119,9 +119,13 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
     for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
       double neighbor_past_g =
           shortest_path_history[neighbor_node.state_].cost_to_come_;
-      if (neighbor_node.cost_to_come_ <
-          neighbor_past_g +
-              get_mp_between_nodes(shortest_path_history[neighbor_node.state_], neighbor_node).cost_) {
+      auto parent_node = shortest_path_history[neighbor_node.state_];
+      if (parent_node.index_ >= 0) {
+        neighbor_past_g +=
+            get_mp_between_nodes(parent_node, neighbor_node).cost_;
+      }
+
+      if (neighbor_node.cost_to_come_ < neighbor_past_g) {
         pq.push(neighbor_node);
         shortest_path_history[neighbor_node.state_] = current_node;
       }
