@@ -31,12 +31,13 @@ struct VectorXdHash : std::unary_function<Eigen::VectorXd, std::size_t> {
   std::size_t operator()(const Eigen::VectorXd& vd) const noexcept;
 };
 
-// Path history stores the parent node of this state and the best cost so far
-using PathHistory = std::unordered_map<Eigen::VectorXd, NodeCost, VectorXdHash>;
-using StateSet = std::unordered_set<Eigen::VectorXd, VectorXdHash>;
-
 class GraphSearch2 : public GraphSearch {
  public:
+  // Path history stores the parent node of this state and the best cost so far
+  using PathHistory =
+      std::unordered_map<Eigen::VectorXd, NodeCost, VectorXdHash>;
+
+  // Base ctor
   using GraphSearch::GraphSearch;
 
   // Search for a path from start_state to end_state, stops if no path found
@@ -59,6 +60,7 @@ class GraphSearch2 : public GraphSearch {
   std::vector<Node2> ExpandPar(const Node2& node) const;
   MotionPrimitive GetPrimitiveBetween(const Node2& start_node,
                                       const Node2& end_node) const;
+  using StateSet = std::unordered_set<Eigen::VectorXd, VectorXdHash>;
   mutable StateSet visited_states_;
 };
 

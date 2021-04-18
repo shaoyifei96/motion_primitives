@@ -153,13 +153,13 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
   start_node.heuristic_cost = heuristic(start_state);
 
   // > for min heap
-  auto cost_cmp = [](const Node2& n1, const Node2& n2) {
+  auto node_cmp = [](const Node2& n1, const Node2& n2) {
     return n1.total_cost() > n2.total_cost();
   };
   using MinHeap =
-      std::priority_queue<Node2, std::vector<Node2>, decltype(cost_cmp)>;
+      std::priority_queue<Node2, std::vector<Node2>, decltype(node_cmp)>;
 
-  MinHeap pq{cost_cmp};
+  MinHeap pq{node_cmp};
   pq.push(start_node);
 
   // Shortest path history, stores the parent node of a particular mp (int)
@@ -189,11 +189,6 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
     timings["astar_expand"] += Elapsed(timer);
 
     for (const auto& next_node : next_nodes) {
-      // const auto it = history.find(next_node.state);
-      // const bool has_best_cost = it != history.end();
-      // const auto best_cost = has_best_cost ? it->second.cost :
-      // Node2::kInfCost;
-
       // this is the best cost reaching this state (next_node) so far
       // could be inf if this state has never been visited
       const auto best_cost = history[next_node.state].cost;
