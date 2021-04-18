@@ -113,7 +113,7 @@ std::vector<Node2> GraphSearch2::ExpandPar(const Node2& node) const {
 
 MotionPrimitive GraphSearch2::GetPrimitiveBetween(const Node2& start_node,
                                                   const Node2& end_node) const {
-  int state_index = floor(start_node.state_index / graph_.num_tiles());
+  int state_index = std::floor(start_node.state_index / graph_.num_tiles());
   auto mp = graph_.get_mp_between_indices(end_node.state_index, state_index);
   mp.translate(start_node.state);
   return mp;
