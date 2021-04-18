@@ -31,7 +31,7 @@ std::size_t VectorXdHash::operator()(const Eigen::VectorXd& vd) const noexcept {
   size_t seed = 0;
   for (size_t i = 0; i < static_cast<size_t>(v.size()); ++i) {
     const auto elem = *(v.data() + i);
-    seed ^= std::hash<double>()(elem) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= std::hash<int>()(elem) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
   }
   return seed;
 }
