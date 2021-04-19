@@ -76,7 +76,7 @@ double GraphSearch::heuristic(const Eigen::VectorXd& v) const {
   }
   // TODO [theoretical] needs a lot of improvement. Not admissible, but too slow
   // otherwise with higher velocities.
-  return 1.2 * graph_.rho_ * x.lpNorm<Eigen::Infinity>() / graph_.max_state_(1);
+  return 1.1 * graph_.rho_ * x.lpNorm<Eigen::Infinity>() / graph_.max_state_(1);
 }
 
 std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(

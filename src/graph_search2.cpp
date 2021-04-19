@@ -26,7 +26,7 @@ std::size_t VectorXdHash::operator()(const Eigen::VectorXd& vd) const noexcept {
   using std::size_t;
 
   // allow sufficiently close state to map to the same hash value
-  const Eigen::VectorXi v = (vd * 50).cast<int>();
+  const Eigen::VectorXi v = (vd * 100).cast<int>();
 
   size_t seed = 0;
   for (size_t i = 0; i < static_cast<size_t>(v.size()); ++i) {
@@ -36,8 +36,10 @@ std::size_t VectorXdHash::operator()(const Eigen::VectorXd& vd) const noexcept {
   return seed;
 }
 
-std::vector<Node2> GraphSearch2::Expand(const Node2& node) const {
+auto GraphSearch2::Expand(const Node2& node) const -> std::vector<Node2> {
   std::vector<Node2> nodes;
+  nodes.reserve(64);
+
   const int state_index = std::floor(node.state_index / graph_.num_tiles());
   const auto num_states = static_cast<int>(graph_.edges_.rows());
 
@@ -61,10 +63,11 @@ std::vector<Node2> GraphSearch2::Expand(const Node2& node) const {
     next_node.heuristic_cost = heuristic(mp.end_state());
     nodes.push_back(next_node);
   }
+
   return nodes;
 }
 
-std::vector<Node2> GraphSearch2::ExpandPar(const Node2& node) const {
+auto GraphSearch2::ExpandPar(const Node2& node) const -> std::vector<Node2> {
   const int state_index = std::floor(node.state_index / graph_.num_tiles());
   const auto num_states = static_cast<int>(graph_.edges_.rows());
 
@@ -83,8 +86,9 @@ std::vector<Node2> GraphSearch2::ExpandPar(const Node2& node) const {
           mp.translate(node.state);
 
           // Check if already visited
-          if (visited_states_.find(mp.end_state()) != visited_states_.end())
+          if (visited_states_.find(mp.end_state()) != visited_states_.end()) {
             continue;
+          }
 
           // Then check if its collision free
           if (!is_mp_collision_free(mp)) continue;
@@ -126,7 +130,7 @@ std::vector<MotionPrimitive> GraphSearch2::RecoverPath(
 
   while (ros::ok()) {
     if (curr_node->motion_cost == 0) break;
-    Node2 const* prev_node = &(history.at(curr_node->state).node);
+    Node2 const* prev_node = &(history.at(curr_node->state).parent_node);
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
     curr_node = prev_node;
   }
@@ -139,13 +143,15 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
                           const Eigen::VectorXd& end_state,
                           double distance_threshold, bool parallel) const
     -> std::vector<MotionPrimitive> {
+  timings.clear();
+  visited_states_.clear();
+
   // Early exit if start and end positions are close
   if (state_pos_within(start_state, end_state, spatial_dim(),
                        distance_threshold)) {
     return {};
   }
 
-  // Start node is reached by a dummy mp, and has 0 cost
   Node2 start_node;
   start_node.state_index = 0;
   start_node.state = start_state;
@@ -184,6 +190,23 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
     pq.pop();
     timings["astar_pop"] += Elapsed(timer);
 
+    // Due to the imutability of std::priority_queue, we have no way of
+    // modifying the priority of an element in the queue. Therefore, when we
+    // push the next node into the queue, there might be duplicated nodes with
+    // the same state but different costs. This could cause us to expand the
+    // same state multiple times.
+    // Although this does not affect the correctness of the implementation
+    // (since the nodes are correctly sorted), it might be slower to repeatedly
+    // expanding visited states. The timiing suggest more than 80% of the time
+    // is spent on the Expand(node) call. Thus, we will check here if this state
+    // has been visited and skip if it has. This will save around 20%
+    // computation.
+    if (visited_states_.find(curr_node.state) != visited_states_.cend()) {
+      continue;
+    }
+    // add current state to visited
+    visited_states_.insert(curr_node.state);
+
     timer.start();
     const auto next_nodes = parallel ? ExpandPar(curr_node) : Expand(curr_node);
     timings["astar_expand"] += Elapsed(timer);
@@ -191,7 +214,7 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
     for (const auto& next_node : next_nodes) {
       // this is the best cost reaching this state (next_node) so far
       // could be inf if this state has never been visited
-      const auto best_cost = history[next_node.state].cost;
+      const auto best_cost = history[next_node.state].best_cost;
 
       // compare reaching next_node from curr_node and mp to best cost
       if (next_node.motion_cost < best_cost) {
@@ -201,19 +224,13 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
         history[next_node.state] = {curr_node, next_node.motion_cost};
       }
     }
-
-    // add current state to visited
-    visited_states_.insert(curr_node.state);
   }
 
   return {};
 }
 
 std::vector<Eigen::VectorXd> GraphSearch2::GetVisitedStates() const noexcept {
-  std::vector<Eigen::VectorXd> states;
-  std::copy(visited_states_.cbegin(), visited_states_.cend(),
-            std::back_inserter(states));
-  return states;
+  return {visited_states_.cbegin(), visited_states_.cend()};
 }
 
 }  // namespace motion_primitives
