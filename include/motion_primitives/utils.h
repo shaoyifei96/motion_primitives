@@ -12,6 +12,7 @@ planning_ros_msgs::Trajectory path_to_traj_msg(
 
 auto StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
                          int spatial_dim, const std_msgs::Header& header,
-                         double scale = 0.1) -> visualization_msgs::MarkerArray;
+                         double scale = 0.1, bool show_vel = false)
+    -> visualization_msgs::MarkerArray;
 
 }  // namespace motion_primitives

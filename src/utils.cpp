@@ -58,29 +58,56 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
 
 MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
                                 int spatial_dim, const std_msgs::Header& header,
-                                double scale) {
+                                double scale, bool show_vel) {
   MarkerArray marray;
   marray.markers.reserve(2);
 
   // end point of each mps, put them in the same marker as a sphere list to
   // speed up rendering
-  Marker m_state;
-  m_state.id = 0;
-  m_state.ns = "state";
-  m_state.header = header;
-  m_state.color.b = 1.0;
-  m_state.color.a = 0.5;
-  m_state.type = Marker::SPHERE_LIST;
-  m_state.scale.x = m_state.scale.y = m_state.scale.z = scale;
-  m_state.pose.orientation.w = 1.0;
+  Marker m_pos;
+  m_pos.id = 0;
+  m_pos.ns = "pos";
+  m_pos.header = header;
+  m_pos.color.b = 1.0;
+  m_pos.color.a = 0.5;
+  m_pos.type = Marker::SPHERE_LIST;
+  m_pos.scale.x = m_pos.scale.y = m_pos.scale.z = scale;
+  m_pos.pose.orientation.w = 1.0;
   for (const auto& state : states) {
     Point p;
     p.x = state.x();
     p.y = state.y();
     p.z = spatial_dim == 3 ? state.z() : 0;
-    m_state.points.push_back(p);
+    m_pos.points.push_back(p);
   }
-  marray.markers.push_back(std::move(m_state));
+  marray.markers.push_back(std::move(m_pos));
+
+  if (show_vel) {
+    Marker m_vel;
+    m_vel.id = 0;
+    m_vel.ns = "vel";
+    m_vel.header = header;
+    m_vel.color.b = 1.0;
+    m_vel.color.a = 0.5;
+    m_vel.type = Marker::LINE_LIST;
+    m_vel.scale.x = m_pos.scale.y = m_pos.scale.z = scale / 4.0;
+    m_vel.pose.orientation.w = 1.0;
+    for (const auto& state : states) {
+      auto pos = state.head(spatial_dim);
+      Point p1;
+      p1.x = pos[0];
+      p1.y = pos[1];
+      p1.z = spatial_dim == 3 ? state[2] : 0;
+      Point p2 = p1;
+      auto vel = state.tail(spatial_dim) / 4.0;
+      p2.x += vel[0];
+      p2.y += vel[1];
+      p2.z += spatial_dim == 3 ? vel[2] : 0;
+      m_vel.points.push_back(p1);
+      m_vel.points.push_back(p2);
+    }
+    marray.markers.push_back(std::move(m_vel));
+  }
 
   return marray;
 }

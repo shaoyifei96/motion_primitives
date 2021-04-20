@@ -143,6 +143,13 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
                           const Eigen::VectorXd& end_state,
                           double distance_threshold, bool parallel) const
     -> std::vector<MotionPrimitive> {
+  // Debug
+  LOG(INFO) << "adj mat: " << graph_.edges_.rows() << " "
+            << graph_.edges_.cols() << ", nnz: " << (graph_.edges_ > 0).count();
+  LOG(INFO) << "mps: " << graph_.mps_.size();
+  LOG(INFO) << "verts: " << graph_.vertices_.rows() << " "
+            << graph_.vertices_.cols();
+
   timings.clear();
   visited_states_.clear();
 
