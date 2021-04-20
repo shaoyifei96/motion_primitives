@@ -66,14 +66,15 @@ class MotionPrimitiveGraph {
                                   const MotionPrimitiveGraph& graph);
 
  public:
-  MotionPrimitive get_mp_between_indices(int i, int j) const {
+  MotionPrimitive get_mp_between_indices(int i, int j) const noexcept {
     return mps_[edges_(i, j)];
   }
 
   int spatial_dim() const noexcept { return spatial_dim_; }
-  int num_tiles() const noexcept { return num_tiles_; }
 
  private:
+  int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }
+
   std::vector<MotionPrimitive> mps_;
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;

@@ -125,9 +125,8 @@ int main(int argc, char** argv) {
       const auto traj = path_to_traj_msg(path, voxel_map.header);
       traj_pub2.publish(traj);
 
-      const auto visited_marray =
-          StatesToMarkerArray(gs2.GetVisitedStates(), gs2.spatial_dim(),
-                              voxel_map.header, 0.1, true);
+      const auto visited_marray = StatesToMarkerArray(
+          gs2.GetVisitedStates(), gs2.spatial_dim(), voxel_map.header);
       visited_pub.publish(visited_marray);
     } else {
       ROS_WARN("No trajectory found.");

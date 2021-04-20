@@ -40,7 +40,7 @@ auto GraphSearch2::Expand(const Node2& node) const -> std::vector<Node2> {
   std::vector<Node2> nodes;
   nodes.reserve(64);
 
-  const int state_index = std::floor(node.state_index / graph_.num_tiles());
+  const int state_index = graph_.NormIndex(node.state_index);
   const auto num_states = static_cast<int>(graph_.edges_.rows());
 
   for (int i = 0; i < num_states; ++i) {
@@ -68,7 +68,7 @@ auto GraphSearch2::Expand(const Node2& node) const -> std::vector<Node2> {
 }
 
 auto GraphSearch2::ExpandPar(const Node2& node) const -> std::vector<Node2> {
-  const int state_index = std::floor(node.state_index / graph_.num_tiles());
+  const int state_index = graph_.NormIndex(node.state_index);
   const auto num_states = static_cast<int>(graph_.edges_.rows());
 
   using PrivVec = tbb::enumerable_thread_specific<std::vector<Node2>>;
@@ -117,8 +117,8 @@ auto GraphSearch2::ExpandPar(const Node2& node) const -> std::vector<Node2> {
 
 MotionPrimitive GraphSearch2::GetPrimitiveBetween(const Node2& start_node,
                                                   const Node2& end_node) const {
-  int state_index = std::floor(start_node.state_index / graph_.num_tiles());
-  auto mp = graph_.get_mp_between_indices(end_node.state_index, state_index);
+  const int start_index = graph_.NormIndex(start_node.state_index);
+  auto mp = graph_.get_mp_between_indices(end_node.state_index, start_index);
   mp.translate(start_node.state);
   return mp;
 }

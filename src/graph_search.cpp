@@ -83,7 +83,7 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
     const Node& node) const {
   std::vector<Node> neighbor_nodes;
   // TODO explain reset_map_index
-  int reset_map_index = std::floor(node.index_ / graph_.num_tiles_);
+  const int reset_map_index = graph_.NormIndex(node.index_);
   for (int i = 0; i < graph_.edges_.rows(); ++i) {
     if (graph_.edges_(i, reset_map_index) >= 0) {
       MotionPrimitive mp = graph_.get_mp_between_indices(i, reset_map_index);
