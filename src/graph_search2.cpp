@@ -148,7 +148,7 @@ double GraphSearch2::ComputeHeuristic(const State& v,
   }
   // TODO [theoretical] needs a lot of improvement. Not admissible, but too
   // slow otherwise with higher velocities.
-  return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
+  return 1.3 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
          graph_.max_state()(1);
 }
 

@@ -9,6 +9,10 @@
 #include "motion_primitives/graph_search2.h"
 #include "motion_primitives/utils.h"
 
+// mpl
+#include <mpl_collision/map_util.h>
+#include <mpl_planner/map_planner.h>
+
 using namespace motion_primitives;
 // num indicates the max number of elements to read, -1 means read till the end
 template <class T>
@@ -134,6 +138,62 @@ int main(int argc, char** argv) {
     } else {
       ROS_WARN("No trajectory found.");
     }
+  }
+
+  {
+    MPL::VoxelMapPlanner planner{false};
+    auto map_util = std::make_shared<MPL::VoxelMapUtil>();
+    planner.setMapUtil(map_util);
+    planner.setEpsilon(1.0);
+    planner.setVmax(2.0);
+    planner.setAmax(1.0);
+    planner.setJmax(1.0);
+    planner.setDt(1.0);
+    planner.setTmax(1.0);
+    planner.setMaxNum(-1);
+    planner.setLPAstar(false);
+    planner.setTol(0.5, -1, -1);
+
+    vec_E<VecDf> U;
+    double u_max = 1.0;
+    double uz_max = 1.0;
+    const decimal_t du = u_max;
+    const decimal_t du_z = uz_max;
+    for (decimal_t dx = -u_max; dx <= u_max; dx += du)
+      for (decimal_t dy = -u_max; dy <= u_max; dy += du)
+        for (decimal_t dz = -uz_max; dz <= uz_max; dz += du_z)
+          U.push_back(Vec3f(dx, dy, dz));
+
+    planner.setU(U);
+
+    map_util->setMap(
+        {voxel_map.origin.x, voxel_map.origin.y, voxel_map.origin.z},
+        {voxel_map.dim.x, voxel_map.dim.y, voxel_map.dim.z}, voxel_map.data,
+        voxel_map.resolution);
+
+    MPL::Waypoint3D start_wp, goal_wp;
+    start_wp.pos.x() = start.x();
+    start_wp.pos.y() = start.y();
+    start_wp.pos.z() = 1.0;
+    start_wp.use_pos = true;
+    start_wp.use_vel = true;
+    start_wp.use_acc = true;
+    start_wp.use_jrk = false;
+
+    goal_wp.pos.x() = goal.x();
+    goal_wp.pos.y() = goal.y();
+    goal_wp.pos.z() = 1.0;
+    goal_wp.use_pos = start_wp.use_pos;
+    goal_wp.use_vel = start_wp.use_vel;
+    goal_wp.use_acc = start_wp.use_acc;
+    goal_wp.use_jrk = start_wp.use_jrk;
+
+    planner.reset();
+    ROS_INFO("Started planning mpl.");
+    const auto start_time = ros::Time::now();
+    auto valid = planner.plan(start_wp, goal_wp);
+    const auto total_time = (ros::Time::now() - start_time).toSec();
+    ROS_INFO("Finished planning. Planning time %f s", total_time);
   }
 
   ros::spin();

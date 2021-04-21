@@ -6,17 +6,16 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
+find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag
+                                        motion_primitive_library)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(glog REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
 
-catkin_package(
-  INCLUDE_DIRS include LIBRARIES ${PROJECT_NAME} # CATKIN_DEPENDS
-                                                 # other_catkin_pkg DEPENDS xcc
-)
+catkin_package(INCLUDE_DIRS include LIBRARIES ${PROJECT_NAME} CATKIN_DEPENDS
+               planning_ros_msgs)
 
 # ##############################################################################
 # Build ##
