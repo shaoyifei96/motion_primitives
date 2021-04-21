@@ -15,7 +15,7 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
                             const std_msgs::Header& header) {
   if (mps.empty()) return {};
 
-  int spatial_dim = mps[0].spatial_dim();
+  int spatial_dim = mps[0].spatial_dim;
   Eigen::ArrayXXd pc_resized(spatial_dim, 6);
   Eigen::ArrayXXd coeff_multiplier(pc_resized.rows(), pc_resized.cols());
   Trajectory trajectory;
@@ -32,12 +32,11 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
   }
 
   for (const auto& mp : mps) {
-    if (mp.poly_coeffs().size() == 0) break;
+    if (mp.poly_coeffs.size() == 0) break;
 
     Primitive primitive;
-    pc_resized.block(0, pc_resized.cols() - mp.poly_coeffs().cols(),
-                     pc_resized.rows(), mp.poly_coeffs().cols()) =
-        mp.poly_coeffs();
+    pc_resized.block(0, pc_resized.cols() - mp.poly_coeffs.cols(),
+                     pc_resized.rows(), mp.poly_coeffs.cols()) = mp.poly_coeffs;
 
     pc_resized *= coeff_multiplier;
     for (int i = 0; i < pc_resized.cols(); i++) {
@@ -50,7 +49,7 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
       }
       primitive.cyaw.push_back(0.);
     }
-    primitive.t = mp.traj_time();
+    primitive.t = mp.traj_time;
     trajectory.primitives.push_back(primitive);
   }
   return trajectory;

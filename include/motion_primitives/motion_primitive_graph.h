@@ -10,56 +10,47 @@
 namespace motion_primitives {
 
 class MotionPrimitive {
-  friend class GraphSearch;
-  friend class GraphSearch2;
-
- private:
-  int id_;
-  double cost_;
-  double traj_time_;
-  int spatial_dim_;
-  Eigen::VectorXd start_state_;
-  Eigen::VectorXd end_state_;
-  Eigen::MatrixXd poly_coeffs_;
-  // Moves the motion primitive to a new position by modifying it's start, end,
-  // and polynomial coefficients
-  void translate(const Eigen::VectorXd& new_start);
-  // Evaluates a polynomial motion primitive at a time t and returns a vector of
-  // size spatial_dim_. TODO: make work with evaluating velocities,
-  // accelerations, etc., right now it only works for position
-  Eigen::VectorXd evaluate_polynomial(float t) const;
-
  public:
   MotionPrimitive() = default;
   MotionPrimitive(int spatial_dims, const Eigen::VectorXd& start_state,
                   const Eigen::VectorXd& end_state, double cost,
                   double traj_time, const Eigen::MatrixXd& poly_coeffs)
-      : cost_(cost),
-        traj_time_(traj_time),
-        spatial_dim_(spatial_dims),
-        start_state_(start_state),
-        end_state_(end_state),
-        poly_coeffs_(poly_coeffs) {
-    CHECK_EQ(start_state_.rows(), end_state_.rows());
+      : cost(cost),
+        traj_time(traj_time),
+        spatial_dim(spatial_dims),
+        start_state(start_state),
+        end_state(end_state),
+        poly_coeffs(poly_coeffs) {
+    CHECK_EQ(start_state.rows(), end_state.rows());
   };
+
+  // Moves the motion primitive to a new position by modifying it's start, end,
+  // and polynomial coefficients
+  void translate(const Eigen::VectorXd& new_start);
 
   // Samples a motion primitive's position at regular temporal intervals
   // step_size apart.
   // Each row is a position
   Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
-  int id() const noexcept { return id_; }
-  double traj_time() const noexcept { return traj_time_; }
-  int spatial_dim() const noexcept { return spatial_dim_; }
-  const Eigen::VectorXd& end_state() const noexcept { return end_state_; }
-  const Eigen::MatrixXd& poly_coeffs() const noexcept { return poly_coeffs_; }
+  // Evaluates a polynomial motion primitive at a time t and returns a vector of
+  // size spatial_dim_. TODO: make work with evaluating velocities,
+  // accelerations, etc., right now it only works for position
+  Eigen::VectorXd evaluate_polynomial(float t) const;
 
   friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
+
+  int id;
+  double cost;
+  double traj_time;
+  int spatial_dim;
+  Eigen::VectorXd start_state;
+  Eigen::VectorXd end_state;
+  Eigen::MatrixXd poly_coeffs;
 };
 
 class MotionPrimitiveGraph {
   friend class GraphSearch;
-  friend class GraphSearch2;
   friend void from_json(const nlohmann::json& json_data,
                         MotionPrimitiveGraph& graph);
   friend std::ostream& operator<<(std::ostream& out,
@@ -70,11 +61,15 @@ class MotionPrimitiveGraph {
     return mps_[edges_(i, j)];
   }
 
+  double rho() const noexcept { return rho_; }
   int spatial_dim() const noexcept { return spatial_dim_; }
+  int num_tiled_states() const noexcept { return edges_.rows(); }
+  const auto& max_state() const noexcept { return max_state_; }
 
- private:
+  bool HasEdge(int i, int j) const noexcept { return edges_(i, j) >= 0; }
   int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }
 
+ private:
   std::vector<MotionPrimitive> mps_;
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;

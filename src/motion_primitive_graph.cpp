@@ -7,29 +7,28 @@
 namespace motion_primitives {
 
 void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
-  poly_coeffs_.col(poly_coeffs_.cols() - 1) = new_start.head(spatial_dim_);
-  end_state_.head(spatial_dim_) = end_state_.head(spatial_dim_) -
-                                  start_state_.head(spatial_dim_) +
-                                  new_start.head(spatial_dim_);
-  start_state_.head(spatial_dim_) = new_start.head(spatial_dim_);
+  poly_coeffs.col(poly_coeffs.cols() - 1) = new_start.head(spatial_dim);
+  end_state.head(spatial_dim) = end_state.head(spatial_dim) -
+                                start_state.head(spatial_dim) +
+                                new_start.head(spatial_dim);
+  start_state.head(spatial_dim) = new_start.head(spatial_dim);
 }
 
 Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
   Eigen::VectorXd time_multiplier;
-  time_multiplier.resize(poly_coeffs_.cols());
-  for (int i = 0; i < poly_coeffs_.cols(); ++i) {
-    time_multiplier[poly_coeffs_.cols() - i - 1] = std::pow(t, i);
+  time_multiplier.resize(poly_coeffs.cols());
+  for (int i = 0; i < poly_coeffs.cols(); ++i) {
+    time_multiplier[poly_coeffs.cols() - i - 1] = std::pow(t, i);
   }
-  return poly_coeffs_ * time_multiplier;
+  return poly_coeffs * time_multiplier;
 }
 
 Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
-  int num_samples = std::ceil(traj_time_ / step_size) + 1;
-  Eigen::VectorXd times =
-      Eigen::VectorXd::LinSpaced(num_samples, 0, traj_time_);
+  int num_samples = std::ceil(traj_time / step_size) + 1;
+  Eigen::VectorXd times = Eigen::VectorXd::LinSpaced(num_samples, 0, traj_time);
 
   Eigen::MatrixXd result;
-  result.resize(num_samples, spatial_dim_);
+  result.resize(num_samples, spatial_dim);
 
   for (int i = 0; i < times.size(); ++i) {
     result.row(i) = evaluate_polynomial(times(i));
@@ -39,9 +38,9 @@ Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m) {
-  os << "start state: " << m.start_state_.transpose() << "\n";
-  os << "end state: " << m.end_state_.transpose() << "\n";
-  os << "cost: " << m.cost_ << "\n";
+  os << "start state: " << m.start_state.transpose() << "\n";
+  os << "end state: " << m.end_state.transpose() << "\n";
+  os << "cost: " << m.cost << "\n";
   return os;
 }
 

@@ -15,8 +15,8 @@ double Elapsed(const boost::timer::cpu_timer& timer) noexcept {
   return timer.elapsed().wall / 1e9;
 }
 
-bool state_pos_within(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
-                      int spatial_dim, double d) noexcept {
+bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
+                    int spatial_dim, double d) noexcept {
   return (p1.head(spatial_dim) - p2.head(spatial_dim)).squaredNorm() < (d * d);
 }
 
@@ -36,21 +36,21 @@ std::size_t VectorXdHash::operator()(const Eigen::VectorXd& vd) const noexcept {
   return seed;
 }
 
-auto GraphSearch2::Expand(const Node2& node) const -> std::vector<Node2> {
+auto GraphSearch2::Expand(const Node2& node, const State& goal_state) const
+    -> std::vector<Node2> {
   std::vector<Node2> nodes;
   nodes.reserve(64);
 
   const int state_index = graph_.NormIndex(node.state_index);
-  const auto num_states = static_cast<int>(graph_.edges_.rows());
 
-  for (int i = 0; i < num_states; ++i) {
-    if (graph_.edges_(i, state_index) < 0) continue;
+  for (int i = 0; i < graph_.num_tiled_states(); ++i) {
+    if (!graph_.HasEdge(i, state_index)) continue;
 
     auto mp = graph_.get_mp_between_indices(i, state_index);
     mp.translate(node.state);
 
     // Check if already visited
-    if (visited_states_.find(mp.end_state()) != visited_states_.end()) continue;
+    if (visited_states_.find(mp.end_state) != visited_states_.end()) continue;
 
     // Then check if its collision free
     if (!is_mp_collision_free(mp)) continue;
@@ -58,35 +58,35 @@ auto GraphSearch2::Expand(const Node2& node) const -> std::vector<Node2> {
     // This is a good next node
     Node2 next_node;
     next_node.state_index = i;
-    next_node.state = mp.end_state();
-    next_node.motion_cost = node.motion_cost + mp.cost_;
-    next_node.heuristic_cost = heuristic(mp.end_state());
+    next_node.state = mp.end_state;
+    next_node.motion_cost = node.motion_cost + mp.cost;
+    next_node.heuristic_cost = ComputeHeuristic(mp.end_state, goal_state);
     nodes.push_back(next_node);
   }
 
   return nodes;
 }
 
-auto GraphSearch2::ExpandPar(const Node2& node) const -> std::vector<Node2> {
+auto GraphSearch2::ExpandPar(const Node2& node, const State& goal_state) const
+    -> std::vector<Node2> {
   const int state_index = graph_.NormIndex(node.state_index);
-  const auto num_states = static_cast<int>(graph_.edges_.rows());
 
   using PrivVec = tbb::enumerable_thread_specific<std::vector<Node2>>;
   PrivVec priv_nodes;
 
   tbb::parallel_for(
-      tbb::blocked_range<int>(0, num_states),
+      tbb::blocked_range<int>(0, graph_.num_tiled_states()),
       [&, this](const tbb::blocked_range<int>& r) {
         auto& local = priv_nodes.local();
 
         for (int i = r.begin(); i < r.end(); ++i) {
-          if (graph_.edges_(i, state_index) < 0) continue;
+          if (!graph_.HasEdge(i, state_index)) continue;
 
           auto mp = graph_.get_mp_between_indices(i, state_index);
           mp.translate(node.state);
 
           // Check if already visited
-          if (visited_states_.find(mp.end_state()) != visited_states_.end()) {
+          if (visited_states_.find(mp.end_state) != visited_states_.end()) {
             continue;
           }
 
@@ -96,9 +96,9 @@ auto GraphSearch2::ExpandPar(const Node2& node) const -> std::vector<Node2> {
           // This is a good next node
           Node2 next_node;
           next_node.state_index = i;
-          next_node.state = mp.end_state();
-          next_node.motion_cost = node.motion_cost + mp.cost_;
-          next_node.heuristic_cost = heuristic(mp.end_state());
+          next_node.state = mp.end_state;
+          next_node.motion_cost = node.motion_cost + mp.cost;
+          next_node.heuristic_cost = ComputeHeuristic(mp.end_state, goal_state);
 
           local.push_back(std::move(next_node));
         }
@@ -139,31 +139,44 @@ std::vector<MotionPrimitive> GraphSearch2::RecoverPath(
   return path_mps;
 }
 
-auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
-                          const Eigen::VectorXd& end_state,
-                          double distance_threshold, bool parallel) const
+double GraphSearch2::ComputeHeuristic(const State& v,
+                                      const State& goal_state) const noexcept {
+  CHECK_EQ(v.size(), goal_state.size());
+  State x(graph_.spatial_dim(), 1);
+  for (int i = 0; i < x.size(); ++i) {
+    x(i) = v(i) - goal_state(i);
+  }
+  // TODO [theoretical] needs a lot of improvement. Not admissible, but too
+  // slow otherwise with higher velocities.
+  return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
+         graph_.max_state()(1);
+}
+
+auto GraphSearch2::Search(const Option& option)
     -> std::vector<MotionPrimitive> {
   // Debug
-  LOG(INFO) << "adj mat: " << graph_.edges_.rows() << " "
-            << graph_.edges_.cols() << ", nnz: " << (graph_.edges_ > 0).count();
-  LOG(INFO) << "mps: " << graph_.mps_.size();
-  LOG(INFO) << "verts: " << graph_.vertices_.rows() << " "
-            << graph_.vertices_.cols();
+  //  LOG(INFO) << "adj mat: " << graph_.edges_.rows() << " "
+  //            << graph_.edges_.cols() << ", nnz: " << (graph_.edges_ >
+  //            0).count();
+  //  LOG(INFO) << "mps: " << graph_.mps_.size();
+  //  LOG(INFO) << "verts: " << graph_.vertices_.rows() << " "
+  //            << graph_.vertices_.cols();
 
-  timings.clear();
+  timings_.clear();
   visited_states_.clear();
 
   // Early exit if start and end positions are close
-  if (state_pos_within(start_state, end_state, spatial_dim(),
-                       distance_threshold)) {
+  if (StatePosWithin(option.start_state, option.goal_state,
+                     graph_.spatial_dim(), option.distance_threshold)) {
     return {};
   }
 
   Node2 start_node;
   start_node.state_index = 0;
-  start_node.state = start_state;
+  start_node.state = option.start_state;
   start_node.motion_cost = 0.0;
-  start_node.heuristic_cost = heuristic(start_state);
+  start_node.heuristic_cost =
+      ComputeHeuristic(start_node.state, option.goal_state);
 
   // > for min heap
   auto node_cmp = [](const Node2& n1, const Node2& n2) {
@@ -185,8 +198,8 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
     Node2 curr_node = pq.top();
 
     // Check if we are close enough to the end
-    if (state_pos_within(curr_node.state, end_state, spatial_dim(),
-                         distance_threshold)) {
+    if (StatePosWithin(curr_node.state, option.goal_state, graph_.spatial_dim(),
+                       option.distance_threshold)) {
       LOG(INFO) << "== pq: " << pq.size();
       LOG(INFO) << "== hist: " << history.size();
       LOG(INFO) << "== nodes: " << visited_states_.size();
@@ -195,7 +208,7 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
 
     timer.start();
     pq.pop();
-    timings["astar_pop"] += Elapsed(timer);
+    timings_["astar_pop"] += Elapsed(timer);
 
     // Due to the imutability of std::priority_queue, we have no way of
     // modifying the priority of an element in the queue. Therefore, when we
@@ -215,8 +228,10 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
     visited_states_.insert(curr_node.state);
 
     timer.start();
-    const auto next_nodes = parallel ? ExpandPar(curr_node) : Expand(curr_node);
-    timings["astar_expand"] += Elapsed(timer);
+    const auto next_nodes = option.parallel_expand
+                                ? ExpandPar(curr_node, option.goal_state)
+                                : Expand(curr_node, option.goal_state);
+    timings_["astar_expand"] += Elapsed(timer);
 
     for (const auto& next_node : next_nodes) {
       // this is the best cost reaching this state (next_node) so far
@@ -227,7 +242,7 @@ auto GraphSearch2::Search(const Eigen::VectorXd& start_state,
       if (next_node.motion_cost < best_cost) {
         timer.start();
         pq.push(next_node);
-        timings["astar_push"] += Elapsed(timer);
+        timings_["astar_push"] += Elapsed(timer);
         history[next_node.state] = {curr_node, next_node.motion_cost};
       }
     }

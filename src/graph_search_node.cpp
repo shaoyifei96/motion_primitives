@@ -112,12 +112,15 @@ int main(int argc, char** argv) {
     GraphSearch2 gs2(mp_graph, start, goal, voxel_map);
     ROS_INFO("Started planning gs2.");
     const auto start_time = ros::Time::now();
-    const auto path = gs2.Search(start, goal, 0.5, true);
+    const auto path = gs2.Search({.start_state = start,
+                                  .goal_state = goal,
+                                  .distance_threshold = 0.5,
+                                  .parallel_expand = true});
     const auto total_time = (ros::Time::now() - start_time).toSec();
 
     ROS_INFO("Finished planning. Planning time %f s", total_time);
     ROS_INFO_STREAM("path size: " << path.size());
-    for (const auto& [k, v] : gs2.timings) {
+    for (const auto& [k, v] : gs2.timings()) {
       ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
     }
 

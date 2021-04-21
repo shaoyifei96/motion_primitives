@@ -17,23 +17,25 @@ struct VectorXdHash : std::unary_function<Eigen::VectorXd, std::size_t> {
 
 class GraphSearch2 : public GraphSearch {
  public:
-  // Base ctor
+  // Base ctor (TODO: remove this)
   using GraphSearch::GraphSearch;
 
   using State = Eigen::VectorXd;
 
+  struct Option {
+    State start_state;
+    State goal_state;
+    double distance_threshold;
+    bool parallel_expand{false};
+  };
+
   // Search for a path from start_state to end_state, stops if no path found
   // (returns empty vector) or reach within distance_threshold of start_state
   // parallel == true will expand nodes in parallel (~x2 speedup)
-  std::vector<MotionPrimitive> Search(const Eigen::VectorXd& start_state,
-                                      const Eigen::VectorXd& end_state,
-                                      double distance_threshold,
-                                      bool parallel = false) const;
+  std::vector<MotionPrimitive> Search(const Option& option);
 
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
-
-  // internal use only, stores (wall) time spent on different parts
-  mutable std::unordered_map<std::string, double> timings;
+  const auto& timings() const noexcept { return timings_; }
 
  private:
   // State is the real node
@@ -60,16 +62,23 @@ class GraphSearch2 : public GraphSearch {
   std::vector<MotionPrimitive> RecoverPath(const PathHistory& history,
                                            const Node2& end_node) const;
 
+  double ComputeHeuristic(const State& state,
+                          const State& goal_state) const noexcept;
+
   // Stores all visited states
-  std::vector<Node2> Expand(const Node2& node) const;
-  std::vector<Node2> ExpandPar(const Node2& node) const;
+  std::vector<Node2> Expand(const Node2& node, const State& goal_state) const;
+  std::vector<Node2> ExpandPar(const Node2& node,
+                               const State& goal_state) const;
   // Helper function
-  //  void ExpandSingle(int index1, int index2) const;
+  // oid ExpandSingle(int index1, int index2) const;
 
   MotionPrimitive GetPrimitiveBetween(const Node2& start_node,
                                       const Node2& end_node) const;
+
   using StateSet = std::unordered_set<State, VectorXdHash>;
   mutable StateSet visited_states_;
+  // internal use only, stores (wall) time spent on different parts
+  mutable std::unordered_map<std::string, double> timings_;
 };
 
 }  // namespace motion_primitives

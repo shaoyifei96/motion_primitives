@@ -89,8 +89,8 @@ std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
       MotionPrimitive mp = graph_.get_mp_between_indices(i, reset_map_index);
       mp.translate(node.state_);
       if (is_mp_collision_free(mp)) {
-        Node neighbor_node(node.cost_to_come_ + mp.cost_,
-                           heuristic(mp.end_state_), mp.end_state_, i);
+        Node neighbor_node(node.cost_to_come_ + mp.cost,
+                           heuristic(mp.end_state), mp.end_state, i);
         neighbor_nodes.push_back(neighbor_node);
       }
     }
@@ -122,7 +122,7 @@ std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
       auto parent_node = shortest_path_history[neighbor_node.state_];
       if (parent_node.index_ >= 0) {
         neighbor_past_g +=
-            get_mp_between_nodes(parent_node, neighbor_node).cost_;
+            get_mp_between_nodes(parent_node, neighbor_node).cost;
       }
 
       if (neighbor_node.cost_to_come_ < neighbor_past_g) {
