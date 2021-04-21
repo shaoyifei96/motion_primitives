@@ -69,16 +69,17 @@ class GraphSearch2 : public GraphSearch {
   std::vector<Node2> Expand(const Node2& node, const State& goal_state) const;
   std::vector<Node2> ExpandPar(const Node2& node,
                                const State& goal_state) const;
-  // Helper function
-  // oid ExpandSingle(int index1, int index2) const;
+
+  // TODO: Helper function, currently have duplicate code in Expand
+  // void ExpandSingle(int index1, int index2) const
 
   MotionPrimitive GetPrimitiveBetween(const Node2& start_node,
                                       const Node2& end_node) const;
 
   using StateSet = std::unordered_set<State, VectorXdHash>;
-  mutable StateSet visited_states_;
+  StateSet visited_states_;
   // internal use only, stores (wall) time spent on different parts
-  mutable std::unordered_map<std::string, double> timings_;
+  std::unordered_map<std::string, double> timings_;
 };
 
 }  // namespace motion_primitives
