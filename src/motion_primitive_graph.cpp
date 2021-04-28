@@ -29,7 +29,7 @@ Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
   Eigen::MatrixXd result(spatial_dim, num_samples);
 
   for (int i = 0; i < times.size(); ++i) {
-    result.row(i) = evaluate_polynomial(times(i));
+    result.col(i) = evaluate_polynomial(times(i));
   }
 
   return result;
