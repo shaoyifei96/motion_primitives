@@ -2,7 +2,8 @@
   <node pkg="motion_primitives"
     type="motion_primitives_graph_search"
     name="graph_search_node"
-    output="screen" >
+    output="screen" 
+    >
     <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
     <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
     <param name="map_topic" value="/voxel_map"/>
