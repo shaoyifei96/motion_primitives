@@ -6,7 +6,6 @@
 #include <boost/foreach.hpp>
 
 #include "motion_primitives/graph_search.h"
-#include "motion_primitives/graph_search2.h"
 #include "motion_primitives/utils.h"
 
 using namespace motion_primitives;
@@ -90,29 +89,11 @@ int main(int argc, char** argv) {
   sg_markers.markers.push_back(goal_marker);
   sg_pub.publish(sg_markers);
 
-  if (true) {
+  {
     GraphSearch gs(mp_graph, start, goal, voxel_map);
     ROS_INFO("Started planning gs.");
     const auto start_time = ros::Time::now();
-    const auto path = gs.run_graph_search();
-
-    ROS_INFO("Finished planning. Planning time %f s",
-             (ros::Time::now() - start_time).toSec());
-    ROS_INFO_STREAM("path size: " << path.size());
-
-    if (!path.empty()) {
-      const auto traj = path_to_traj_msg(path, voxel_map.header);
-      traj_pub.publish(traj);
-    } else {
-      ROS_WARN("No trajectory found.");
-    }
-  }
-
-  {
-    GraphSearch2 gs2(mp_graph, start, goal, voxel_map);
-    ROS_INFO("Started planning gs2.");
-    const auto start_time = ros::Time::now();
-    const auto path = gs2.Search({.start_state = start,
+    const auto path = gs.Search({.start_state = start,
                                   .goal_state = goal,
                                   .distance_threshold = 0.5,
                                   .parallel_expand = true});
@@ -120,7 +101,7 @@ int main(int argc, char** argv) {
 
     ROS_INFO("Finished planning. Planning time %f s", total_time);
     ROS_INFO_STREAM("path size: " << path.size());
-    for (const auto& [k, v] : gs2.timings()) {
+    for (const auto& [k, v] : gs.timings()) {
       ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
     }
 
@@ -129,7 +110,7 @@ int main(int argc, char** argv) {
       traj_pub2.publish(traj);
 
       const auto visited_marray = StatesToMarkerArray(
-          gs2.GetVisitedStates(), gs2.spatial_dim(), voxel_map.header);
+          gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
       visited_pub.publish(visited_marray);
     } else {
       ROS_WARN("No trajectory found.");

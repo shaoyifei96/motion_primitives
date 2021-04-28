@@ -24,7 +24,7 @@ catkin_package(
 
 # Specify libraries to link a library or executable target against
 add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp
-                            src/utils.cpp src/graph_search2.cpp)
+                            src/utils.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC include
                                                   ${catkin_INCLUDE_DIRS})
 target_link_libraries(

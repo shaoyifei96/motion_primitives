@@ -1,25 +1,42 @@
 #include "motion_primitives/graph_search.h"
 
-#include <planning_ros_msgs/Primitive.h>
-#include <ros/init.h>
+#include <glog/logging.h>
+#include <ros/init.h>  // ok()
+#include <tbb/enumerable_thread_specific.h>
+#include <tbb/parallel_for.h>
+
+#include <boost/timer/timer.hpp>
 
 namespace motion_primitives {
 
 namespace {
-// Check if two position are within d meters apart
-bool position_within(const Eigen::Ref<const Eigen::VectorXd>& p1,
-                     const Eigen::Ref<const Eigen::VectorXd>& p2, double d) {
-  return (p1 - p2).squaredNorm() < (d * d);
+
+double Elapsed(const boost::timer::cpu_timer& timer) noexcept {
+  return timer.elapsed().wall / 1e9;
+}
+
+bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
+                    int spatial_dim, double d) noexcept {
+  return (p1.head(spatial_dim) - p2.head(spatial_dim)).squaredNorm() < (d * d);
 }
 
 }  // namespace
 
-Node::Node(double g, double h, const Eigen::VectorXd& state, int index)
-    : cost_to_come_(g),
-      heuristic_cost_(h),
-      total_cost_(g + h),
-      state_(state),
-      index_(index) {}
+GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
+                         const Eigen::VectorXd& start_state,
+                         const Eigen::VectorXd& goal_state,
+                         const planning_ros_msgs::VoxelMap& voxel_map)
+    : graph_(graph),
+      start_state_(start_state),
+      goal_state_(goal_state),
+      voxel_map_(voxel_map) {
+  map_dims_[0] = voxel_map_.dim.x;
+  map_dims_[1] = voxel_map_.dim.y;
+  map_dims_[2] = voxel_map_.dim.z;
+  map_origin_[0] = voxel_map_.origin.x;
+  map_origin_[1] = voxel_map_.origin.y;
+  map_origin_[2] = voxel_map_.origin.z;
+}
 
 Eigen::Vector3i GraphSearch::get_indices_from_position(
     const Eigen::Vector3d& position) const {
@@ -67,130 +84,236 @@ bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
   return true;
 }
 
-double GraphSearch::heuristic(const Eigen::VectorXd& v) const {
-  CHECK_EQ(v.size(), goal_state_.size());
-  Eigen::VectorXd x;
-  x.resize(spatial_dim());
-  for (int i = 0; i < graph_.spatial_dim_; ++i) {
-    x(i) = v(i) - goal_state_(i);
+std::size_t VectorXdHash::operator()(const Eigen::VectorXd& vd) const noexcept {
+  using std::size_t;
+
+  // allow sufficiently close state to map to the same hash value
+  const Eigen::VectorXi v = (vd * 100).cast<int>();
+
+  size_t seed = 0;
+  for (size_t i = 0; i < static_cast<size_t>(v.size()); ++i) {
+    const auto elem = *(v.data() + i);
+    seed ^= std::hash<int>()(elem) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
   }
-  // TODO [theoretical] needs a lot of improvement. Not admissible, but too slow
-  // otherwise with higher velocities.
-  return 1.1 * graph_.rho_ * x.lpNorm<Eigen::Infinity>() / graph_.max_state_(1);
+  return seed;
 }
 
-std::vector<Node> GraphSearch::get_neighbor_nodes_lattice(
-    const Node& node) const {
-  std::vector<Node> neighbor_nodes;
-  // TODO explain reset_map_index
-  const int reset_map_index = graph_.NormIndex(node.index_);
-  for (int i = 0; i < graph_.edges_.rows(); ++i) {
-    if (graph_.edges_(i, reset_map_index) >= 0) {
-      MotionPrimitive mp = graph_.get_mp_between_indices(i, reset_map_index);
-      mp.translate(node.state_);
-      if (is_mp_collision_free(mp)) {
-        Node neighbor_node(node.cost_to_come_ + mp.cost,
-                           heuristic(mp.end_state), mp.end_state, i);
-        neighbor_nodes.push_back(neighbor_node);
-      }
-    }
-  }
-  return neighbor_nodes;
-}
+auto GraphSearch::Expand(const Node& node, const State& goal_state) const
+    -> std::vector<Node> {
+  std::vector<Node> nodes;
+  nodes.reserve(64);
 
-std::vector<MotionPrimitive> GraphSearch::run_graph_search() const {
-  Node start_node(0, heuristic(start_state_), start_state_, 0);
-  std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
-  std::unordered_map<Eigen::VectorXd, Node, matrix_hash<Eigen::VectorXd>>
-      shortest_path_history;
-  pq.push(start_node);
+  const int state_index = graph_.NormIndex(node.state_index);
 
-  while (!pq.empty() && ros::ok()) {
-    Node current_node = pq.top();
-    if (position_within(current_node.state_.head(spatial_dim()),
-                        goal_state_.head(spatial_dim()), 0.5)) {
-      // TODO parameterize termination conditions, add
-      // BVP end condition
-      LOG(INFO) << "pq: " << pq.size();
-      LOG(INFO) << "hist: " << shortest_path_history.size();
-      return reconstruct_path(current_node, shortest_path_history);
-    }
-    pq.pop();
-    for (auto& neighbor_node : get_neighbor_nodes_lattice(current_node)) {
-      double neighbor_past_g =
-          shortest_path_history[neighbor_node.state_].cost_to_come_;
-      auto parent_node = shortest_path_history[neighbor_node.state_];
-      if (parent_node.index_ >= 0) {
-        neighbor_past_g +=
-            get_mp_between_nodes(parent_node, neighbor_node).cost;
-      }
+  for (int i = 0; i < graph_.num_tiled_states(); ++i) {
+    if (!graph_.HasEdge(i, state_index)) continue;
 
-      if (neighbor_node.cost_to_come_ < neighbor_past_g) {
-        pq.push(neighbor_node);
-        shortest_path_history[neighbor_node.state_] = current_node;
-      }
-    }
-  }
-  return {};
-}
+    auto mp = graph_.get_mp_between_indices(i, state_index);
+    mp.translate(node.state);
 
-GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
-                         const Eigen::VectorXd& start_state,
-                         const Eigen::VectorXd& goal_state,
-                         const planning_ros_msgs::VoxelMap& voxel_map)
-    : graph_(graph),
-      start_state_(start_state),
-      goal_state_(goal_state),
-      voxel_map_(voxel_map) {
-  map_dims_[0] = voxel_map_.dim.x;
-  map_dims_[1] = voxel_map_.dim.y;
-  map_dims_[2] = voxel_map_.dim.z;
-  map_origin_[0] = voxel_map_.origin.x;
-  map_origin_[1] = voxel_map_.origin.y;
-  map_origin_[2] = voxel_map_.origin.z;
-}
+    // Check if already visited
+    if (visited_states_.find(mp.end_state) != visited_states_.end()) continue;
 
-std::vector<MotionPrimitive> GraphSearch::reconstruct_path(
-    const Node& end_node,
-    const std::unordered_map<Eigen::VectorXd, Node,
-                             matrix_hash<Eigen::VectorXd>>&
-        shortest_path_history) const {
-  Node node = end_node;
-  Node parent_node;
-  std::vector<MotionPrimitive> path;
+    // Then check if its collision free
+    if (!is_mp_collision_free(mp)) continue;
 
-  if (end_node.cost_to_come_ == 0) {
-    ROS_WARN("No trajectory found due to start being too close to the goal.");
-    return {};
+    // This is a good next node
+    Node next_node;
+    next_node.state_index = i;
+    next_node.state = mp.end_state;
+    next_node.motion_cost = node.motion_cost + mp.cost;
+    next_node.heuristic_cost = ComputeHeuristic(mp.end_state, goal_state);
+    nodes.push_back(next_node);
   }
 
-  while (ros::ok()) {
-    parent_node = shortest_path_history.at(node.state_);
-    path.push_back(get_mp_between_nodes(parent_node, node));
-    if (parent_node.cost_to_come_ == 0) {
-      break;
-    }
-    node = parent_node;
-  }
-
-  std::reverse(path.begin(), path.end());
-  //  ROS_INFO_STREAM(path);
-  ROS_INFO("Optimal trajectory cost %f", end_node.cost_to_come_);
-  return path;
+  return nodes;
 }
 
-MotionPrimitive GraphSearch::get_mp_between_nodes(const Node& start_node,
-                                                  const Node& end_node) const {
-  int reset_map_index = floor(start_node.index_ / graph_.num_tiles_);
-  MotionPrimitive mp =
-      graph_.get_mp_between_indices(end_node.index_, reset_map_index);
-  mp.translate(start_node.state_);
+auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
+    -> std::vector<Node> {
+  const int state_index = graph_.NormIndex(node.state_index);
+
+  using PrivVec = tbb::enumerable_thread_specific<std::vector<Node>>;
+  PrivVec priv_nodes;
+
+  tbb::parallel_for(
+      tbb::blocked_range<int>(0, graph_.num_tiled_states()),
+      [&, this](const tbb::blocked_range<int>& r) {
+        auto& local = priv_nodes.local();
+
+        for (int i = r.begin(); i < r.end(); ++i) {
+          if (!graph_.HasEdge(i, state_index)) continue;
+
+          auto mp = graph_.get_mp_between_indices(i, state_index);
+          mp.translate(node.state);
+
+          // Check if already visited
+          if (visited_states_.find(mp.end_state) != visited_states_.end()) {
+            continue;
+          }
+
+          // Then check if its collision free
+          if (!is_mp_collision_free(mp)) continue;
+
+          // This is a good next node
+          Node next_node;
+          next_node.state_index = i;
+          next_node.state = mp.end_state;
+          next_node.motion_cost = node.motion_cost + mp.cost;
+          next_node.heuristic_cost = ComputeHeuristic(mp.end_state, goal_state);
+
+          local.push_back(std::move(next_node));
+        }
+      });
+
+  // combine
+  std::vector<Node> nodes;
+  nodes.reserve(64);
+  //  for (auto i = priv_nodes.begin(); i != priv_nodes.end(); ++i) {
+  for (const auto& each : priv_nodes) {
+    //    const auto& each = *i;
+    nodes.insert(nodes.end(), each.begin(), each.end());
+  }
+  return nodes;
+}
+
+MotionPrimitive GraphSearch::GetPrimitiveBetween(const Node& start_node,
+                                                 const Node& end_node) const {
+  const int start_index = graph_.NormIndex(start_node.state_index);
+  auto mp = graph_.get_mp_between_indices(end_node.state_index, start_index);
+  mp.translate(start_node.state);
   return mp;
 }
 
-std::ostream& operator<<(std::ostream& os, const Node& node) {
-  os << node.state_.transpose() << "\n";
-  return os;
+std::vector<MotionPrimitive> GraphSearch::RecoverPath(
+    const PathHistory& history, const Node& end_node) const {
+  std::vector<MotionPrimitive> path_mps;
+  Node const* curr_node = &end_node;
+
+  while (ros::ok()) {
+    if (curr_node->motion_cost == 0) break;
+    Node const* prev_node = &(history.at(curr_node->state).parent_node);
+    path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
+    curr_node = prev_node;
+  }
+
+  std::reverse(path_mps.begin(), path_mps.end());
+  return path_mps;
+}
+
+double GraphSearch::ComputeHeuristic(const State& v,
+                                     const State& goal_state) const noexcept {
+  CHECK_EQ(v.size(), goal_state.size());
+  State x(graph_.spatial_dim(), 1);
+  for (int i = 0; i < x.size(); ++i) {
+    x(i) = v(i) - goal_state(i);
+  }
+  // TODO [theoretical] needs a lot of improvement. Not admissible, but too
+  // slow otherwise with higher velocities.
+  return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
+         graph_.max_state()(1);
+}
+
+auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
+  // Debug
+  //  LOG(INFO) << "adj mat: " << graph_.edges_.rows() << " "
+  //            << graph_.edges_.cols() << ", nnz: " << (graph_.edges_ >
+  //            0).count();
+  //  LOG(INFO) << "mps: " << graph_.mps_.size();
+  //  LOG(INFO) << "verts: " << graph_.vertices_.rows() << " "
+  //            << graph_.vertices_.cols();
+
+  timings_.clear();
+  visited_states_.clear();
+
+  // Early exit if start and end positions are close
+  if (StatePosWithin(option.start_state, option.goal_state,
+                     graph_.spatial_dim(), option.distance_threshold)) {
+    return {};
+  }
+
+  Node start_node;
+  start_node.state_index = 0;
+  start_node.state = option.start_state;
+  start_node.motion_cost = 0.0;
+  start_node.heuristic_cost =
+      ComputeHeuristic(start_node.state, option.goal_state);
+
+  // > for min heap
+  auto node_cmp = [](const Node& n1, const Node& n2) {
+    return n1.total_cost() > n2.total_cost();
+  };
+  using MinHeap =
+      std::priority_queue<Node, std::vector<Node>, decltype(node_cmp)>;
+
+  MinHeap pq{node_cmp};
+  pq.push(start_node);
+
+  // Shortest path history, stores the parent node of a particular mp (int)
+  PathHistory history;
+
+  // timer
+  boost::timer::cpu_timer timer;
+
+  while (!pq.empty() && ros::ok()) {
+    Node curr_node = pq.top();
+
+    // Check if we are close enough to the end
+    if (StatePosWithin(curr_node.state, option.goal_state, graph_.spatial_dim(),
+                       option.distance_threshold)) {
+      LOG(INFO) << "== pq: " << pq.size();
+      LOG(INFO) << "== hist: " << history.size();
+      LOG(INFO) << "== nodes: " << visited_states_.size();
+      return RecoverPath(history, curr_node);
+    }
+
+    timer.start();
+    pq.pop();
+    timings_["astar_pop"] += Elapsed(timer);
+
+    // Due to the imutability of std::priority_queue, we have no way of
+    // modifying the priority of an element in the queue. Therefore, when we
+    // push the next node into the queue, there might be duplicated nodes with
+    // the same state but different costs. This could cause us to expand the
+    // same state multiple times.
+    // Although this does not affect the correctness of the implementation
+    // (since the nodes are correctly sorted), it might be slower to repeatedly
+    // expanding visited states. The timiing suggest more than 80% of the time
+    // is spent on the Expand(node) call. Thus, we will check here if this state
+    // has been visited and skip if it has. This will save around 20%
+    // computation.
+    if (visited_states_.find(curr_node.state) != visited_states_.cend()) {
+      continue;
+    }
+    // add current state to visited
+    visited_states_.insert(curr_node.state);
+
+    timer.start();
+    const auto next_nodes = option.parallel_expand
+                                ? ExpandPar(curr_node, option.goal_state)
+                                : Expand(curr_node, option.goal_state);
+    timings_["astar_expand"] += Elapsed(timer);
+
+    for (const auto& next_node : next_nodes) {
+      // this is the best cost reaching this state (next_node) so far
+      // could be inf if this state has never been visited
+      const auto best_cost = history[next_node.state].best_cost;
+
+      // compare reaching next_node from curr_node and mp to best cost
+      if (next_node.motion_cost < best_cost) {
+        timer.start();
+        pq.push(next_node);
+        timings_["astar_push"] += Elapsed(timer);
+        history[next_node.state] = {curr_node, next_node.motion_cost};
+      }
+    }
+  }
+
+  return {};
+}
+
+std::vector<Eigen::VectorXd> GraphSearch::GetVisitedStates() const noexcept {
+  return {visited_states_.cbegin(), visited_states_.cend()};
 }
 
 }  // namespace motion_primitives
