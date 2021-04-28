@@ -76,8 +76,8 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
 bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
                                        double step_size) const {
   const auto samples = mp.sample_positions(step_size);
-  for (int i = 0; i < samples.rows(); ++i) {
-    if (!is_free_and_valid_position(samples.row(i))) {
+  for (int i = 0; i < samples.cols(); ++i) {
+    if (!is_free_and_valid_position(samples.col(i))) {
       return false;
     }
   }
@@ -112,7 +112,7 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
     mp.translate(node.state);
 
     // Check if already visited
-    if (visited_states_.find(mp.end_state) != visited_states_.end()) continue;
+    if (visited_states_.find(mp.end_state) != visited_states_.cend()) continue;
 
     // Then check if its collision free
     if (!is_mp_collision_free(mp)) continue;
@@ -203,11 +203,7 @@ std::vector<MotionPrimitive> GraphSearch::RecoverPath(
 
 double GraphSearch::ComputeHeuristic(const State& v,
                                      const State& goal_state) const noexcept {
-  CHECK_EQ(v.size(), goal_state.size());
-  State x(graph_.spatial_dim(), 1);
-  for (int i = 0; i < x.size(); ++i) {
-    x(i) = v(i) - goal_state(i);
-  }
+  const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO [theoretical] needs a lot of improvement. Not admissible, but too
   // slow otherwise with higher velocities.
   return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
