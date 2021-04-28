@@ -23,12 +23,8 @@ bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
 }  // namespace
 
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
-                         const Eigen::VectorXd& start_state,
-                         const Eigen::VectorXd& goal_state,
                          const planning_ros_msgs::VoxelMap& voxel_map)
     : graph_(graph),
-      start_state_(start_state),
-      goal_state_(goal_state),
       voxel_map_(voxel_map) {
   map_dims_[0] = voxel_map_.dim.x;
   map_dims_[1] = voxel_map_.dim.y;
@@ -289,7 +285,6 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
                                 ? ExpandPar(curr_node, option.goal_state)
                                 : Expand(curr_node, option.goal_state);
     timings_["astar_expand"] += Elapsed(timer);
-
     for (const auto& next_node : next_nodes) {
       // this is the best cost reaching this state (next_node) so far
       // could be inf if this state has never been visited

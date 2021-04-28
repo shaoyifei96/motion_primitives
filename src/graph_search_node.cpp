@@ -61,19 +61,17 @@ int main(int argc, char** argv) {
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   std::vector<double> s, g;
-  Eigen::Vector4d start, goal;
   pnh.param("start_state", s, std::vector<double>{0, 0, 0, 0});
   pnh.param("goal_state", g, std::vector<double>{0, 0, 0, 0});
-  start = Eigen::Map<Eigen::VectorXd>(s.data(), s.size());
-  goal = Eigen::Map<Eigen::VectorXd>(g.data(), g.size());
+  Eigen::Map<Eigen::VectorXd> start(s.data(), s.size());
+  Eigen::Map<Eigen::VectorXd> goal(g.data(), g.size());
   const auto mp_graph = read_motion_primitive_graph(graph_file);
 
   visualization_msgs::MarkerArray sg_markers;
   visualization_msgs::Marker start_marker, goal_marker;
   start_marker.header = voxel_map.header;
   start_marker.pose.position.x = start[0],
-  start_marker.pose.position.y = start[1],
-  start_marker.pose.position.z = start[2];
+  start_marker.pose.position.y = start[1];
   start_marker.pose.orientation.w = 1;
   start_marker.color.g = 1;
   start_marker.color.a = 1;
@@ -81,8 +79,12 @@ int main(int argc, char** argv) {
   start_marker.scale.x = start_marker.scale.y = start_marker.scale.z = 0.3;
   goal_marker = start_marker;
   goal_marker.id = 1;
-  goal_marker.pose.position.x = goal[0], goal_marker.pose.position.y = goal[1],
-  goal_marker.pose.position.z = goal[2];
+  goal_marker.pose.position.x = goal[0], goal_marker.pose.position.y = goal[1];
+
+  if (mp_graph.spatial_dim() > 2) {
+    start_marker.pose.position.z = start[2];
+    goal_marker.pose.position.z = goal[2];
+  }
   goal_marker.color.g = 0;
   goal_marker.color.r = 1;
   sg_markers.markers.push_back(start_marker);
@@ -90,13 +92,13 @@ int main(int argc, char** argv) {
   sg_pub.publish(sg_markers);
 
   {
-    GraphSearch gs(mp_graph, start, goal, voxel_map);
+    GraphSearch gs(mp_graph, voxel_map);
     ROS_INFO("Started planning gs.");
     const auto start_time = ros::Time::now();
     const auto path = gs.Search({.start_state = start,
-                                  .goal_state = goal,
-                                  .distance_threshold = 0.5,
-                                  .parallel_expand = true});
+                                 .goal_state = goal,
+                                 .distance_threshold = 0.5,
+                                 .parallel_expand = true});
     const auto total_time = (ros::Time::now() - start_time).toSec();
 
     ROS_INFO("Finished planning. Planning time %f s", total_time);

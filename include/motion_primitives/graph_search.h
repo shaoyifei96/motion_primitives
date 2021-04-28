@@ -21,8 +21,6 @@ struct VectorXdHash : std::unary_function<Eigen::VectorXd, std::size_t> {
 class GraphSearch {
  protected:
   MotionPrimitiveGraph graph_;
-  Eigen::VectorXd start_state_;
-  Eigen::VectorXd goal_state_;
   Eigen::Vector3i map_dims_;
   Eigen::Vector3d map_origin_;
   planning_ros_msgs::VoxelMap voxel_map_;
@@ -30,8 +28,6 @@ class GraphSearch {
  public:
   using State = Eigen::VectorXd;
   GraphSearch(const MotionPrimitiveGraph& graph,
-              const Eigen::VectorXd& start_state,
-              const Eigen::VectorXd& goal_state,
               const planning_ros_msgs::VoxelMap& voxel_map);
   struct Option {
     State start_state;
