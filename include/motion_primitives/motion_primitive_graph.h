@@ -1,8 +1,6 @@
 #ifndef MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
 #define MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
 
-#include <glog/logging.h>
-
 #include <Eigen/Core>
 #include <iosfwd>
 #include <nlohmann/json_fwd.hpp>
@@ -20,9 +18,7 @@ class MotionPrimitive {
         spatial_dim(spatial_dims),
         start_state(start_state),
         end_state(end_state),
-        poly_coeffs(poly_coeffs) {
-    CHECK_EQ(start_state.rows(), end_state.rows());
-  };
+        poly_coeffs(poly_coeffs){};
 
   // Moves the motion primitive to a new position by modifying it's start, end,
   // and polynomial coefficients

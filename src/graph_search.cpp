@@ -1,6 +1,6 @@
 #include "motion_primitives/graph_search.h"
 
-#include <glog/logging.h>
+#include <ros/console.h>
 #include <ros/init.h>  // ok()
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
@@ -24,8 +24,7 @@ bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
 
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
                          const planning_ros_msgs::VoxelMap& voxel_map)
-    : graph_(graph),
-      voxel_map_(voxel_map) {
+    : graph_(graph), voxel_map_(voxel_map) {
   map_dims_[0] = voxel_map_.dim.x;
   map_dims_[1] = voxel_map_.dim.y;
   map_dims_[2] = voxel_map_.dim.z;
@@ -57,8 +56,8 @@ bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
 bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
   return is_valid_indices(indices) &&
-         voxel_map_.data[get_linear_indices(indices)] <= 0; 
-         //0 is free, -1 is unknown. TODO: add back unknown_is_free option
+         voxel_map_.data[get_linear_indices(indices)] <= 0;
+  // 0 is free, -1 is unknown. TODO: add back unknown_is_free option
 }
 
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
@@ -194,7 +193,7 @@ std::vector<MotionPrimitive> GraphSearch::RecoverPath(
   }
 
   std::reverse(path_mps.begin(), path_mps.end());
-  LOG(INFO) << "Path cost: " << end_node.motion_cost;
+  ROS_INFO_STREAM("Path cost: " << end_node.motion_cost);
   return path_mps;
 }
 
@@ -209,11 +208,11 @@ double GraphSearch::ComputeHeuristic(const State& v,
 
 auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
   // Debug
-  //  LOG(INFO) << "adj mat: " << graph_.edges_.rows() << " "
+  //  ROS_INFO_STREAM << "adj mat: " << graph_.edges_.rows() << " "
   //            << graph_.edges_.cols() << ", nnz: " << (graph_.edges_ >
   //            0).count();
-  //  LOG(INFO) << "mps: " << graph_.mps_.size();
-  //  LOG(INFO) << "verts: " << graph_.vertices_.rows() << " "
+  //  ROS_INFO_STREAM << "mps: " << graph_.mps_.size();
+  //  ROS_INFO_STREAM << "verts: " << graph_.vertices_.rows() << " "
   //            << graph_.vertices_.cols();
 
   timings_.clear();
@@ -222,7 +221,7 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
   // Early exit if start and end positions are close
   if (StatePosWithin(option.start_state, option.goal_state,
                      graph_.spatial_dim(), option.distance_threshold)) {
-    LOG(WARNING) << "Start already within distance threshold of goal, exiting";
+    ROS_WARN_STREAM("Start already within distance threshold of goal, exiting");
     return {};
   }
 
@@ -255,9 +254,9 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
     // Check if we are close enough to the end
     if (StatePosWithin(curr_node.state, option.goal_state, graph_.spatial_dim(),
                        option.distance_threshold)) {
-      LOG(INFO) << "== pq: " << pq.size();
-      LOG(INFO) << "== hist: " << history.size();
-      LOG(INFO) << "== nodes: " << visited_states_.size();
+      ROS_INFO_STREAM("== pq: " << pq.size());
+      ROS_INFO_STREAM("== hist: " << history.size());
+      ROS_INFO_STREAM("== nodes: " << visited_states_.size());
       return RecoverPath(history, curr_node);
     }
 
@@ -302,7 +301,7 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
     }
   }
 
-  LOG(WARNING) << "Priority queue empty, exiting";
+  ROS_WARN_STREAM("Priority queue empty, exiting");
   return {};
 }
 

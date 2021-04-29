@@ -7,7 +7,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(glog REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
@@ -32,7 +31,6 @@ target_link_libraries(
   ${catkin_LIBRARIES}
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
-  glog::glog
   Boost::timer
   TBB::tbb)
 
