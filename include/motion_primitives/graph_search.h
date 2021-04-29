@@ -34,6 +34,7 @@ class GraphSearch {
     State goal_state;
     double distance_threshold;
     bool parallel_expand{false};
+    bool using_ros{true};
   };
 
   // Search for a path from start_state to end_state, stops if no path found

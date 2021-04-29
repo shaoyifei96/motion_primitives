@@ -46,7 +46,6 @@ int GraphSearch::get_linear_indices(const Eigen::Vector3i& indices) const {
 }
 
 bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
-  // TODO add back unknown_is_free option
   for (int i = 0; i < spatial_dim(); ++i) {
     if (indices[i] < 0 || (map_dims_[i] - indices[i]) <= 0) {
       return false;
@@ -58,7 +57,8 @@ bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
 bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
   return is_valid_indices(indices) &&
-         voxel_map_.data[get_linear_indices(indices)] <= 0;
+         voxel_map_.data[get_linear_indices(indices)] <= 0; 
+         //0 is free, -1 is unknown. TODO: add back unknown_is_free option
 }
 
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
@@ -186,7 +186,7 @@ std::vector<MotionPrimitive> GraphSearch::RecoverPath(
   std::vector<MotionPrimitive> path_mps;
   Node const* curr_node = &end_node;
 
-  while (ros::ok()) {
+  while (true) {
     if (curr_node->motion_cost == 0) break;
     Node const* prev_node = &(history.at(curr_node->state).parent_node);
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
@@ -194,6 +194,7 @@ std::vector<MotionPrimitive> GraphSearch::RecoverPath(
   }
 
   std::reverse(path_mps.begin(), path_mps.end());
+  LOG(INFO) << "Path cost: " << end_node.motion_cost;
   return path_mps;
 }
 
@@ -221,6 +222,7 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
   // Early exit if start and end positions are close
   if (StatePosWithin(option.start_state, option.goal_state,
                      graph_.spatial_dim(), option.distance_threshold)) {
+    LOG(WARNING) << "Start already within distance threshold of goal, exiting";
     return {};
   }
 
@@ -246,8 +248,8 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
 
   // timer
   boost::timer::cpu_timer timer;
-
-  while (!pq.empty() && ros::ok()) {
+  bool ros_ok = ros::ok() || !option.using_ros;
+  while (!pq.empty() && ros_ok) {
     Node curr_node = pq.top();
 
     // Check if we are close enough to the end
@@ -300,6 +302,7 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
     }
   }
 
+  LOG(WARNING) << "Priority queue empty, exiting";
   return {};
 }
 

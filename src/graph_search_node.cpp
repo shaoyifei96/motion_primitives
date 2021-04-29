@@ -40,8 +40,6 @@ int main(int argc, char** argv) {
   ros::NodeHandle pnh("~");
   ros::Publisher traj_pub =
       pnh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
-  ros::Publisher traj_pub2 =
-      pnh.advertise<planning_ros_msgs::Trajectory>("trajectory2", 1, true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
@@ -109,7 +107,7 @@ int main(int argc, char** argv) {
 
     if (!path.empty()) {
       const auto traj = path_to_traj_msg(path, voxel_map.header);
-      traj_pub2.publish(traj);
+      traj_pub.publish(traj);
 
       const auto visited_marray = StatesToMarkerArray(
           gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
