@@ -3,11 +3,17 @@ project(motion_primitives)
 
 set(CMAKE_CXX_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+# import nlohmann json library, must be first pulled with vcs tool
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(JSON_MultipleHeaders ON CACHE INTERNAL "")
+add_subdirectory(external/json)
+
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(nlohmann_json REQUIRED)
+# find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
 

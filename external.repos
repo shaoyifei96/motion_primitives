@@ -1,0 +1,5 @@
+repositories:
+  external/json:
+    type: git
+    url: git@github.com:nlohmann/json.git
+    version: develop

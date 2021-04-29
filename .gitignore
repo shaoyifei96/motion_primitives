@@ -10,3 +10,4 @@ __pycache__/
 *.npy
 scratch_pad.py
 *.zip
+external/
