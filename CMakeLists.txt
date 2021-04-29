@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(motion_primitives)
 
 set(CMAKE_CXX_STANDARD 17)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
@@ -25,6 +24,7 @@ catkin_package(
 # Specify libraries to link a library or executable target against
 add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp
                             src/utils.cpp)
+add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 target_include_directories(${PROJECT_NAME} PUBLIC include
                                                   ${catkin_INCLUDE_DIRS})
 target_link_libraries(

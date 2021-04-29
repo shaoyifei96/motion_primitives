@@ -1,0 +1,52 @@
+name: Build
+
+on: [push]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    container: ros:melodic
+
+    steps:
+      - name: install apt deps
+        run: |
+          apt-get update
+          apt-get install -y libeigen3-dev libtbb-dev
+
+      - name: checkout motion_primitives
+        uses: actions/checkout@v2
+        with:
+          path: src/motion_primitives
+
+      - name: checkout planning_ros_msgs
+        uses: actions/checkout@v2
+        with:
+          repository: ljarin/planning_ros_msgs
+          path: src/planning_ros_msgs
+      
+      - name: checkout nlohmann json
+        uses: actions/checkout@v2
+        with:
+          repository: nlohmann/json
+          path: src/json
+      
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v1.8
+        with:
+          cmake-version: '3.20.x'
+
+      - name: catkin_make
+        shell: bash
+        run: |
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          catkin_make -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+
+      - name: catkin_make run_tests
+        shell: bash
+        run: |
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          catkin_make run_tests
+          catkin_test_results
