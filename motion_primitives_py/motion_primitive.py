@@ -101,23 +101,22 @@ class MotionPrimitive():
             color = 'lightgrey'
         if not position_only:
             fig, axes = plt.subplots(4, 1, sharex=True)
-            samples = sampling_array[1:, :]
             axes[3].set_xlabel('time')
             fig.suptitle('Full State over Time')
+            for j in range(4):
+                for i in range(self.num_dims):
+                    if j*self.num_dims+i+1 >= sampling_array.shape[0]:
+                        break
+                    axes[j].plot(sampling_array[0,:],sampling_array[j*self.num_dims+i+1,:])
+
         else:
             if ax is None:
-                axes = [plt.gca()]
-            else:
-                axes = [ax]
+                ax = plt.gca()
             samples = sampling_array[1:1+self.num_dims, :]
-        for i in range(self.num_dims):
-            for ax, s, l in zip(axes, samples, ('pos', 'vel', 'acc', 'jerk')):
-                if s is not None:
-                    if position_only:
-                        ax.plot(samples[0], samples[1], color=color, zorder=zorder)
-                    else:
-                        ax.plot(sampling_array[0, :], s)
-                        ax.set_ylabel(l)
+            if self.num_dims==2:
+                ax.plot(samples[0,:], samples[1,:], color=color, zorder=zorder)
+            elif self.num_dims==3:
+                ax.plot(samples[0,:], samples[1,:], samples[2,:], color=color, zorder=zorder)
 
     def plot(self, position_only=False, ax=None, color=None, zorder=1):
         """
