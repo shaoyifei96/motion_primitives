@@ -1,56 +1,106 @@
-#ifndef MOTION_PRIMITIVES_GRAPH_SEARCH_H
-#define MOTION_PRIMITIVES_GRAPH_SEARCH_H
+#pragma once
 
-#include <math.h>
+#include <planning_ros_msgs/VoxelMap.h>
+
+#include <queue>
+#include <unordered_set>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
 namespace motion_primitives {
 
-class Node {
- public:
-  Node(){};
-  Node(float g, float h, const Eigen::VectorXd& state,
-       const Eigen::VectorXd& parent_state, const MotionPrimitive& mp,
-       bool is_closed = false, int index = -1, int parent_index = -1,
-       int graph_depth = 0)
-      : g_(g),
-        h_(h),
-        f_(g + h),
-        state_(state),
-        parent_state_(parent_state),
-        index_(index),
-        parent_index_(parent_index),
-        is_closed_(is_closed),
-        mp_(mp),
-        graph_depth_(graph_depth) {}
-
-  friend bool operator<(const Node& s, const Node& rhs);
-  friend class GraphSearch;
-
- private:
-  float f_;  // total-cost
-  float g_;  // cost-to-come
-  float h_;  // heuristic
-  Eigen::VectorXd state_;
-  Eigen::VectorXd parent_state_;
-  MotionPrimitive mp_;
-  int index_;
-  int parent_index_;
-  int graph_depth_;
-  bool is_closed_;
+// First convert VectorXd to VectorXi by some scaling then hash
+// This is to avoid potential floating point error causing the same state to
+// hash to different values
+// NOTE: Ideally this should be part of the implementation, we put in the public
+// namespace so that we can test it
+struct VectorXdHash : std::unary_function<Eigen::VectorXd, std::size_t> {
+  std::size_t operator()(const Eigen::VectorXd& vd) const noexcept;
 };
 
-bool operator<(const Node& n1, const Node& n2) { return n1.f_ < n2.f_; }
-
 class GraphSearch {
-private:
+ protected:
   MotionPrimitiveGraph graph_;
-public:
-  std::vector<Node> get_neighbor_nodes_lattice(Node node);
-  GraphSearch(MotionPrimitiveGraph graph) : graph_(graph) {}
+  Eigen::Vector3i map_dims_;
+  Eigen::Vector3d map_origin_;
+  planning_ros_msgs::VoxelMap voxel_map_;
+
+ public:
+  using State = Eigen::VectorXd;
+  GraphSearch(const MotionPrimitiveGraph& graph,
+              const planning_ros_msgs::VoxelMap& voxel_map);
+  struct Option {
+    State start_state;
+    State goal_state;
+    double distance_threshold;
+    bool parallel_expand{false};
+    bool using_ros{true};
+  };
+
+  // Search for a path from start_state to end_state, stops if no path found
+  // (returns empty vector) or reach within distance_threshold of start_state
+  // parallel == true will expand nodes in parallel (~x2 speedup)
+  std::vector<MotionPrimitive> Search(const Option& option);
+
+  std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
+  const auto& timings() const noexcept { return timings_; }
+  int spatial_dim() const noexcept { return graph_.spatial_dim_; }
+
+ private:
+  // State is the real node
+  // Node is a wrapper around state that also carries the cost info
+  struct Node {
+    static constexpr auto kInfCost = std::numeric_limits<double>::infinity();
+
+    int state_index{0};  // used to retrieve mp from graph
+    State state;
+    double motion_cost{kInfCost};
+    double heuristic_cost{0.0};
+
+    double total_cost() const noexcept { return motion_cost + heuristic_cost; }
+  };
+
+  // The state is the key of PathHistory and will not be stored here
+  struct StateInfo {
+    Node parent_node;                  // parent node of this state
+    double best_cost{Node::kInfCost};  // best cost reaching this state so far
+  };
+
+  // Path history stores the parent node of this state and the best cost so far
+  using PathHistory = std::unordered_map<State, StateInfo, VectorXdHash>;
+  std::vector<MotionPrimitive> RecoverPath(const PathHistory& history,
+                                           const Node& end_node) const;
+
+  double ComputeHeuristic(const State& state,
+                          const State& goal_state) const noexcept;
+
+  // Stores all visited states
+  std::vector<Node> Expand(const Node& node, const State& goal_state) const;
+  std::vector<Node> ExpandPar(const Node& node, const State& goal_state) const;
+
+  // TODO: Helper function, currently have duplicate code in Expand
+  // void ExpandSingle(int index1, int index2) const
+
+  MotionPrimitive GetPrimitiveBetween(const Node& start_node,
+                                      const Node& end_node) const;
+
+  using StateSet = std::unordered_set<State, VectorXdHash>;
+  StateSet visited_states_;
+  // internal use only, stores (wall) time spent on different parts
+  std::unordered_map<std::string, double> timings_;
+
+  Eigen::Vector3i get_indices_from_position(
+      const Eigen::Vector3d& position) const;
+  // Converts from vector of indices to single index into
+  // planning_ros_msgs::VoxelMap.data
+  int get_linear_indices(const Eigen::Vector3i& indices) const;
+  bool is_valid_indices(const Eigen::Vector3i& indices) const;
+  bool is_free_and_valid_indices(const Eigen::Vector3i& indices) const;
+  bool is_free_and_valid_position(Eigen::VectorXd v) const;
+  // Samples motion primitive along step_size time steps and checks for
+  // collisions
+  bool is_mp_collision_free(const MotionPrimitive& mp,
+                            double step_size = 0.1) const;
 };
 
 }  // namespace motion_primitives
-
-#endif

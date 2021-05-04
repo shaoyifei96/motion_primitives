@@ -1,0 +1,13 @@
+<launch>
+  <node pkg="motion_primitives"
+    type="motion_primitives_graph_search"
+    name="graph_search_node"
+    output="screen" 
+    >
+    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
+    <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
+    <param name="map_topic" value="/voxel_map"/>
+    <rosparam param="start_state">[12.5,1.4,0,0]</rosparam>
+    <rosparam param="goal_state">[6.4,16.6,0,0]</rosparam>
+    </node>
+</launch>
