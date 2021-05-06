@@ -11,7 +11,7 @@ add_subdirectory(external/json)
 
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag)
+find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib)
 find_package(Eigen3 REQUIRED NO_MODULE)
 # find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
@@ -42,6 +42,9 @@ target_link_libraries(
 
 add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
 target_link_libraries(${PROJECT_NAME}_graph_search PRIVATE ${PROJECT_NAME})
+
+add_executable(${PROJECT_NAME}_action_server src/graph_search_action_server.cpp)
+target_link_libraries(${PROJECT_NAME}_action_server PRIVATE ${PROJECT_NAME})
 
 # Mark executables for installation See
 # http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

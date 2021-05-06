@@ -6,7 +6,10 @@
 namespace motion_primitives {
 
 using geometry_msgs::Point;
+using planning_ros_msgs::Polynomial;
 using planning_ros_msgs::Primitive;
+using planning_ros_msgs::Spline;
+using planning_ros_msgs::SplineTrajectory;
 using planning_ros_msgs::Trajectory;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
@@ -53,6 +56,39 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
     trajectory.primitives.push_back(primitive);
   }
   return trajectory;
+}
+
+SplineTrajectory path_to_spline_traj_msg(
+    const std::vector<MotionPrimitive>& mps, const std_msgs::Header& header) {
+  if (mps.empty()) return {};
+  int spatial_dim = mps[0].spatial_dim;
+
+  SplineTrajectory trajectory;
+
+  trajectory.header = header;
+
+  for (int i = 0; i < spatial_dim; i++) {
+    Spline spline;
+
+    for (const auto& mp : mps) {
+      if (mp.poly_coeffs.size() == 0) break;
+      Polynomial poly;
+      poly.degree = mp.poly_coeffs.cols() - 1;
+      poly.basis = 0;
+      poly.dt = mp.traj_time;
+      spline.t_total += mp.traj_time;
+      Eigen::VectorXd p = mp.poly_coeffs.row(i).reverse();
+      std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
+      poly.coeffs = pc;
+      spline.segs.push_back(poly);
+    }
+      spline.segments = mps.size();
+              trajectory.data.push_back(spline);
+
+  }
+  return trajectory;
+
+
 }
 
 MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
