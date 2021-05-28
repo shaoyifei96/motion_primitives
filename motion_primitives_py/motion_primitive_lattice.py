@@ -69,7 +69,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
-                            "rho" :self.mp_subclass_specific_data.get('rho'),
+                            "rho": self.mp_subclass_specific_data.get('rho'),
                             "dispersion": self.dispersion,
                             "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,
@@ -320,7 +320,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             _, ax = plt.subplots(1, 1, subplot_kw={'projection': {2: 'rectilinear', 3: '3d'}[self.num_dims]})
         ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
         if self.num_tiles > 1:
-            ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'ob', zorder=4)
+            ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'o', color='palegreen', zorder=4)
 
         if plot_mps:
             for i in range(len(self.edges)):
@@ -372,6 +372,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                                             self.mp_subclass_specific_data)
             if mp.is_valid:
                 connections.append((i, mp))
+            # if len(connections)>2:
+            #     break
         return connections
 
     def tile_points(self, pts):
@@ -398,14 +400,19 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             tiled_pts[i, :, :self.num_dims] += offset
         return tiled_pts.reshape(len(pts) * 3 ** self.num_dims, self.n)
 
-    def animation_helper(self, i, ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts):
-        print(f"frame {i+1}/{vertices.shape[0]}")
-        if i < 0:
+    def animation_helper(self, k, ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts):
+        print(f"frame {k+1}/{2*vertices.shape[0]}")
+        if k < 0:
             return self.lines
-        else:
-            self.lines[1].set_color('grey')
+        i = int(np.floor(k/2))
 
-        colors = plt.cm.tab20(np.linspace(0, 1, 20))
+        if self.num_tiles > 1:
+            tiled_vertices = self.tile_points(vertices[:i+1, :])
+            self.lines[2].set_data(tiled_vertices[i+1:, 0], tiled_vertices[i+1:, 1])
+
+        self.lines[3].set_data(vertices[:i+1 + k % 2, 0], vertices[:i+1+k % 2, 1])
+
+        # colors = plt.cm.tab20(np.linspace(0, 1, 20))
         closest_sample_pt = np.argmin(costs_mat[:(i + 1) * self.num_tiles, ], axis=0)
         max_cost = 0
         max_cost_mp = -1
@@ -418,13 +425,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 else:
                     _, sp = mp.get_sampled_position(step_size=.1)
                 self.lines[0][j].set_data(sp[0, :], sp[1, :])
-                self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
+                # self.lines[0][j].set_color(colors[closest_sample_pt[j] % 20])
                 if mp.cost > max_cost:
                     max_cost_mp = j
                     max_cost = mp.cost
 
-        self.lines[0][max_cost_mp].set_color('k')
-        self.lines[0][max_cost_mp].set_linewidth(1.3)
+        self.lines[0][max_cost_mp].set_color('red')
+        self.lines[0][max_cost_mp].set_linewidth(1.9)
+        self.lines[0][max_cost_mp].set_zorder(20)
 
         # edges = adj_mat[:(i+1)*self.num_tiles, sample_inds[:i+1]]
         # for k, edge in enumerate(np.nditer(edges, flags=['refs_ok'])):
@@ -436,11 +444,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         #     else:
         #         self.lines[5][k].set_data([], [])
 
-        self.lines[4].set_data(range(i+1), self.dispersion_list[:i+1])
-        if self.num_tiles > 1:
-            tiled_vertices = self.tile_points(vertices[:i+1, :])
-            self.lines[2].set_data(tiled_vertices[i+1:, 0], tiled_vertices[i+1:, 1])
-        self.lines[3].set_data(vertices[:i+1, 0], vertices[:i+1, 1])
+        # self.lines[4].set_data(range(i+1), self.dispersion_list[:i+1])
+        ax1.set_title(f'Dispersion: {self.dispersion_list[i]:.2f}')
         # for vertex in vertices[:i+1, :]:
         #     circle = plt.Circle(vertex[:self.num_dims], 2*self.dispersion_list[i]*self.max_state[1], color='b', fill=False, zorder=4)
         #     ax1.add_artist(circle)
@@ -450,11 +455,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
     def make_animation_min_dispersion_points(self, sample_inds, adj_mat, vertices, potential_sample_pts):
         save_animation = True
         if save_animation:
+            import rospkg
+            rospack = rospkg.RosPack()
+            pkg_path = rospack.get_path('motion_primitives')
+            file_name = f'{pkg_path}/motion_primitives_py/data/videos/dispersion_algorithm.mp4'
+
             import matplotlib
             normal_backend = matplotlib.get_backend()
             matplotlib.use("Agg")
 
-        f, (ax1, ax2) = plt.subplots(1, 2)
+        f, ax1 = plt.subplots(1, 1)
+        # f, (ax1, ax2) = plt.subplots(1, 2)
         plt.rcParams.update({
             "text.usetex": True,
             "font.family": "serif",
@@ -466,35 +477,45 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         tiling_mult = self.num_tiles**(1./self.num_dims)
         ax1.set_xlim(-self.max_state[0]*1.2*tiling_mult, self.max_state[0]*1.2*tiling_mult)
         ax1.set_ylim(-self.max_state[0]*1.2*tiling_mult, self.max_state[0]*1.2*tiling_mult)
-        ax1.set_title(r"Evolution of Vertex Set $\mathcal{V}$")
-        ax2.set_xlim(0, sample_inds.shape[0])
-        ax2.set_ylim(0, self.dispersion_list[0]*1.2)
-        ax2.set_title("Dispersion")
-        ax2.set_xlabel(r"Number of Vertices in $\mathcal{V}$")
+        # ax1.set_title(r"Evolution of Vertex Set $\mathcal{V}$")
+        # ax2.set_xlim(0, sample_inds.shape[0])
+        # ax2.set_ylim(0, self.dispersion_list[0]*1.2)
+        ax1.set_title("Dispersion: ")
+        max_state = self.max_state
+        ax1.plot([max_state[0], max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
+        ax1.plot([-max_state[0], -max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
+        ax1.plot([-3*max_state[0], 3*max_state[0]], [-max_state[0], -max_state[0]], 'k--', zorder=7)
+        ax1.plot([-3*max_state[0], 3*max_state[0]], [max_state[0], max_state[0]], 'k--', zorder=7)
+        ax1.plot([-3*max_state[0], 3*max_state[0]], [3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
+        ax1.plot([-3*max_state[0], 3*max_state[0]], [-3*max_state[0], -3*max_state[0]], 'k--', zorder=7)
+        ax1.plot([3*max_state[0], 3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
+        ax1.plot([-3*max_state[0], -3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 'k--', zorder=7)
+        # ax2.set_xlabel(r"Number of Vertices in $\mathcal{V}$")
         f.tight_layout()
 
         traj_lines = []
         for j in range(adj_mat.shape[1]):
-            traj_lines.append(ax1.plot([], [], linewidth=.8)[0])
-        dense_sample_pt_line, = ax1.plot([], [], 'o', markersize=1, color=('k'))
-        actual_sample_pt_line, = ax1.plot([], [], 'og')
-        tiled_pts_line, = ax1.plot([], [], 'ob')
-        dispersion_line, = ax2.plot([], [], 'ok--')
+            traj_lines.append(ax1.plot([], [], linewidth=.8, color='grey')[0])
+        dense_sample_pt_line, = ax1.plot([], [], 'o', markersize=1, color=('skyblue'), zorder=1)
+        actual_sample_pt_line, = ax1.plot([], [], 'og', zorder=10)
+        tiled_pts_line, = ax1.plot([], [], 'o', zorder=10, color='palegreen')
+        # dispersion_line, = ax2.plot([], [], 'ok--')
+        # dispersion_line = ax1.text(0,0,'')
         edges_lines = []
         for j in range(sample_inds.shape[0]*adj_mat.shape[0]):
             edges_lines.append(ax1.plot([], [], 'k')[0])
 
-        self.lines = [traj_lines, dense_sample_pt_line, tiled_pts_line, actual_sample_pt_line, dispersion_line, edges_lines]
-        self.lines[1].set_data(potential_sample_pts[:, 0], potential_sample_pts[:, 1])
+        self.lines = [traj_lines, dense_sample_pt_line, tiled_pts_line, actual_sample_pt_line, edges_lines]
+        self.lines[1].set_data(potential_sample_pts[:, 0], potential_sample_pts[:, 1, ])
 
         costs_mat = np.array([getattr(obj, 'cost', np.inf) if getattr(obj, 'is_valid', False) else np.inf for index,
                               obj in np.ndenumerate(adj_mat)]).reshape(adj_mat.shape)
         ani = animation.FuncAnimation(
-            f, self.animation_helper, range(-1, vertices.shape[0]), interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
+            f, self.animation_helper, range(-1, 2*vertices.shape[0]), interval=3000, fargs=(ax1, costs_mat, sample_inds, adj_mat, vertices, potential_sample_pts), repeat=False)
 
         if save_animation:
             print("Saving animation to disk")
-            ani.save('data/videos/dispersion_algorithm.mp4', dpi=800)
+            ani.save(file_name, dpi=800)
             print("Finished saving animation")
             matplotlib.use(normal_backend)
         else:
@@ -528,9 +549,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             num_plots = 2
         fig, ax = plt.subplots(1, num_plots, sharey=True, sharex=True, constrained_layout=True)
 
-        ax[1].set_aspect('equal', 'box' ,share=True)
+        ax[1].set_aspect('equal', 'box', share=True)
         ax[1].use_sticky_edges = False
-
 
         # ax[0].plot(dense_sampling[:, 0], dense_sampling[:, 1], '.', color='grey')
         ax[0].plot(vertices[:, 0], vertices[:, 1], 'go')

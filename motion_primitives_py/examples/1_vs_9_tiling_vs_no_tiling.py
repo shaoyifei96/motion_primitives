@@ -2,11 +2,17 @@ from motion_primitives_py import *
 import numpy as np
 import matplotlib.pyplot as plt
 import ujson as json
+import rospkg
 
 """
 Given the same target dispersion, create graphs G(V,E) for the 'no tiling' scenario and the 'tiling' scenarios. 
 In the 2D case, this is '1 (no tiling) vs. 9 (tiling)' blocks to cover the same area with the graph.
 """
+
+rospack = rospkg.RosPack()
+pkg_path = rospack.get_path('motion_primitives')
+pkg_path = f'{pkg_path}/motion_primitives_py/'
+
 animate = False
 mp_subclass_specific_data = {}
 
@@ -61,7 +67,7 @@ plt.plot([-3*max_state[0], -3*max_state[0]], [-3*max_state[0], 3*max_state[0]], 
 mpl_tiled.plot_config(plot_mps=True, ax=ax[1])
 
 filename = f"1_vs_9_{name}_nds{num_dense_samples}_dt{dispersion_threshhold}"
-plt.savefig(f"data/plots/{filename}.png", dpi=1200, bbox_inches='tight')
+plt.savefig(f"{pkg_path}data/plots/{filename}.png", dpi=1200, bbox_inches='tight')
 
 data_dict = {}
 data_dict['not_tiled_num_vertices'] = len(mpl_not_tiled.vertices)
@@ -72,9 +78,9 @@ data_dict['tiled_num_edges'] = len([mp for mp in list(mpl_tiled.edges.flatten())
 data_dict['tiled_edges_per_vertex'] = len([mp for mp in list(mpl_tiled.edges.flatten()) if mp != None])/len(mpl_tiled.vertices)
 
 
-mpl_tiled.save(f"data/lattices/{filename}_tiled_lattice.json")
-mpl_not_tiled.save(f"data/lattices/{filename}_untiled_lattice.json")
-with open(f"data/plots/{filename}_metadata.json", "w") as output_file:
-    json.dump(data_dict, output_file, indent=4)
+# mpl_tiled.save(f"{pkg_path}data/lattices/{filename}_tiled_lattice.json")
+# mpl_not_tiled.save(f"{pkg_path}data/lattices/{filename}_untiled_lattice.json")
+# with open(f"{pkg_path}data/plots/{filename}_metadata.json", "w") as output_file:
+# json.dump(data_dict, output_file, indent=4)
 
 plt.show()
