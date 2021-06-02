@@ -10,7 +10,7 @@
 using namespace motion_primitives;
 class PlanningServer {
  protected:
-  ros::NodeHandle nh_;
+  ros::NodeHandle pnh_;
   actionlib::SimpleActionServer<planning_ros_msgs::PlanTwoPointAction> as_;
   ros::Publisher traj_vis_pub_;
   ros::Publisher spline_traj_pub_;
@@ -18,20 +18,18 @@ class PlanningServer {
   motion_primitives::MotionPrimitiveGraph graph_;
 
  public:
-  PlanningServer()
-      : as_(nh_, "plan_local_trajectory",
+  PlanningServer(const ros::NodeHandle &nh): pnh_(nh), as_(nh, "plan_local_trajectory",
             boost::bind(&PlanningServer::executeCB, this, _1), false) {
     std::string graph_file;
-    ros::NodeHandle pnh_("~");
     pnh_.param("graph_file", graph_file, std::string("dispersionopt101.json"));
     auto graph_ = read_motion_primitive_graph(graph_file);
 
     traj_vis_pub_ =
-        nh_.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
-    spline_traj_pub_ = nh_.advertise<planning_ros_msgs::SplineTrajectory>(
+        pnh_.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
+    spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
         "spline_trajectory", 1, true);
     ros::Subscriber sub =
-        nh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
+        pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
     as_.start();
   }
 
@@ -87,6 +85,7 @@ class PlanningServer {
 
 int main(int argc, char* argv[]) {
   ros::init(argc, argv, "motion_primitives_action_server");
-  PlanningServer ps;
+  ros::NodeHandle pnh("~");
+  PlanningServer ps(pnh);
   ros::spin();
 }
