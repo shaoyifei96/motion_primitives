@@ -597,7 +597,7 @@ if __name__ == "__main__":
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
 
-    tiling = True
+    tiling = False
     plot = False
     animate = False
     check_backwards_dispersion = True
@@ -613,10 +613,10 @@ if __name__ == "__main__":
     # num_dense_samples = 100
 
     # # # %%
-    motion_primitive_type = OptimizationMotionPrimitive
+    motion_primitive_type = PolynomialMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [1.51, 1.51, 8, 10]
+    max_state = [1.5, 1.5, 8, 10]
     mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
     num_dense_samples = 1000
 
@@ -633,18 +633,19 @@ if __name__ == "__main__":
     tic = time.time()
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=10, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
+        num_output_pts=20, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
     toc = time.time()
     print(toc-tic)
     mpl.limit_connections(2*mpl.dispersion)
-    mpl.save(f"{pkg_path}data/lattice_test.json")
+    mpl.save(f"{pkg_path}data/lattices/lattice_test2.json")
 
     # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json", plot)
-    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattice_test.json", plot)
+    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test2.json", plot)
     # mpl.limit_connections(np.inf)
     mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+    print(max([len([j for j in i if j!=None]) for i in mpl.edges]))
 
     # %%
     # plot
