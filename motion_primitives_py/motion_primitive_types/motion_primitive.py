@@ -94,7 +94,7 @@ class MotionPrimitive():
 
     def plot_from_sampled_states(self, sampling_array, position_only=False, ax=None, color=None, zorder=1):
         """
-        Plot time vs. position, velocity, acceleration, and jerk (input is already sampled)
+        Plot time vs. position, velocity, acceleration, and jerk
         """
         # Plot the state over time.
         if color is None:
@@ -103,11 +103,17 @@ class MotionPrimitive():
             fig, axes = plt.subplots(4, 1, sharex=True)
             axes[3].set_xlabel('time')
             fig.suptitle('Full State over Time')
+            axes[0].set_ylabel("Position")
+            axes[1].set_ylabel("Velocity")
+            axes[2].set_ylabel("Acceleration")
+            axes[3].set_ylabel("Jerk")
+            labels = ['x','y','z']
             for j in range(4):
                 for i in range(self.num_dims):
                     if j*self.num_dims+i+1 >= sampling_array.shape[0]:
                         break
-                    axes[j].plot(sampling_array[0,:],sampling_array[j*self.num_dims+i+1,:])
+                    axes[j].plot(sampling_array[0,:],sampling_array[j*self.num_dims+i+1,:],label=labels[i])
+            axes[0].legend()
 
         else:
             if ax is None:
