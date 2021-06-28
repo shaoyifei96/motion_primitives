@@ -62,7 +62,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # print(mps)
         if filename is None:
             filename = self.saving_file_prefix
-        self.dispersion_list[self.dispersion_list == np.inf] = 0
+        self.dispersion_list = [x for x in self.dispersion_list if x!=np.inf]
+        if self.dispersion == np.inf:
+            self.dispersion = 0
         with open(filename, "w") as output_file:
             print("Saving lattice to", filename, "...")
             saved_params = {"mp_type": self.motion_primitive_type.__name__,

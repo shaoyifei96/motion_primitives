@@ -15,7 +15,7 @@ fig, ax = plt.subplots(len(dispersions), 1, sharex=True)
 
 for i,d in enumerate(dispersions):
     mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/opt2/dispersionopt{d}.json")
+        f"{pkg_path}data/lattices/dispersionopt{d}.json")
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
 
