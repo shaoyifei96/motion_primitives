@@ -62,7 +62,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         # print(mps)
         if filename is None:
             filename = self.saving_file_prefix
-        self.dispersion_list = [x for x in self.dispersion_list if x!=np.inf]
+        self.dispersion_list = [x for x in self.dispersion_list if x != np.inf]
         if self.dispersion == np.inf:
             self.dispersion = 0
         with open(filename, "w") as output_file:
@@ -93,7 +93,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         end_pts = inputs[1]
         mp = self.motion_primitive_type(start_pts, end_pts,
                                         self.num_dims, self.max_state, mp_subclass_specific_data)
-        mp.subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
+        mp.subclass_specific_data = None  # hacky stuff to avoid pickling lambda functions
         if not mp.is_valid:
             mp.cost = np.nan
         return mp
@@ -291,13 +291,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         Input:
             cost_threshold, max allowable cost for any edge in returned graph
         """
-        # TODO determine how we want to interface this with saving
-        # TODO separate out plotting
         tiled_verts = self.tile_points(self.vertices)
         if self.plot:
             self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
-            # for i,tv in enumerate(tiled_verts):
-            # if np.array(self.edges[i,:] == None).all():
             if self.num_tiles > 1:
                 self.ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'ob', zorder=4)
 
@@ -329,9 +325,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 for j in range(len(self.vertices)):
                     mp = self.edges[i, j]
                     if mp != None and mp.is_valid:
-                        mp.subclass_specific_data = self.mp_subclass_specific_data
+                        mp.subclass_specific_data['dynamics'] = self.mp_subclass_specific_data.get('dynamics')
                         mp.plot(position_only=True, ax=ax)
-                        _, sp = mp.get_sampled_position(.1)
         return ax
 
     def get_neighbor_mps(self, node_index):
@@ -597,7 +592,7 @@ if __name__ == "__main__":
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
 
-    tiling = False
+    tiling = True
     plot = False
     animate = False
     check_backwards_dispersion = True
@@ -611,21 +606,24 @@ if __name__ == "__main__":
     # motion_primitive_type = ReedsSheppMotionPrimitive
     # # resolution = [.51, .5]
     # num_dense_samples = 100
+    # num_output_pts = 20
 
     # # # %%
-    motion_primitive_type = PolynomialMotionPrimitive
-    control_space_q = 2
-    num_dims = 2
-    max_state = [1.5, 1.5, 8, 10]
-    mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
-    num_dense_samples = 1000
-
-    # # # %%
-    # motion_primitive_type = JerksMotionPrimitive
-    # control_space_q = 3
+    # motion_primitive_type = PolynomialMotionPrimitive
+    # control_space_q = 2
     # num_dims = 2
-    # max_state = [.1, .51, .51, 100, 1, 1]
-    # resolution = [.1, .21, .21]
+    # max_state = [1.5, 1.5, 8, 10]
+    # mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
+    # num_dense_samples = 1000
+    # num_output_pts =20
+
+    # # # %%
+    motion_primitive_type = RuckigMotionPrimitive
+    control_space_q = 3
+    num_dims = 2
+    max_state = [1.5, 1.5, 1.5, 100]
+    num_dense_samples = 1000
+    num_output_pts = 20
 
     # %%
     # build lattice
@@ -633,7 +631,7 @@ if __name__ == "__main__":
     tic = time.time()
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=20, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
+        num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
     toc = time.time()
     print(toc-tic)
     mpl.limit_connections(2*mpl.dispersion)
@@ -645,7 +643,7 @@ if __name__ == "__main__":
     mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
-    print(max([len([j for j in i if j!=None]) for i in mpl.edges]))
+    print(max([len([j for j in i if j != None]) for i in mpl.edges]))
 
     # %%
     # plot

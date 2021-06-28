@@ -41,7 +41,7 @@ class RuckigMotionPrimitive(MotionPrimitive):
         else:
             self.is_valid = True
         self.cost = self.traj_time
-        self.ruckig_trajectory = first_output.trajectory
+        self.subclass_specific_data['ruckig_trajectory'] = first_output.trajectory
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
@@ -55,7 +55,9 @@ class RuckigMotionPrimitive(MotionPrimitive):
         return dict
 
     def get_state(self, t):
-        pos, vel, acc = self.ruckig_trajectory.at_time(t)
+        if self.subclass_specific_data.get('ruckig_trajectory') is None:
+            self.run_ruckig()
+        pos, vel, acc = self.subclass_specific_data['ruckig_trajectory'].at_time(t)
         return np.hstack((pos, vel, acc))
 
     def get_sampled_states(self, step_size=0.1):
@@ -77,19 +79,15 @@ class RuckigMotionPrimitive(MotionPrimitive):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    # problem parameters
     num_dims = 2
     control_space_q = 3
 
-    # setup problem
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
     max_state = 100 * np.ones((control_space_q+1))
 
-    # jerks
     mp = RuckigMotionPrimitive(start_state, end_state, num_dims, max_state)
     print(mp.get_state(.4))
-    # plot
-    sampling_array = mp.get_sampled_states()
-    mp.plot_from_sampled_states(sampling_array)
+
+    mp.plot(position_only=True)
     plt.show()

@@ -1,6 +1,7 @@
 from motion_primitives_py import *
 import numpy as np
 import pytest
+import rospkg
 
 
 @pytest.fixture(
@@ -8,6 +9,7 @@ import pytest
     params=[PolynomialMotionPrimitive,
             ReedsSheppMotionPrimitive,
             InputsMotionPrimitive,
+            RuckigMotionPrimitive,
             # OptimizationMotionPrimitive,
             # JerksMotionPrimitive
             ])
@@ -40,6 +42,7 @@ def mp_fixture(request):
 @pytest.fixture(
     scope="module",
     params=[PolynomialMotionPrimitive,
+            RuckigMotionPrimitive,
             # OptimizationMotionPrimitive,
             # JerksMotionPrimitive
             ])

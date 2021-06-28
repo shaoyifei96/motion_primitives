@@ -35,9 +35,9 @@ class PolynomialMotionPrimitive(MotionPrimitive):
     def polynomial_setup(self, poly_order):
         if self.subclass_specific_data.get("dynamics", None) is None:
             self.subclass_specific_data['dynamics'] = self.get_dynamics_polynomials(poly_order)
-        print(self.num_dims)
-        print(poly_order)
-        print(len(self.subclass_specific_data['dynamics']))
+        # print(self.num_dims)
+        # print(poly_order)
+        # print(len(self.subclass_specific_data['dynamics']))
         self.poly_multiplier = np.array([np.concatenate((np.zeros(deriv_num), self.subclass_specific_data['dynamics'][deriv_num](1)))[
                                         :(poly_order+1)] for deriv_num in range(poly_order) for i in range(self.num_dims)])
 
