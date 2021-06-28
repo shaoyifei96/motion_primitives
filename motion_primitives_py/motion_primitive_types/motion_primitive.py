@@ -144,7 +144,7 @@ class MotionPrimitive():
                 return False
         if self.__dict__.keys() != other.__dict__.keys():
             return False
-        return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__)
+        return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__ if key is not 'subclass_specific_data')        
 
     def __lt__(self, other):
         return self.cost < other.cost
