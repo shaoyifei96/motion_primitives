@@ -1,7 +1,7 @@
 from motion_primitives_py import *
 import numpy as np
 import pytest
-import rospkg
+# import rospkg
 
 
 @pytest.fixture(

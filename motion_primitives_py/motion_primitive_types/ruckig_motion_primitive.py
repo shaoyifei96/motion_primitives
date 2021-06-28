@@ -71,11 +71,22 @@ class RuckigMotionPrimitive(MotionPrimitive):
         return None
 
     def get_sampled_position(self, step_size=0.1):
-        sampled_array = self.get_sampled_states(step_size)
-        return sampled_array[0,:], sampled_array[1,:]
+        if self.is_valid:
+            sampled_array = self.get_sampled_states(step_size)
+            return sampled_array[0,:], sampled_array[1,:]
+        return None, None
 
-    # def get_sampled_input(self, step_size=None):
-
+    def get_sampled_input(self, step_size=0.1):
+        # Warning, finite differencing to calculate jerk
+        assert step_size > 0,"Error, step_size must be >0"
+        if self.is_valid:
+            sampled_array = self.get_sampled_states(step_size)
+            jerk = np.zeros((self.num_dims,sampled_array.shape[1]))
+            acceleration = sampled_array[1+self.num_dims*2:1+self.num_dims*3,:]
+            for i in range(sampled_array.shape[1]-1):
+                jerk[:,i] = (acceleration[:,i+1] - acceleration[:,i])/step_size
+            return sampled_array[0,:], jerk
+        return None, None
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -84,10 +95,10 @@ if __name__ == "__main__":
 
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
-    max_state = 100 * np.ones((control_space_q+1))
+    max_state = 1 * np.ones((control_space_q+1))
 
     mp = RuckigMotionPrimitive(start_state, end_state, num_dims, max_state)
     print(mp.get_state(.4))
 
-    mp.plot(position_only=True)
+    mp.plot(position_only=False)
     plt.show()

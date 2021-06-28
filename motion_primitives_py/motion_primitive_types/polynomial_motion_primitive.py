@@ -259,8 +259,5 @@ if __name__ == "__main__":
 
     # plot
     mp.translate_start_position([1, 5])
-    samples = mp.get_sampled_states()
-    mp.plot_from_sampled_states(samples)
-    plt.figure()
     mp.plot(position_only=True)
     plt.show()

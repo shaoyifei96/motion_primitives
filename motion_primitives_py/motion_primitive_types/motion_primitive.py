@@ -108,11 +108,11 @@ class MotionPrimitive():
             axes[2].set_ylabel("Acceleration")
             axes[3].set_ylabel("Jerk")
             labels = ['x','y','z']
-            for j in range(4):
+            for j in range(self.control_space_q+1):
                 for i in range(self.num_dims):
-                    if j*self.num_dims+i+1 >= sampling_array.shape[0]:
-                        break
                     axes[j].plot(sampling_array[0,:],sampling_array[j*self.num_dims+i+1,:],label=labels[i])
+                    axes[j].plot([0,sampling_array[0,-1]],[self.max_state[j],self.max_state[j]],'k--')
+                    axes[j].plot([0,sampling_array[0,-1]],[-self.max_state[j],-self.max_state[j]],'k--')
             axes[0].legend()
 
         else:
@@ -128,7 +128,9 @@ class MotionPrimitive():
         """
         Generate the sampled state and input trajectories and plot them
         """
-        sampling_array = self.get_sampled_states()
+        state_sampling = self.get_sampled_states()
+        _, input_sampling = self.get_sampled_input()
+        sampling_array = np.vstack((state_sampling,input_sampling))
         if sampling_array is not None:
             self.plot_from_sampled_states(sampling_array, position_only, ax, color, zorder)
         else:
