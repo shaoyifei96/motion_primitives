@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 
+
 class RuckigMotionPrimitive(MotionPrimitive):
 
     def __init__(self, start_state, end_state, num_dims, max_state, subclass_specific_data={}):
@@ -30,7 +31,7 @@ class RuckigMotionPrimitive(MotionPrimitive):
         out = OutputParameter(self.num_dims)
         first_output = out
 
-        res = ruckig.update(inp, out)
+        ruckig.update(inp, out)
 
         # print(f'Calculation duration: {first_output.calculation_duration:0.1f} [µs]')
         # print(f'Trajectory duration: {first_output.trajectory.duration:0.4f} [s]')
@@ -55,43 +56,46 @@ class RuckigMotionPrimitive(MotionPrimitive):
         dict = super().to_dict()
         return dict
 
-    def get_state(self, t):
-        traj = self.run_ruckig() # TODO running way too much
+    def get_state(self, t, traj=None):
+        if traj is None:
+            traj = self.run_ruckig()
         pos, vel, acc = traj.at_time(t)
         return np.hstack((pos, vel, acc))
 
     def get_sampled_states(self, step_size=0.1):
+        traj = self.run_ruckig()  # TODO running too much, should be able to save it. Problems arise with pickling, which is called by deepcopy in the graph search atm
         if self.is_valid:
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             sampled_array = np.empty((1+self.n, st.shape[0]))
             sampled_array[0, :] = st
             for i, t in enumerate(st):
-                sampled_array[1:, i] = self.get_state(t)
+                sampled_array[1:, i] = self.get_state(t, traj)
             return sampled_array
         return None
 
     def get_sampled_position(self, step_size=0.1):
         if self.is_valid:
             sampled_array = self.get_sampled_states(step_size)
-            return sampled_array[0,:], sampled_array[1:1+self.num_dims,:]
+            return sampled_array[0, :], sampled_array[1:1+self.num_dims, :]
         return None, None
 
     def get_sampled_input(self, step_size=0.1):
         # Warning, finite differencing to calculate jerk
-        assert step_size > 0,"Error, step_size must be >0"
+        assert step_size > 0, "Error, step_size must be >0"
         if self.is_valid:
             sampled_array = self.get_sampled_states(step_size)
-            jerk = np.zeros((self.num_dims,sampled_array.shape[1]))
-            acceleration = sampled_array[1+self.num_dims*2:1+self.num_dims*3,:]
+            jerk = np.zeros((self.num_dims, sampled_array.shape[1]))
+            acceleration = sampled_array[1+self.num_dims*2:1+self.num_dims*3, :]
             for i in range(sampled_array.shape[1]-1):
-                jerk[:,i] = (acceleration[:,i+1] - acceleration[:,i])/step_size
-            return sampled_array[0,:], jerk
+                jerk[:, i] = (acceleration[:, i+1] - acceleration[:, i])/step_size
+            return sampled_array[0, :], jerk
         return None, None
-    
+
     def translate_start_position(self, start_pt):
         self.end_state[:self.num_dims] = self.end_state[:self.num_dims] - self.start_state[:self.num_dims] + start_pt
         self.start_state[:self.num_dims] = start_pt
         # self.run_ruckig()
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
