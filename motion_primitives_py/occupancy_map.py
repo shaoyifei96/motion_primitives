@@ -81,17 +81,22 @@ class OccupancyMap():
         return True
 
     def plot(self, ax=None):
+        if ax == None:
+            fig, self.ax = plt.subplots()
+            ax = self.ax
+
+        ax.add_patch(plt.Rectangle(self.origin, self.dims[0]*self.resolution, self.dims[1]*self.resolution, ec='r', fill=False))
+        ax.set_aspect('equal')
+
         if len(self.dims) == 2:
-            if ax == None:
-                fig, self.ax = plt.subplots()
-                ax = self.ax
-                # if len(self.dims) == 3:
-                #     fig_3d, ax_3d = plt.subplots()
-            im = self.voxels.T
             ax.pcolormesh(np.arange(self.voxels.shape[0]+1)*self.resolution + self.origin[0], np.arange(self.voxels.shape[1]+1)
                           * self.resolution + self.origin[1], self.voxels.T, cmap='Greys', zorder=1)
-            ax.add_patch(plt.Rectangle(self.origin, self.dims[0]*self.resolution, self.dims[1]*self.resolution, ec='r', fill=False))
-            ax.set_aspect('equal')
+        else:
+            print("WARNING: cannot plot in 3D, plotting a slice in the middle")
+            print(self.voxels.T.shape)
+            ax.pcolormesh(np.arange(self.voxels.shape[0]+1)*self.resolution + self.origin[0], np.arange(self.voxels.shape[1]+1)
+                * self.resolution + self.origin[1], self.voxels.T[int(self.voxels.shape[2]/2),:,:], cmap='Greys', zorder=1)
+
         return ax
 
 

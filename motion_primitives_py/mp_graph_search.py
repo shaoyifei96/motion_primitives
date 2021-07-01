@@ -143,21 +143,13 @@ class GraphSearch:
         sampled_path = np.hstack([mp.get_sampled_states()[1:1+self.num_dims, :] for mp in self.mp_list])
         path = np.vstack([mp.start_state for mp in self.mp_list]).T
         ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
-        print(f'cost: {self.path_cost}')
         ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4, markersize=4)
 
         if self.goal_tolerance.size > 1:
             ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
 
         if self.succeeded:
-            textstr = '\n'.join((
-                r'$dispersion=%.2f$' % (self.motion_primitive_graph.dispersion, ),
-                r'$cost=%.2f$' % (self.path_cost, ),
-                r'$nodesExpanded=%.2f$' % (self.nodes_expanded, ),
-                r'$collisionChecks=%.2f$' % (self.num_collision_checks, )))
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            ax.text(1.0, .95, textstr, transform=ax.transAxes, fontsize=14,
-                    verticalalignment='top', bbox=props)
+            ax.set_xlabel(f"Dispersion: {self.motion_primitive_graph.dispersion : 0.2f}\n Path Cost: {self.path_cost : 0.2f}\n # Collision Checks: {self.num_collision_checks}")
         plt.tight_layout()
 
     def get_neighbor_nodes_evenly_spaced(self, node):
@@ -263,7 +255,7 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            if self.num_collision_checks > 10000:
+            if self.num_collision_checks > 100000:
                 break
             # if node.graph_depth > 2:
             #     break
@@ -419,7 +411,7 @@ if __name__ == "__main__":
     bag_name = f'{pkg_path}data/maps/random/trees_long0.4_1.png.bag'
     # bag_name = f'data/maps/random/trees_long0.4_13.png.bag'
     occ_map = OccupancyMap.fromVoxelMapBag(bag_name, force_2d=True)
-    start_state = np.zeros((6))
+    start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
     start_state[0:2] = [2, 6]
     goal_state[0:2] = [48, 6]

@@ -14,31 +14,32 @@ Run the dispersion algorithm, and save the lattices at a specified set of desire
 Run graph search on the same map with said lattices.
 """
 # # # %%
-name = 'opt'
-motion_primitive_type = OptimizationMotionPrimitive
-control_space_q = 2
+name = 'ruckig'
+motion_primitive_type = RuckigMotionPrimitive
+control_space_q = 3
 num_dims = 2
-max_state = [1.51, 3, 10, 100]
-mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 100}
-num_dense_samples = 10
+max_state = [1.5, 1.5, 3, 100]
+mp_subclass_specific_data = {}#{'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 100}
+num_dense_samples = 1000
 num_output_pts = num_dense_samples
-dispersion_threshholds = np.arange(160, 30, -3).tolist()
+dispersion_threshholds = -1 #np.arange(160, 30, -3).tolist()
+indices = np.arange(1, 100, 3).tolist()
 check_backwards_dispersion = True
 costs_list = []
 nodes_expanded_list = []
 rospack = rospkg.RosPack()
 pkg_path = rospack.get_path('motion_primitives') + '/motion_primitives_py/data/'
 
-file_prefix = f'{pkg_path}/lattices/dispersion' + name  # TODO don't overwrite every time
+file_prefix = f'{pkg_path}lattices/dispersion' + name  # TODO don't overwrite every time
 
 
 def init():
     return
 
 
-def animation_helper(i,  dts, plot_type='maps'):
-    dispersion_threshhold = dts[i]
-    filename = f"{file_prefix}{dispersion_threshhold}"
+def animation_helper(i, indices):
+    file_num = indices[i]
+    filename = f"{file_prefix}{file_num}"
     print(f"{filename}.json")
     try:
         mpl = MotionPrimitiveLattice.load(f"{filename}.json")
@@ -52,21 +53,18 @@ def animation_helper(i,  dts, plot_type='maps'):
     goal_state[0:2] = [48, 6]
 
     gs = GraphSearch(mpl, occ_map, start_state[:mpl.n], goal_state[:mpl.n],
-                     heuristic='min_time', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1], goal_tolerance=np.ones(mpl.n))
+                     heuristic='bvp', mp_sampling_step_size=occ_map.resolution/mpl.max_state[1], goal_tolerance=[])
 
     gs.run_graph_search()
     ax0.clear()
     gs.plot(ax0)
-    ax0.set_xlabel(f"Dispersion: {gs.motion_primitive_graph.dispersion : 0.2f}\n Path Cost: {gs.path_cost : 0.2f}\n # Collision Checks: {gs.num_collision_checks}")
-    costs_list.append(gs.path_cost)
-    nodes_expanded_list.append(gs.nodes_expanded)
 
 
-def animation_helper2(i):
+# def animation_helper2(i):
 
-    lines[0].set_data(dispersion_threshholds[:i+1], costs_list[:i+1])
-    lines[1].set_data(dispersion_threshholds[:i+1], nodes_expanded_list[:i+1])
-    return lines
+#     lines[0].set_data(indices[:i+1], costs_list[:i+1])
+#     lines[1].set_data(indices[:i+1], nodes_expanded_list[:i+1])
+#     return lines
 
 
 if __name__ == '__main__':
@@ -87,15 +85,13 @@ if __name__ == '__main__':
         mpl.compute_min_dispersion_space(
             num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=False, num_dense_samples=num_dense_samples, dispersion_threshhold=deepcopy(dispersion_threshholds))
 
-    for dispersion_threshhold in deepcopy(dispersion_threshholds):
-        filename = f"{file_prefix}{dispersion_threshhold}"
+    for file_num in deepcopy(indices):
+        filename = f"{file_prefix}{file_num}"
         print(f"{filename}.json")
         try:
             open(f"{filename}.json")
         except:
             print("No lattice file")
-            dispersion_threshholds.remove(dispersion_threshhold)
-    print(dispersion_threshholds)
 
     f, ax0 = plt.subplots(1, 1)
     # occ_map = OccupancyMap.fromVoxelMapBag(f'{pkg_path}maps/trees_dispersion_0.6.bag')
@@ -106,7 +102,7 @@ if __name__ == '__main__':
     matplotlib.use("Agg")
     # len(dispersion_threshholds)
     ani = animation.FuncAnimation(
-        f, animation_helper, len(dispersion_threshholds), interval=2000, fargs=(deepcopy(dispersion_threshholds),), repeat=False, init_func=init)
+        f, animation_helper, len(indices), interval=2000, fargs=(deepcopy(indices),), repeat=False, init_func=init)
     ani.save(f'{pkg_path}videos/planning_with_decreasing_dispersion.mp4', dpi=800)
     print("done saving")
 
