@@ -226,21 +226,17 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
-            if isinstance(dispersion_threshhold, list):
-                if self.dispersion < dispersion_threshhold[0]:
-                    copy = deepcopy(self)
-                    asi_copy = deepcopy(actual_sample_indices)
-                    asi_copy = asi_copy[:i+1]
-                    copy.vertices = potential_sample_pts[asi_copy]
-                    copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
-                    copy.limit_connections(2*copy.dispersion)
-                    dispersions_passed = max([i for i, val in enumerate(dispersion_threshhold) if val > self.dispersion])
-                    print(f"Reached Dispersion Threshhold {dispersion_threshhold[dispersions_passed]}")
-                    copy.save(f"{self.saving_file_prefix}{dispersion_threshhold[dispersions_passed]}.json")
-                    dispersion_threshhold = dispersion_threshhold[dispersions_passed+1:]
-                    if len(dispersion_threshhold) == 0:
-                        break
-                    del copy
+            if dispersion_threshhold==-1 and self.dispersion!=np.inf:
+                copy = deepcopy(self)
+                asi_copy = deepcopy(actual_sample_indices)
+                asi_copy = asi_copy[:i+1]
+                copy.vertices = potential_sample_pts[asi_copy]
+                copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
+                copy.limit_connections(2*copy.dispersion)
+                disp_list = [i for i in self.dispersion_list if i!=np.inf]
+                print(f"Saving at dispersion {self.dispersion:.2f}")
+                copy.save(f"{self.saving_file_prefix}{len(disp_list)}.json")
+                del copy
 
             elif dispersion_threshhold is not None and self.dispersion < dispersion_threshhold:
                 print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
@@ -316,9 +312,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         if ax is None:
             _, ax = plt.subplots(1, 1, subplot_kw={'projection': {2: 'rectilinear', 3: '3d'}[self.num_dims]})
-        ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
-        if self.num_tiles > 1:
-            ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'o', color='palegreen', zorder=4)
+        if self.num_dims==2:
+            ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
+            if self.num_tiles > 1:
+                ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'o', color='palegreen', zorder=4)
+        elif self.num_dims==3:
+            ax.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:,2], 'og', zorder=5)
+            if self.num_tiles > 1:
+                ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], tiled_verts[:,2], 'o', color='palegreen', zorder=4)
 
         if plot_mps:
             for i in range(len(self.edges)):
@@ -620,10 +621,10 @@ if __name__ == "__main__":
     # # # %%
     motion_primitive_type = RuckigMotionPrimitive
     control_space_q = 3
-    num_dims = 2
+    num_dims = 3
     max_state = [1.5, 1.5, 3, 100]
     num_dense_samples = 1000
-    num_output_pts = 25
+    num_output_pts = 100
 
     # %%
     # build lattice
