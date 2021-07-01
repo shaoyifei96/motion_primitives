@@ -43,6 +43,8 @@ class GraphSearch:
         self.map = occupancy_map
         self.start_state = np.array(start_state)
         self.goal_state = np.array(goal_state)
+        assert self.start_state.shape[0] == self.motion_primitive_graph.n, "Start state must have the same dimension as the motion primitive graph"
+        assert self.goal_state.shape[0] == self.motion_primitive_graph.n, "Goal state must have the same dimension as the motion primitive graph"
         self.goal_tolerance = np.array(goal_tolerance)
         self.mp_sampling_step_size = mp_sampling_step_size
 
@@ -55,7 +57,9 @@ class GraphSearch:
         self.succeeded = False
 
         # Parameter used in min time heuristic from Sikang's paper
-        self.rho = self.motion_primitive_graph.mp_subclass_specific_data.get('rho',100)*1.5
+        self.rho = self.motion_primitive_graph.mp_subclass_specific_data.get('rho', 100)*1.5
+        if self.rho == 0:
+            self.rho == 1
         self.heuristic_dict = {
             'zero': self.zero_heuristic,
             'euclidean': self.euclidean_distance_heuristic,
@@ -140,10 +144,21 @@ class GraphSearch:
         path = np.vstack([mp.start_state for mp in self.mp_list]).T
         ax.plot(sampled_path[0, :], sampled_path[1, :], zorder=4)
         print(f'cost: {self.path_cost}')
-        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4,markersize=4)
+        ax.plot(path[0, :], path[1, :], 'o', color='lightblue', zorder=4, markersize=4)
 
         if self.goal_tolerance.size > 1:
             ax.add_patch(plt.Circle(self.goal_state[:self.num_dims], self.goal_tolerance[0], color='b', fill=False, zorder=5))
+
+        if self.succeeded:
+            textstr = '\n'.join((
+                r'$dispersion=%.2f$' % (self.motion_primitive_graph.dispersion, ),
+                r'$cost=%.2f$' % (self.path_cost, ),
+                r'$nodesExpanded=%.2f$' % (self.nodes_expanded, ),
+                r'$collisionChecks=%.2f$' % (self.num_collision_checks, )))
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            ax.text(1.0, .95, textstr, transform=ax.transAxes, fontsize=14,
+                    verticalalignment='top', bbox=props)
+        plt.tight_layout()
 
     def get_neighbor_nodes_evenly_spaced(self, node):
         neighbor_mps = self.motion_primitive_graph.get_neighbor_mps(node.state, self.dt, self.num_u_per_dimension)
@@ -239,7 +254,7 @@ class GraphSearch:
                     state[:self.n] = node.state - self.goal_state
                     norm = np.linalg.norm(state.reshape(self.control_space_q, self.num_dims), axis=1)
                 else:
-                    norm = np.linalg.norm((node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
+                    # norm = np.linalg.norm((node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
                     # sikang inf norm ...
                     norm = np.max(abs(node.state - self.goal_state).reshape(self.control_space_q, self.num_dims), axis=1)
                 if (norm <= self.goal_tolerance[:self.control_space_q]).all():
@@ -248,7 +263,7 @@ class GraphSearch:
                     break
 
             # JUST FOR TESTING
-            if self.num_collision_checks > 100000:
+            if self.num_collision_checks > 10000:
                 break
             # if node.graph_depth > 2:
             #     break
@@ -391,7 +406,7 @@ if __name__ == "__main__":
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
     mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/dispersion40.json")
+        f"{pkg_path}data/lattices/lattice_test2.json")
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
@@ -400,15 +415,15 @@ if __name__ == "__main__":
     # start_state[0:2] = [0, -18]
     # goal_state[0:2] = [7, -7]
     # goal_state[0:2] = [5, 4]
-    # bag_name = f'data/maps/trees_dispersion_1.1.bag'
+    # bag_name = f'{pkg_path}data/maps/random/trees_dispersion_1.1_54.png.bag'
     bag_name = f'{pkg_path}data/maps/random/trees_long0.4_1.png.bag'
     # bag_name = f'data/maps/random/trees_long0.4_13.png.bag'
     occ_map = OccupancyMap.fromVoxelMapBag(bag_name, force_2d=True)
-    start_state = np.zeros((4))
+    start_state = np.zeros((6))
     goal_state = np.zeros_like(start_state)
     start_state[0:2] = [2, 6]
     goal_state[0:2] = [48, 6]
-    goal_tolerance = np.ones_like(start_state)*occ_map.resolution*5
+    goal_tolerance = []  # np.ones_like(start_state)*occ_map.resolution*5
 
     # mpt = MotionPrimitiveTree(mpl.control_space_q, mpl.num_dims,  mpl.max_state, InputsMotionPrimitive, plot=False)
     # mpt.mp_subclass_specific_data['dt'] = .3
@@ -426,31 +441,15 @@ if __name__ == "__main__":
     # mpl.mp_subclass_specific_data['iterative_bvp_dt'] = .5
     # mpl.mp_subclass_specific_data['iterative_bvp_max_t'] = 10
 
-    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
-    gs.run_graph_search()
-    gs.plot(ax[1])
-    textstr = '\n'.join((
-        r'$dispersion=%.2f$' % (mpl.dispersion, ),
-        r'$cost=%.2f$' % (gs.path_cost, ),
-        r'$nodesExpanded=%.2f$' % (gs.nodes_expanded, ),
-        r'$nodesConsidered=%.2f$' % (len(gs.neighbor_nodes), )))
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    ax[1].text(1.0, .95, textstr, transform=ax[1].transAxes, fontsize=14,
-               verticalalignment='top', bbox=props)
-
-    mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/dispersion80.json")
-    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='min_time', goal_tolerance=[])
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='bvp', goal_tolerance=goal_tolerance)
     gs.run_graph_search()
     gs.plot(ax[0])
-    textstr = '\n'.join((
-        r'$dispersion=%.2f$' % (mpl.dispersion, ),
-        r'$cost=%.2f$' % (gs.path_cost, ),
-        r'$nodesExpanded=%.2f$' % (gs.nodes_expanded, ),
-        r'$nodesConsidered=%.2f$' % (len(gs.neighbor_nodes), )))
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    ax[0].text(1.0, .95, textstr, transform=ax[0].transAxes, fontsize=14,
-               verticalalignment='top', bbox=props)
+
+    mpl = MotionPrimitiveLattice.load(
+        f"{pkg_path}data/lattices/lattice_test.json")
+    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='bvp', goal_tolerance=goal_tolerance)
+    gs.run_graph_search()
+    gs.plot(ax[1])
 
     # plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
 

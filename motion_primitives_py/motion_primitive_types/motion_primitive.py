@@ -20,7 +20,7 @@ class MotionPrimitive():
         # TODO probably cleaner to do this with kwargs
         self.subclass_specific_data = deepcopy(subclass_specific_data)
         self.n = self.start_state.shape[0]
-        self.control_space_q = int(self.n/num_dims)
+        self.control_space_q = int(self.n/self.num_dims)
         self.is_valid = False
         self.cost = None
         self.traj_time = None

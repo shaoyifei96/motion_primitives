@@ -41,7 +41,8 @@ class RuckigMotionPrimitive(MotionPrimitive):
         else:
             self.is_valid = True
         self.cost = self.traj_time
-        self.subclass_specific_data['ruckig_trajectory'] = first_output.trajectory
+        # self.subclass_specific_data['ruckig_trajectory'] = first_output.trajectory
+        return first_output.trajectory
 
     @classmethod
     def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
@@ -55,9 +56,8 @@ class RuckigMotionPrimitive(MotionPrimitive):
         return dict
 
     def get_state(self, t):
-        if self.subclass_specific_data.get('ruckig_trajectory') is None:
-            self.run_ruckig()
-        pos, vel, acc = self.subclass_specific_data['ruckig_trajectory'].at_time(t)
+        traj = self.run_ruckig() # TODO running way too much
+        pos, vel, acc = traj.at_time(t)
         return np.hstack((pos, vel, acc))
 
     def get_sampled_states(self, step_size=0.1):
@@ -73,7 +73,7 @@ class RuckigMotionPrimitive(MotionPrimitive):
     def get_sampled_position(self, step_size=0.1):
         if self.is_valid:
             sampled_array = self.get_sampled_states(step_size)
-            return sampled_array[0,:], sampled_array[1,:]
+            return sampled_array[0,:], sampled_array[1:1+self.num_dims,:]
         return None, None
 
     def get_sampled_input(self, step_size=0.1):
@@ -87,9 +87,15 @@ class RuckigMotionPrimitive(MotionPrimitive):
                 jerk[:,i] = (acceleration[:,i+1] - acceleration[:,i])/step_size
             return sampled_array[0,:], jerk
         return None, None
+    
+    def translate_start_position(self, start_pt):
+        self.end_state[:self.num_dims] = self.end_state[:self.num_dims] - self.start_state[:self.num_dims] + start_pt
+        self.start_state[:self.num_dims] = start_pt
+        # self.run_ruckig()
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    from copy import deepcopy
     num_dims = 2
     control_space_q = 3
 
@@ -99,6 +105,7 @@ if __name__ == "__main__":
 
     mp = RuckigMotionPrimitive(start_state, end_state, num_dims, max_state)
     print(mp.get_state(.4))
+    deepcopy(mp)
 
     mp.plot(position_only=False)
     plt.show()

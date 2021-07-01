@@ -71,7 +71,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
-                            "rho": self.mp_subclass_specific_data.get('rho'),
+                            "rho": self.mp_subclass_specific_data.get('rho', 0),
                             "dispersion": self.dispersion,
                             "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,
@@ -93,7 +93,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         end_pts = inputs[1]
         mp = self.motion_primitive_type(start_pts, end_pts,
                                         self.num_dims, self.max_state, mp_subclass_specific_data)
-        mp.subclass_specific_data = None  # hacky stuff to avoid pickling lambda functions
+        mp.subclass_specific_data = {}  # hacky stuff to avoid pickling lambda functions
         if not mp.is_valid:
             mp.cost = np.nan
         return mp
@@ -621,9 +621,9 @@ if __name__ == "__main__":
     motion_primitive_type = RuckigMotionPrimitive
     control_space_q = 3
     num_dims = 2
-    max_state = [1.5, 1.5, 1.5, 100]
+    max_state = [1.5, 1.5, 3, 100]
     num_dense_samples = 1000
-    num_output_pts = 20
+    num_output_pts = 25
 
     # %%
     # build lattice
@@ -640,7 +640,7 @@ if __name__ == "__main__":
     # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json", plot)
     mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test2.json", plot)
     # mpl.limit_connections(np.inf)
-    mpl.plot_config(plot_mps=True)
+    mpl.plot_config(plot_mps=False)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
     print(max([len([j for j in i if j != None]) for i in mpl.edges]))
