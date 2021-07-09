@@ -124,14 +124,14 @@ class MotionPrimitive():
             elif self.num_dims==3:
                 ax.plot(samples[0,:], samples[1,:], samples[2,:], color=color, zorder=zorder)
 
-    def plot(self, position_only=False, ax=None, color=None, zorder=1):
+    def plot(self, position_only=False, ax=None, color=None, zorder=1, step_size = .1):
         """
         Generate the sampled state and input trajectories and plot them
         """
-        state_sampling = self.get_sampled_states()
-        _, input_sampling = self.get_sampled_input()
-        sampling_array = np.vstack((state_sampling,input_sampling))
-        if sampling_array is not None:
+        state_sampling = self.get_sampled_states(step_size=step_size)
+        _, input_sampling = self.get_sampled_input(step_size=step_size)
+        if state_sampling is not None and input_sampling is not None:
+            sampling_array = np.vstack((state_sampling,input_sampling))
             self.plot_from_sampled_states(sampling_array, position_only, ax, color, zorder)
         else:
             print("Trajectory was not found")

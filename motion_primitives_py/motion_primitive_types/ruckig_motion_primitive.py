@@ -84,11 +84,12 @@ class RuckigMotionPrimitive(MotionPrimitive):
         assert step_size > 0, "Error, step_size must be >0"
         if self.is_valid:
             sampled_array = self.get_sampled_states(step_size)
-            jerk = np.zeros((self.num_dims, sampled_array.shape[1]))
-            acceleration = sampled_array[1+self.num_dims*2:1+self.num_dims*3, :]
-            for i in range(sampled_array.shape[1]-1):
-                jerk[:, i] = (acceleration[:, i+1] - acceleration[:, i])/step_size
-            return sampled_array[0, :], jerk
+            if sampled_array is not None:
+                jerk = np.zeros((self.num_dims, sampled_array.shape[1]))
+                acceleration = sampled_array[1+self.num_dims*2:1+self.num_dims*3, :]
+                for i in range(sampled_array.shape[1]-1):
+                    jerk[:, i] = (acceleration[:, i+1] - acceleration[:, i])/step_size
+                return sampled_array[0, :], jerk
         return None, None
 
     def translate_start_position(self, start_pt):
@@ -111,5 +112,7 @@ if __name__ == "__main__":
     print(mp.get_state(.4))
     deepcopy(mp)
 
-    mp.plot(position_only=False)
+    mp.plot(position_only=True)
+    plt.plot(start_state[0],start_state[1],'og')
+    plt.plot(end_state[0],end_state[1],'or')
     plt.show()
