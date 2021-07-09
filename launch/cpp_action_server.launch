@@ -10,7 +10,7 @@
         output="screen">
         <rosparam file="$(arg param_file)"/>
         <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
-        <remap from="voxel_map" to="$(arg map_topic)"/>
+        <remap from="~voxel_map" to="$(arg map_topic)"/>
       </node>
   </group>
 

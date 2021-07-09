@@ -59,15 +59,16 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<MotionPrimitive>& mps, const std_msgs::Header& header) {
+    const std::vector<MotionPrimitive>& mps, const std_msgs::Header& header, float z_height) {
   if (mps.empty()) return {};
   int spatial_dim = mps[0].spatial_dim;
 
   SplineTrajectory trajectory;
 
   trajectory.header = header;
+  trajectory.dimensions = 3;
 
-  for (int i = 0; i < spatial_dim; i++) {
+  for (int i = 0; i < 3; i++) {
     Spline spline;
 
     for (const auto& mp : mps) {
@@ -77,18 +78,20 @@ SplineTrajectory path_to_spline_traj_msg(
       poly.basis = 0;
       poly.dt = mp.traj_time;
       spline.t_total += mp.traj_time;
-      Eigen::VectorXd p = mp.poly_coeffs.row(i).reverse();
-      std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
-      poly.coeffs = pc;
-      spline.segs.push_back(poly);
+      if (spatial_dim == i) {
+        poly.coeffs = std::vector<float>(mp.poly_coeffs.cols(), 0.0);
+        poly.coeffs[0] = z_height;
+      } else {
+        Eigen::VectorXd p = mp.poly_coeffs.row(i).reverse();
+        std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
+        poly.coeffs = pc;
+      }
+       spline.segs.push_back(poly);
     }
-      spline.segments = mps.size();
-              trajectory.data.push_back(spline);
-
+    spline.segments = mps.size();
+    trajectory.data.push_back(spline);
   }
   return trajectory;
-
-
 }
 
 MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
