@@ -18,7 +18,7 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
                             const std_msgs::Header& header) {
   if (mps.empty()) return {};
 
-  int spatial_dim = mps[0].spatial_dim;
+  int spatial_dim = mps[0].spatial_dim_;
   Eigen::ArrayXXd pc_resized(spatial_dim, 6);
   Eigen::ArrayXXd coeff_multiplier(pc_resized.rows(), pc_resized.cols());
   Trajectory trajectory;
@@ -35,11 +35,12 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
   }
 
   for (const auto& mp : mps) {
-    if (mp.poly_coeffs.size() == 0) break;
+    if (mp.poly_coeffs_.size() == 0) break;
 
     Primitive primitive;
-    pc_resized.block(0, pc_resized.cols() - mp.poly_coeffs.cols(),
-                     pc_resized.rows(), mp.poly_coeffs.cols()) = mp.poly_coeffs;
+    pc_resized.block(0, pc_resized.cols() - mp.poly_coeffs_.cols(),
+                     pc_resized.rows(), mp.poly_coeffs_.cols()) =
+        mp.poly_coeffs_;
 
     pc_resized *= coeff_multiplier;
     for (int i = 0; i < pc_resized.cols(); i++) {
@@ -52,16 +53,17 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
       }
       primitive.cyaw.push_back(0.);
     }
-    primitive.t = mp.traj_time;
+    primitive.t = mp.traj_time_;
     trajectory.primitives.push_back(primitive);
   }
   return trajectory;
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<MotionPrimitive>& mps, const std_msgs::Header& header, float z_height) {
+    const std::vector<MotionPrimitive>& mps,
+    const std_msgs::Header& header, float z_height) {
   if (mps.empty()) return {};
-  int spatial_dim = mps[0].spatial_dim;
+  int spatial_dim = mps[0].spatial_dim_;
 
   SplineTrajectory trajectory;
 
@@ -72,21 +74,21 @@ SplineTrajectory path_to_spline_traj_msg(
     Spline spline;
 
     for (const auto& mp : mps) {
-      if (mp.poly_coeffs.size() == 0) break;
+      if (mp.poly_coeffs_.size() == 0) break;
       Polynomial poly;
-      poly.degree = mp.poly_coeffs.cols() - 1;
+      poly.degree = mp.poly_coeffs_.cols() - 1;
       poly.basis = 0;
-      poly.dt = mp.traj_time;
-      spline.t_total += mp.traj_time;
+      poly.dt = mp.traj_time_;
+      spline.t_total += mp.traj_time_;
       if (spatial_dim == i) {
-        poly.coeffs = std::vector<float>(mp.poly_coeffs.cols(), 0.0);
+        poly.coeffs = std::vector<float>(mp.poly_coeffs_.cols(), 0.0);
         poly.coeffs[0] = z_height;
       } else {
-        Eigen::VectorXd p = mp.poly_coeffs.row(i).reverse();
+        Eigen::VectorXd p = mp.poly_coeffs_.row(i).reverse();
         std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
         poly.coeffs = pc;
       }
-       spline.segs.push_back(poly);
+      spline.segs.push_back(poly);
     }
     spline.segments = mps.size();
     trajectory.data.push_back(spline);

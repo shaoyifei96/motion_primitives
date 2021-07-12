@@ -4,21 +4,33 @@
 #include <Eigen/Core>
 #include <iosfwd>
 #include <nlohmann/json_fwd.hpp>
+#include <ruckig/ruckig.hpp>
 
 namespace motion_primitives {
 
 class MotionPrimitive {
  public:
   MotionPrimitive() = default;
-  MotionPrimitive(int spatial_dims, const Eigen::VectorXd& start_state,
-                  const Eigen::VectorXd& end_state, double cost,
-                  double traj_time, const Eigen::MatrixXd& poly_coeffs)
-      : cost(cost),
-        traj_time(traj_time),
-        spatial_dim(spatial_dims),
-        start_state(start_state),
-        end_state(end_state),
-        poly_coeffs(poly_coeffs){};
+  MotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
+                  const Eigen::VectorXd& end_state, Eigen::VectorXd max_state)
+      : spatial_dim_(spatial_dim),
+        start_state_(start_state),
+        end_state_(end_state),
+        max_state_(max_state){};
+
+  friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
+
+  int spatial_dim_;
+  Eigen::VectorXd start_state_;
+  Eigen::VectorXd end_state_;
+  Eigen::VectorXd max_state_;
+
+  double cost_;
+  double traj_time_;
+  Eigen::MatrixXd poly_coeffs_;
+
+  // Evaluates a motion primitive at a time t and returns a state vector
+  Eigen::VectorXd evaluate_primitive(float t) const;
 
   // Moves the motion primitive to a new position by modifying it's start, end,
   // and polynomial coefficients
@@ -29,20 +41,21 @@ class MotionPrimitive {
   // Each row is a position
   Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
-  // Evaluates a polynomial motion primitive at a time t and returns a vector of
-  // size spatial_dim_. TODO: make work with evaluating velocities,
-  // accelerations, etc., right now it only works for position
-  Eigen::VectorXd evaluate_polynomial(float t) const;
+  void populate(double cost, double traj_time,
+                const Eigen::MatrixXd& poly_coeffs) {
+    cost_ = cost;
+    traj_time_ = traj_time;
+    poly_coeffs_ = poly_coeffs;
+  }
 
-  friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
+};
 
-  int id;
-  double cost;
-  double traj_time;
-  int spatial_dim;
-  Eigen::VectorXd start_state;
-  Eigen::VectorXd end_state;
-  Eigen::MatrixXd poly_coeffs;
+class RuckigMotionPrimitive : public MotionPrimitive {
+  using MotionPrimitive::MotionPrimitive;
+
+ public:
+  void compute_ruckig();
+  Eigen::VectorXd evaluate_primitive(float t) const;
 };
 
 class MotionPrimitiveGraph {

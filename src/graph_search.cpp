@@ -107,7 +107,7 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
     mp.translate(node.state);
 
     // Check if already visited
-    if (visited_states_.find(mp.end_state) != visited_states_.cend()) continue;
+    if (visited_states_.find(mp.end_state_) != visited_states_.cend()) continue;
 
     // Then check if its collision free
     if (!is_mp_collision_free(mp)) continue;
@@ -115,9 +115,9 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
     // This is a good next node
     Node next_node;
     next_node.state_index = i;
-    next_node.state = mp.end_state;
-    next_node.motion_cost = node.motion_cost + mp.cost;
-    next_node.heuristic_cost = ComputeHeuristic(mp.end_state, goal_state);
+    next_node.state = mp.end_state_;
+    next_node.motion_cost = node.motion_cost + mp.cost_;
+    next_node.heuristic_cost = ComputeHeuristic(mp.end_state_, goal_state);
     nodes.push_back(next_node);
   }
 
@@ -143,7 +143,7 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
           mp.translate(node.state);
 
           // Check if already visited
-          if (visited_states_.find(mp.end_state) != visited_states_.end()) {
+          if (visited_states_.find(mp.end_state_) != visited_states_.end()) {
             continue;
           }
 
@@ -153,9 +153,9 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
           // This is a good next node
           Node next_node;
           next_node.state_index = i;
-          next_node.state = mp.end_state;
-          next_node.motion_cost = node.motion_cost + mp.cost;
-          next_node.heuristic_cost = ComputeHeuristic(mp.end_state, goal_state);
+          next_node.state = mp.end_state_;
+          next_node.motion_cost = node.motion_cost + mp.cost_;
+          next_node.heuristic_cost = ComputeHeuristic(mp.end_state_, goal_state);
 
           local.push_back(std::move(next_node));
         }
@@ -307,6 +307,15 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
 
 std::vector<Eigen::VectorXd> GraphSearch::GetVisitedStates() const noexcept {
   return {visited_states_.cbegin(), visited_states_.cend()};
+}
+
+auto GraphSearch::AccessGraph(const State& start_state) const
+    -> std::vector<Node> {
+  for (int i = 0; i < graph_.vertices_.rows(); i++) {
+    State end_state = graph_.vertices_.row(i);
+    auto mp = RuckigMotionPrimitive(spatial_dim(), start_state, end_state, graph_.max_state_);
+    mp.compute_ruckig();
+  }
 }
 
 }  // namespace motion_primitives

@@ -9,6 +9,10 @@ set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_MultipleHeaders ON CACHE INTERNAL "")
 add_subdirectory(external/json)
 
+set(BUILD_EXAMPLES OFF CACHE INTERNAL "")
+set(BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(external/ruckig)
+
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib)
@@ -38,7 +42,8 @@ target_link_libraries(
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
   Boost::timer
-  TBB::tbb)
+  TBB::tbb
+  ruckig)
 
 add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
 target_link_libraries(${PROJECT_NAME}_graph_search PRIVATE ${PROJECT_NAME})

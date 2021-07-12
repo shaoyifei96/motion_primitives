@@ -4,6 +4,7 @@
 
 #include <queue>
 #include <unordered_set>
+#include <unordered_map>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -77,6 +78,8 @@ class GraphSearch {
   // Stores all visited states
   std::vector<Node> Expand(const Node& node, const State& goal_state) const;
   std::vector<Node> ExpandPar(const Node& node, const State& goal_state) const;
+
+  std::vector<Node> AccessGraph(const State& start_state) const;
 
   // TODO: Helper function, currently have duplicate code in Expand
   // void ExpandSingle(int index1, int index2) const

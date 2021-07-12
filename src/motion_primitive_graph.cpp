@@ -7,38 +7,63 @@
 namespace motion_primitives {
 
 void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
-  poly_coeffs.col(poly_coeffs.cols() - 1) = new_start.head(spatial_dim);
-  end_state.head(spatial_dim) = end_state.head(spatial_dim) -
-                                start_state.head(spatial_dim) +
-                                new_start.head(spatial_dim);
-  start_state.head(spatial_dim) = new_start.head(spatial_dim);
+  end_state_.head(spatial_dim_) = end_state_.head(spatial_dim_) -
+                                  start_state_.head(spatial_dim_) +
+                                  new_start.head(spatial_dim_);
+  start_state_.head(spatial_dim_) = new_start.head(spatial_dim_);
+  poly_coeffs_.col(poly_coeffs_.cols() - 1) = new_start.head(spatial_dim_);
 }
 
-Eigen::VectorXd MotionPrimitive::evaluate_polynomial(float t) const {
-  Eigen::VectorXd time_multiplier(poly_coeffs.cols());
-  for (int i = 0; i < poly_coeffs.cols(); ++i) {
-    time_multiplier[poly_coeffs.cols() - i - 1] = std::pow(t, i);
-  }
-  return poly_coeffs * time_multiplier;
-}
+Eigen::MatrixXd MotionPrimitive::sample_positions(
+    double step_size) const {
+  int num_samples = std::ceil(traj_time_ / step_size) + 1;
+  Eigen::VectorXd times =
+      Eigen::VectorXd::LinSpaced(num_samples, 0, traj_time_);
 
-Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
-  int num_samples = std::ceil(traj_time / step_size) + 1;
-  Eigen::VectorXd times = Eigen::VectorXd::LinSpaced(num_samples, 0, traj_time);
-
-  Eigen::MatrixXd result(spatial_dim, num_samples);
+  Eigen::MatrixXd result(spatial_dim_, num_samples);
 
   for (int i = 0; i < times.size(); ++i) {
-    result.col(i) = evaluate_polynomial(times(i));
+    result.col(i) = evaluate_primitive(times(i));
   }
 
   return result;
 }
 
+Eigen::VectorXd MotionPrimitive::evaluate_primitive(float t) const {
+  Eigen::VectorXd time_multiplier(poly_coeffs_.cols());
+  for (int i = 0; i < poly_coeffs_.cols(); ++i) {
+    time_multiplier[poly_coeffs_.cols() - i - 1] = std::pow(t, i);
+  }
+  return poly_coeffs_ * time_multiplier;
+}
+
+
+
+void RuckigMotionPrimitive::compute_ruckig() {
+  ruckig::Ruckig<3> otg{0.001};
+  ruckig::InputParameter<3> input;
+  ruckig::OutputParameter<3> output;
+
+  // Set input parameters
+  input.max_velocity = {1.2, 1.2, 1.2};
+  input.max_acceleration = {4.0, 4.0, 4.0};
+  input.max_jerk = {10.0, 10.0, 10.0};
+
+  input.current_position = {10.0, 10.0, 10.0};
+  input.current_velocity = {1.2, 1.2, 1.2};
+  input.current_acceleration = {4.0, 4.0, 4.0};
+
+  input.target_position = {10.0, 10.0, 10.0};
+  input.target_velocity = {1.2, 1.2, 1.2};
+  input.target_acceleration = {4.0, 4.0, 4.0};
+
+  otg.update(input, output);
+}
+
 std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m) {
-  os << "start state: " << m.start_state.transpose() << "\n";
-  os << "end state: " << m.end_state.transpose() << "\n";
-  os << "cost: " << m.cost << "\n";
+  os << "start state: " << m.start_state_.transpose() << "\n";
+  os << "end state: " << m.end_state_.transpose() << "\n";
+  os << "cost: " << m.cost_ << "\n";
   return os;
 }
 
@@ -78,15 +103,17 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
         auto e = edge.at("end_state").get<std::vector<double>>();
         Eigen::Map<Eigen::VectorXd> end_state(e.data(), e.size());
 
+        //TODO Make general for ruckig and polyMP
         Eigen::MatrixXd poly_coeffs(graph.spatial_dim_,
                                     edge.at("polys")[0].size());
         for (int k = 0; k < graph.spatial_dim_; k++) {
           auto x = edge.at("polys")[k].get<std::vector<double>>();
           poly_coeffs.row(k) = Eigen::Map<Eigen::VectorXd>(x.data(), x.size());
         }
-        graph.mps_.push_back(MotionPrimitive(
-            graph.spatial_dim_, start_state, end_state, edge.at("cost"),
-            edge.at("traj_time"), poly_coeffs));
+        MotionPrimitive pmp(graph.spatial_dim_, start_state,
+                                      end_state, graph.max_state_);
+        pmp.populate(edge.at("cost"), edge.at("traj_time"), poly_coeffs);
+        graph.mps_.push_back(pmp);
         graph.edges_(i, j) = graph.mps_.size() - 1;
       } else {
         graph.edges_(i, j) = -1;  // TODO make constant

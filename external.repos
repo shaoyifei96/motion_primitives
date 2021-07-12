@@ -3,3 +3,7 @@ repositories:
     type: git
     url: git@github.com:nlohmann/json.git
     version: develop
+  external/ruckig:
+    type: git
+    url: git@github.com:pantor/ruckig.git
+    version: master

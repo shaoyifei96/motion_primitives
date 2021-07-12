@@ -22,9 +22,9 @@ TEST(GraphSearchTest, OptimalPath) {
                                .parallel_expand = true,
                                .using_ros = false});
 
-  float path_cost;
+  float path_cost = 0;
   for (auto seg : path) {
-    path_cost += seg.cost;
+    path_cost += seg.cost_;
   }
   EXPECT_EQ(path_cost, 2);
 }
