@@ -1,9 +1,10 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
+#include <ros/console.h>
+
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <ostream>
-// #include <ros/console.h>
 
 namespace motion_primitives {
 
@@ -23,13 +24,15 @@ Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
   Eigen::MatrixXd result(spatial_dim_, num_samples);
 
   for (int i = 0; i < times.size(); ++i) {
-    result.col(i) = evaluate_primitive(times(i)); //TODO not calling correct subclass' evaluate_primitive
+    result.col(i) = evaluate_primitive(
+        times(i));  // TODO not calling correct subclass' evaluate_primitive
   }
 
   return result;
 }
 
 Eigen::VectorXd MotionPrimitive::evaluate_primitive(float t) const {
+  ROS_INFO("not ruckig EP");
   Eigen::VectorXd time_multiplier(poly_coeffs_.cols());
   for (int i = 0; i < poly_coeffs_.cols(); ++i) {
     time_multiplier[poly_coeffs_.cols() - i - 1] = std::pow(t, i);
@@ -42,6 +45,7 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
                                              const Eigen::VectorXd& end_state,
                                              const Eigen::VectorXd& max_state)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
+  ROS_INFO("Ruckig constructor");
   ruckig::Ruckig<3> otg{0.001};
   ruckig::InputParameter<3> input;
   ruckig::OutputParameter<3> output;
@@ -74,6 +78,7 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
 }
 
 Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const {
+  ROS_INFO("Ruckig EP");
   std::array<double, 3> position, velocity, acceleration;
   ruckig_traj_.at_time(t, position, velocity, acceleration);
   Eigen::VectorXd state;
@@ -156,6 +161,7 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
         }
         auto mp = *mp_type_map[json_data.at("mp_type")](
             graph.spatial_dim_, start_state, end_state, graph.max_state_);
+        mp.evaluate_primitive(0);
         mp.populate(edge.at("cost"), edge.at("traj_time"), poly_coeffs);
         graph.mps_.push_back(mp);
         graph.edges_(i, j) = graph.mps_.size() - 1;

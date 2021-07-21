@@ -31,7 +31,7 @@ class MotionPrimitive {
   Eigen::MatrixXd poly_coeffs_;
 
   // Evaluates a motion primitive at a time t and returns a state vector
-  Eigen::VectorXd evaluate_primitive(float t) const;
+  virtual Eigen::VectorXd evaluate_primitive(float t) const;
 
   // Moves the motion primitive to a new position by modifying it's start, end,
   // and polynomial coefficients
