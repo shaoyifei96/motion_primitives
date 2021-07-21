@@ -68,9 +68,9 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
   return is_free_and_valid_indices(get_indices_from_position(position));
 }
 
-bool GraphSearch::is_mp_collision_free(const MotionPrimitive& mp,
+bool GraphSearch::is_mp_collision_free(const MotionPrimitive* mp,
                                        double step_size) const {
-  const auto samples = mp.sample_positions(step_size);
+  const auto samples = mp->sample_positions(step_size);
   for (int i = 0; i < samples.cols(); ++i) {
     if (!is_free_and_valid_position(samples.col(i))) {
       return false;
@@ -104,10 +104,10 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
     if (!graph_.HasEdge(i, state_index)) continue;
 
     auto mp = graph_.get_mp_between_indices(i, state_index);
-    mp.translate(node.state);
+    mp->translate(node.state);
 
     // Check if already visited
-    if (visited_states_.find(mp.end_state_) != visited_states_.cend()) continue;
+    if (visited_states_.find(mp->end_state_) != visited_states_.cend()) continue;
 
     // Then check if its collision free
     if (!is_mp_collision_free(mp)) continue;
@@ -115,9 +115,9 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
     // This is a good next node
     Node next_node;
     next_node.state_index = i;
-    next_node.state = mp.end_state_;
-    next_node.motion_cost = node.motion_cost + mp.cost_;
-    next_node.heuristic_cost = ComputeHeuristic(mp.end_state_, goal_state);
+    next_node.state = mp->end_state_;
+    next_node.motion_cost = node.motion_cost + mp->cost_;
+    next_node.heuristic_cost = ComputeHeuristic(mp->end_state_, goal_state);
     nodes.push_back(next_node);
   }
 
@@ -140,10 +140,10 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
           if (!graph_.HasEdge(i, state_index)) continue;
 
           auto mp = graph_.get_mp_between_indices(i, state_index);
-          mp.translate(node.state);
+          mp->translate(node.state);
 
           // Check if already visited
-          if (visited_states_.find(mp.end_state_) != visited_states_.end()) {
+          if (visited_states_.find(mp->end_state_) != visited_states_.end()) {
             continue;
           }
 
@@ -153,9 +153,9 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
           // This is a good next node
           Node next_node;
           next_node.state_index = i;
-          next_node.state = mp.end_state_;
-          next_node.motion_cost = node.motion_cost + mp.cost_;
-          next_node.heuristic_cost = ComputeHeuristic(mp.end_state_, goal_state);
+          next_node.state = mp->end_state_;
+          next_node.motion_cost = node.motion_cost + mp->cost_;
+          next_node.heuristic_cost = ComputeHeuristic(mp->end_state_, goal_state);
 
           local.push_back(std::move(next_node));
         }
@@ -172,17 +172,17 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
   return nodes;
 }
 
-MotionPrimitive GraphSearch::GetPrimitiveBetween(const Node& start_node,
+MotionPrimitive* GraphSearch::GetPrimitiveBetween(const Node& start_node,
                                                  const Node& end_node) const {
   const int start_index = graph_.NormIndex(start_node.state_index);
   auto mp = graph_.get_mp_between_indices(end_node.state_index, start_index);
-  mp.translate(start_node.state);
+  mp->translate(start_node.state);
   return mp;
 }
 
-std::vector<MotionPrimitive> GraphSearch::RecoverPath(
+std::vector<MotionPrimitive*> GraphSearch::RecoverPath(
     const PathHistory& history, const Node& end_node) const {
-  std::vector<MotionPrimitive> path_mps;
+  std::vector<MotionPrimitive*> path_mps;
   Node const* curr_node = &end_node;
 
   while (true) {
@@ -206,7 +206,7 @@ double GraphSearch::ComputeHeuristic(const State& v,
          graph_.max_state()(1);
 }
 
-auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
+auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive*> {
 
   timings_.clear();
   visited_states_.clear();

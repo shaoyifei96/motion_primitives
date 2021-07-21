@@ -14,11 +14,11 @@ using planning_ros_msgs::Trajectory;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
+Trajectory path_to_traj_msg(const std::vector<MotionPrimitive*>& mps,
                             const std_msgs::Header& header) {
   if (mps.empty()) return {};
 
-  int spatial_dim = mps[0].spatial_dim_;
+  int spatial_dim =  mps[0]->spatial_dim_;
   Eigen::ArrayXXd pc_resized(spatial_dim, 6);
   Eigen::ArrayXXd coeff_multiplier(pc_resized.rows(), pc_resized.cols());
   Trajectory trajectory;
@@ -35,12 +35,12 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
   }
 
   for (const auto& mp : mps) {
-    if (mp.poly_coeffs_.size() == 0) break;
+    if (mp->poly_coeffs_.size() == 0) break;
 
     Primitive primitive;
-    pc_resized.block(0, pc_resized.cols() - mp.poly_coeffs_.cols(),
-                     pc_resized.rows(), mp.poly_coeffs_.cols()) =
-        mp.poly_coeffs_;
+    pc_resized.block(0, pc_resized.cols() - mp->poly_coeffs_.cols(),
+                     pc_resized.rows(), mp->poly_coeffs_.cols()) =
+        mp->poly_coeffs_;
 
     pc_resized *= coeff_multiplier;
     for (int i = 0; i < pc_resized.cols(); i++) {
@@ -53,17 +53,17 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
       }
       primitive.cyaw.push_back(0.);
     }
-    primitive.t = mp.traj_time_;
+    primitive.t = mp->traj_time_;
     trajectory.primitives.push_back(primitive);
   }
   return trajectory;
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<MotionPrimitive>& mps, const std_msgs::Header& header,
+    const std::vector<MotionPrimitive*>& mps, const std_msgs::Header& header,
     float z_height) {
   if (mps.empty()) return {};
-  int spatial_dim = mps[0].spatial_dim_;
+  int spatial_dim = mps[0]->spatial_dim_;
 
   SplineTrajectory trajectory;
 
@@ -75,17 +75,17 @@ SplineTrajectory path_to_spline_traj_msg(
     spline.segments = mps.size();
 
     for (const auto& mp : mps) {
-      if (mp.poly_coeffs_.size() == 0) break;
+      if (mp->poly_coeffs_.size() == 0) break;
       Polynomial poly;
-      poly.degree = mp.poly_coeffs_.cols() - 1;
+      poly.degree = mp->poly_coeffs_.cols() - 1;
       poly.basis = 0;
-      poly.dt = mp.traj_time_;
-      spline.t_total += mp.traj_time_;
+      poly.dt = mp->traj_time_;
+      spline.t_total += mp->traj_time_;
       if (spatial_dim == i) {
-        poly.coeffs = std::vector<float>(mp.poly_coeffs_.cols(), 0.0);
+        poly.coeffs = std::vector<float>(mp->poly_coeffs_.cols(), 0.0);
         poly.coeffs[0] = z_height;
       } else {
-        Eigen::VectorXd p = mp.poly_coeffs_.row(i).reverse();
+        Eigen::VectorXd p = mp->poly_coeffs_.row(i).reverse();
         std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
         poly.coeffs = pc;
       }
@@ -97,7 +97,7 @@ SplineTrajectory path_to_spline_traj_msg(
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<RuckigMotionPrimitive>& mps,
+    const std::vector<RuckigMotionPrimitive*>& mps,
     const std_msgs::Header& header, float z_height) {
   if (mps.empty()) return {};
 
@@ -107,13 +107,13 @@ SplineTrajectory path_to_spline_traj_msg(
 
   for (int dim = 0; dim < 3; dim++) {
     Spline spline;
-    if (mps[0].spatial_dim_ != dim) {
+    if (mps[0]->spatial_dim_ != dim) {
       for (const auto& mp : mps) {
-        auto jerk_time_array = mp.ruckig_traj_.get_jerks_and_times();
+        auto jerk_time_array = mp->ruckig_traj_.get_jerks_and_times();
         std::tuple<float, float, float> state;
-        std::get<0>(state) = mp.start_state_[dim];
-        std::get<1>(state) = mp.start_state_[dim + mp.spatial_dim_];
-        std::get<2>(state) = mp.start_state_[dim + 2 * mp.spatial_dim_];
+        std::get<0>(state) = mp->start_state_[dim];
+        std::get<1>(state) = mp->start_state_[dim + mp->spatial_dim_];
+        std::get<2>(state) = mp->start_state_[dim + 2 * mp->spatial_dim_];
         for (int seg = 0; seg < 7; seg++) {
           Polynomial poly;
           poly.degree = 3;
