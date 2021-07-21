@@ -60,8 +60,8 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive>& mps,
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<MotionPrimitive>& mps,
-    const std_msgs::Header& header, float z_height) {
+    const std::vector<MotionPrimitive>& mps, const std_msgs::Header& header,
+    float z_height) {
   if (mps.empty()) return {};
   int spatial_dim = mps[0].spatial_dim_;
 
@@ -72,6 +72,7 @@ SplineTrajectory path_to_spline_traj_msg(
 
   for (int i = 0; i < 3; i++) {
     Spline spline;
+    spline.segments = mps.size();
 
     for (const auto& mp : mps) {
       if (mp.poly_coeffs_.size() == 0) break;
@@ -90,10 +91,58 @@ SplineTrajectory path_to_spline_traj_msg(
       }
       spline.segs.push_back(poly);
     }
-    spline.segments = mps.size();
     trajectory.data.push_back(spline);
   }
   return trajectory;
+}
+
+SplineTrajectory path_to_spline_traj_msg(
+    const std::vector<RuckigMotionPrimitive>& mps,
+    const std_msgs::Header& header, float z_height) {
+  if (mps.empty()) return {};
+
+  SplineTrajectory spline_traj;
+  spline_traj.header = header;
+  spline_traj.dimensions = 3;
+
+  for (int dim = 0; dim < 3; dim++) {
+    Spline spline;
+    if (mps[0].spatial_dim_ != dim) {
+      for (const auto& mp : mps) {
+        auto jerk_time_array = mp.ruckig_traj_.get_jerks_and_times();
+        std::tuple<float, float, float> state;
+        std::get<0>(state) = mp.start_state_[dim];
+        std::get<1>(state) = mp.start_state_[dim + mp.spatial_dim_];
+        std::get<2>(state) = mp.start_state_[dim + 2 * mp.spatial_dim_];
+        for (int seg = 0; seg < 7; seg++) {
+          Polynomial poly;
+          poly.degree = 3;
+          poly.basis = 0;
+          poly.dt = jerk_time_array[dim * 2][seg];
+          if (poly.dt == 0) {
+            continue;
+          }
+          float j = jerk_time_array[dim * 2 + 1][seg];
+          auto [p, v, a] = state;
+          poly.coeffs = {p, v, a / 2, j / 6};
+          state = ruckig::Profile::integrate(poly.dt, p, v, a, j);
+          spline.segments += 1;
+          spline.segs.push_back(poly);
+          spline.t_total += poly.dt;
+        }
+      }
+    } else {
+      spline.segments = 1;
+      Polynomial poly;
+      poly.degree = 0;
+      poly.coeffs = {z_height};
+      poly.dt = spline_traj.data[0].t_total;
+      spline.segs.push_back(poly);
+      spline.t_total = spline_traj.data[0].t_total;
+    }
+    spline_traj.data.push_back(spline);
+  }
+  return spline_traj;
 }
 
 MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,

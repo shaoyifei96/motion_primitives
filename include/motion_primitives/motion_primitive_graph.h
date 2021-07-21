@@ -12,7 +12,8 @@ class MotionPrimitive {
  public:
   MotionPrimitive() = default;
   MotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
-                  const Eigen::VectorXd& end_state, Eigen::VectorXd max_state)
+                  const Eigen::VectorXd& end_state,
+                  const Eigen::VectorXd& max_state)
       : spatial_dim_(spatial_dim),
         start_state_(start_state),
         end_state_(end_state),
@@ -47,14 +48,17 @@ class MotionPrimitive {
     traj_time_ = traj_time;
     poly_coeffs_ = poly_coeffs;
   }
-
 };
 
 class RuckigMotionPrimitive : public MotionPrimitive {
-  using MotionPrimitive::MotionPrimitive;
-
  public:
-  void compute_ruckig();
+  RuckigMotionPrimitive() = default;
+  RuckigMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
+                        const Eigen::VectorXd& end_state,
+                        const Eigen::VectorXd& max_state);
+
+  ruckig::Trajectory<3> ruckig_traj_;
+
   Eigen::VectorXd evaluate_primitive(float t) const;
 };
 

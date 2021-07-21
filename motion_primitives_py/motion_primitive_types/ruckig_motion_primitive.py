@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
 
 from motion_primitives_py import MotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
-from ruckig import InputParameter, OutputParameter, Result, Ruckig
-
+from ruckig import InputParameter, OutputParameter, Ruckig, Profile
+from planning_ros_msgs.msg import SplineTrajectory, Spline, Polynomial
+# from rospy_message_converter import message_converter
+from copy import copy
 
 class RuckigMotionPrimitive(MotionPrimitive):
 
@@ -31,9 +34,9 @@ class RuckigMotionPrimitive(MotionPrimitive):
         out = OutputParameter(self.num_dims)
         first_output = out
 
-        ruckig.update(inp, out)
+        ruckig.calculate(inp, out.trajectory)
 
-        # print(f'Calculation duration: {first_output.calculation_duration:0.1f} [µs]')
+        # print(f'Calculation duration: {first_output.calculation_duration:0.1f} [us]')
         # print(f'Trajectory duration: {first_output.trajectory.duration:0.4f} [s]')
 
         self.traj_time = first_output.trajectory.duration
@@ -43,6 +46,7 @@ class RuckigMotionPrimitive(MotionPrimitive):
             self.is_valid = True
         self.cost = self.traj_time
         # self.subclass_specific_data['ruckig_trajectory'] = first_output.trajectory
+        # self.poly_coeffs = self.get_spline_traj(first_output.trajectory)
         return first_output.trajectory
 
     @classmethod
@@ -97,22 +101,63 @@ class RuckigMotionPrimitive(MotionPrimitive):
         self.start_state[:self.num_dims] = start_pt
         # self.run_ruckig()
 
+    def get_spline_traj(self, traj):
+        jerk_time_array = np.array(traj.jerks_and_times)
+        sj = SplineTrajectory()
+        sj.dimensions = int(self.num_dims)
+        start = copy(self.start_state)
+        for dim in range(self.num_dims):
+            spline = Spline()
+            # size 7 is hard coded in ruckig library as max # of segments
+            for seg in range(7):
+                poly = Polynomial()
+                poly.degree = 3
+                poly.dt = jerk_time_array[dim*2, seg]
+                if poly.dt == 0:
+                    continue
+                j = jerk_time_array[dim*2 + 1, seg]
+                p, v, a = start[dim::self.num_dims]
+                poly.coeffs = [p, v, a/2, j/6]
+                start[dim::self.num_dims] = Profile.integrate(poly.dt, p, v, a, j)
+                # print(poly.coeffs)
+                spline.segments += 1
+                spline.segs.append(poly)
+                spline.t_total += poly.dt
+            sj.data.append(spline)
+        return sj
+
+    # def to_dict(self):
+    #     """
+    #     Write important attributes of motion primitive to a dictionary
+    #     """
+    #     traj = self.run_ruckig()
+    #     dict = super().to_dict()
+    #     if dict:
+    #         dict["polys"] = message_converter.convert_ros_message_to_dictionary(self.get_spline_traj(traj))
+    #     return dict
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from copy import deepcopy
+
     num_dims = 2
     control_space_q = 3
 
     start_state = np.zeros((num_dims * control_space_q,))
     end_state = np.random.rand(num_dims * control_space_q,)
-    max_state = 1 * np.ones((control_space_q+1))
+    start_state[0] = 10
+    start_state[1] = -5
+    max_state = 2 * np.ones((control_space_q+1))
 
     mp = RuckigMotionPrimitive(start_state, end_state, num_dims, max_state)
-    print(mp.get_state(.4))
     deepcopy(mp)
 
-    mp.plot(position_only=True)
-    plt.plot(start_state[0],start_state[1],'og')
-    plt.plot(end_state[0],end_state[1],'or')
-    plt.show()
+    traj = mp.run_ruckig()
+    mp.to_dict()
+    # print(mp.start_state)
+
+    # mp.plot(position_only=False)
+    # plt.plot(start_state[0], start_state[1], 'og')
+    # plt.plot(end_state[0], end_state[1], 'or')
+    # plt.show()

@@ -585,8 +585,8 @@ if __name__ == "__main__":
     from motion_primitives_py import *
     import numpy as np
     import time
-    from pycallgraph import PyCallGraph, Config
-    from pycallgraph.output import GraphvizOutput
+    # from pycallgraph import PyCallGraph, Config
+    # from pycallgraph.output import GraphvizOutput
     import rospkg
 
     rospack = rospkg.RosPack()
@@ -622,9 +622,9 @@ if __name__ == "__main__":
     motion_primitive_type = RuckigMotionPrimitive
     control_space_q = 3
     num_dims = 3
-    max_state = [1.5, 1.5, 3, 100]
+    max_state = [.5, 1.5, 2, 100]
     num_dense_samples = 1000
-    num_output_pts = 100
+    num_output_pts = 20
 
     # %%
     # build lattice
@@ -632,7 +632,7 @@ if __name__ == "__main__":
     tic = time.time()
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
-        num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples)
+        num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
     toc = time.time()
     print(toc-tic)
     mpl.limit_connections(2*mpl.dispersion)
@@ -641,7 +641,7 @@ if __name__ == "__main__":
     # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json", plot)
     mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test2.json", plot)
     # mpl.limit_connections(np.inf)
-    mpl.plot_config(plot_mps=False)
+    mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
     print(max([len([j for j in i if j != None]) for i in mpl.edges]))

@@ -111,8 +111,9 @@ class MotionPrimitive():
             for j in range(self.control_space_q+1):
                 for i in range(self.num_dims):
                     axes[j].plot(sampling_array[0,:],sampling_array[j*self.num_dims+i+1,:],label=labels[i])
-                    axes[j].plot([0,sampling_array[0,-1]],[self.max_state[j],self.max_state[j]],'k--')
-                    axes[j].plot([0,sampling_array[0,-1]],[-self.max_state[j],-self.max_state[j]],'k--')
+                    if (j>0):
+                        axes[j].plot([0,sampling_array[0,-1]],[self.max_state[j],self.max_state[j]],'k--')
+                        axes[j].plot([0,sampling_array[0,-1]],[-self.max_state[j],-self.max_state[j]],'k--')
             axes[0].legend()
 
         else:

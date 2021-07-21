@@ -207,13 +207,6 @@ double GraphSearch::ComputeHeuristic(const State& v,
 }
 
 auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
-  // Debug
-  //  ROS_INFO_STREAM << "adj mat: " << graph_.edges_.rows() << " "
-  //            << graph_.edges_.cols() << ", nnz: " << (graph_.edges_ >
-  //            0).count();
-  //  ROS_INFO_STREAM << "mps: " << graph_.mps_.size();
-  //  ROS_INFO_STREAM << "verts: " << graph_.vertices_.rows() << " "
-  //            << graph_.vertices_.cols();
 
   timings_.clear();
   visited_states_.clear();
@@ -264,14 +257,14 @@ auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive> {
     pq.pop();
     timings_["astar_pop"] += Elapsed(timer);
 
-    // Due to the imutability of std::priority_queue, we have no way of
+    // Due to the immutability of std::priority_queue, we have no way of
     // modifying the priority of an element in the queue. Therefore, when we
     // push the next node into the queue, there might be duplicated nodes with
     // the same state but different costs. This could cause us to expand the
     // same state multiple times.
     // Although this does not affect the correctness of the implementation
     // (since the nodes are correctly sorted), it might be slower to repeatedly
-    // expanding visited states. The timiing suggest more than 80% of the time
+    // expanding visited states. The timing suggest more than 80% of the time
     // is spent on the Expand(node) call. Thus, we will check here if this state
     // has been visited and skip if it has. This will save around 20%
     // computation.
@@ -313,8 +306,7 @@ auto GraphSearch::AccessGraph(const State& start_state) const
     -> std::vector<Node> {
   for (int i = 0; i < graph_.vertices_.rows(); i++) {
     State end_state = graph_.vertices_.row(i);
-    auto mp = RuckigMotionPrimitive(spatial_dim(), start_state, end_state, graph_.max_state_);
-    mp.compute_ruckig();
+    auto mp = MotionPrimitive(spatial_dim(), start_state, end_state, graph_.max_state_);
   }
 }
 
