@@ -39,6 +39,13 @@ jobs:
           repository: google/googletest
           path: src/motion_primitives/external/googletest
       
+      - name: checkout ruckig
+        uses: actions/checkout@v2
+        with:
+          repository: ljarin/ruckig
+          path: src/motion_primitives/external/ruckig
+          ref: laura_dev
+      
       - name: build googletest
         shell: bash
         run: |

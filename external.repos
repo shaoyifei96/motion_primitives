@@ -5,5 +5,9 @@ repositories:
     version: develop
   external/ruckig:
     type: git
-    url: git@github.com:pantor/ruckig.git
+    url: git@github.com:ljarin/ruckig.git
+    version: laura_dev
+  external/googletest:
+    type: git
+    url: git@github.com:google/googletest.git
     version: master

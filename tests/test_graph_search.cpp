@@ -24,7 +24,7 @@ TEST(GraphSearchTest, OptimalPath) {
 
   float path_cost = 0;
   for (auto seg : path) {
-    path_cost += seg.cost_;
+    path_cost += seg->cost_;
   }
   EXPECT_EQ(path_cost, 2);
 }
