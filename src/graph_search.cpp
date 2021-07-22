@@ -68,7 +68,7 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
   return is_free_and_valid_indices(get_indices_from_position(position));
 }
 
-bool GraphSearch::is_mp_collision_free(const MotionPrimitive* mp,
+bool GraphSearch::is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                                        double step_size) const {
   const auto samples = mp->sample_positions(step_size);
   for (int i = 0; i < samples.cols(); ++i) {
@@ -172,7 +172,7 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
   return nodes;
 }
 
-MotionPrimitive* GraphSearch::GetPrimitiveBetween(const Node& start_node,
+std::shared_ptr<MotionPrimitive> GraphSearch::GetPrimitiveBetween(const Node& start_node,
                                                  const Node& end_node) const {
   const int start_index = graph_.NormIndex(start_node.state_index);
   auto mp = graph_.get_mp_between_indices(end_node.state_index, start_index);
@@ -180,9 +180,9 @@ MotionPrimitive* GraphSearch::GetPrimitiveBetween(const Node& start_node,
   return mp;
 }
 
-std::vector<MotionPrimitive*> GraphSearch::RecoverPath(
+std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
     const PathHistory& history, const Node& end_node) const {
-  std::vector<MotionPrimitive*> path_mps;
+  std::vector<std::shared_ptr<MotionPrimitive>> path_mps;
   Node const* curr_node = &end_node;
 
   while (true) {
@@ -206,7 +206,7 @@ double GraphSearch::ComputeHeuristic(const State& v,
          graph_.max_state()(1);
 }
 
-auto GraphSearch::Search(const Option& option) -> std::vector<MotionPrimitive*> {
+auto GraphSearch::Search(const Option& option) -> std::vector<std::shared_ptr<MotionPrimitive>> {
 
   timings_.clear();
   visited_states_.clear();

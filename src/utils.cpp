@@ -14,7 +14,7 @@ using planning_ros_msgs::Trajectory;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-Trajectory path_to_traj_msg(const std::vector<MotionPrimitive*>& mps,
+Trajectory path_to_traj_msg(const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
                             const std_msgs::Header& header) {
   if (mps.empty()) return {};
 
@@ -60,7 +60,7 @@ Trajectory path_to_traj_msg(const std::vector<MotionPrimitive*>& mps,
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<MotionPrimitive*>& mps, const std_msgs::Header& header,
+    const std::vector<std::shared_ptr<MotionPrimitive>>& mps, const std_msgs::Header& header,
     float z_height) {
   if (mps.empty()) return {};
   int spatial_dim = mps[0]->spatial_dim_;
@@ -97,7 +97,7 @@ SplineTrajectory path_to_spline_traj_msg(
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<RuckigMotionPrimitive*>& mps,
+    const std::vector<std::shared_ptr<RuckigMotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height) {
   if (mps.empty()) return {};
 

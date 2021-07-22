@@ -41,7 +41,7 @@ class GraphSearch {
   // Search for a path from start_state to end_state, stops if no path found
   // (returns empty vector) or reach within distance_threshold of start_state
   // parallel == true will expand nodes in parallel (~x2 speedup)
-  std::vector<MotionPrimitive*> Search(const Option& option);
+  std::vector<std::shared_ptr<MotionPrimitive>> Search(const Option& option);
 
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
   const auto& timings() const noexcept { return timings_; }
@@ -69,7 +69,7 @@ class GraphSearch {
 
   // Path history stores the parent node of this state and the best cost so far
   using PathHistory = std::unordered_map<State, StateInfo, VectorXdHash>;
-  std::vector<MotionPrimitive*> RecoverPath(const PathHistory& history,
+  std::vector<std::shared_ptr<MotionPrimitive>> RecoverPath(const PathHistory& history,
                                            const Node& end_node) const;
 
   double ComputeHeuristic(const State& state,
@@ -84,7 +84,7 @@ class GraphSearch {
   // TODO: Helper function, currently have duplicate code in Expand
   // void ExpandSingle(int index1, int index2) const
 
-  MotionPrimitive* GetPrimitiveBetween(const Node& start_node,
+  std::shared_ptr<MotionPrimitive> GetPrimitiveBetween(const Node& start_node,
                                       const Node& end_node) const;
 
   using StateSet = std::unordered_set<State, VectorXdHash>;
@@ -102,7 +102,7 @@ class GraphSearch {
   bool is_free_and_valid_position(Eigen::VectorXd v) const;
   // Samples motion primitive along step_size time steps and checks for
   // collisions
-  bool is_mp_collision_free(const MotionPrimitive* mp,
+  bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                             double step_size = 0.1) const;
 };
 

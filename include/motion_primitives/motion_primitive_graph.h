@@ -70,13 +70,8 @@ class MotionPrimitiveGraph {
                                   const MotionPrimitiveGraph& graph);
 
  public:
-  MotionPrimitive* get_mp_between_indices(int i, int j) const noexcept {
+  std::shared_ptr<MotionPrimitive> get_mp_between_indices(int i, int j) const noexcept {
     return mps_[edges_(i, j)];
-  }
-  ~MotionPrimitiveGraph() {
-    for (MotionPrimitive* mp : mps_) {
-      delete mp;
-    }
   }
 
   double rho() const noexcept { return rho_; }
@@ -89,7 +84,7 @@ class MotionPrimitiveGraph {
   int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }
 
  private:
-  std::vector<MotionPrimitive*> mps_;
+  std::vector<std::shared_ptr<MotionPrimitive>> mps_;
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;
   Eigen::VectorXd max_state_;

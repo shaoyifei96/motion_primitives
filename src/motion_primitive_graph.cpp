@@ -73,10 +73,10 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
   cost_ = traj_time_;
 }
 
-Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const{
+Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const {
   std::array<double, 3> position, velocity, acceleration;
   ruckig_traj_.at_time(t, position, velocity, acceleration);
-  Eigen::VectorXd state(3*spatial_dim_);
+  Eigen::VectorXd state(3 * spatial_dim_);
   state(0, spatial_dim_) = position[0, spatial_dim_];
   state(spatial_dim_, 2 * spatial_dim_) = velocity[0, spatial_dim_];
   state(2 * spatial_dim_, 3 * spatial_dim_) = acceleration[0, spatial_dim_];
@@ -96,18 +96,17 @@ std::ostream& operator<<(std::ostream& os, const MotionPrimitiveGraph& mpg) {
 }
 
 template <typename T>
-MotionPrimitive* createInstance(int spatial_dim,
-                                const Eigen::VectorXd& start_state,
-                                const Eigen::VectorXd& end_state,
-                                const Eigen::VectorXd& max_state) {
-  return new T(spatial_dim, start_state, end_state, max_state);
+std::shared_ptr<MotionPrimitive> createInstance(
+    int spatial_dim, const Eigen::VectorXd& start_state,
+    const Eigen::VectorXd& end_state, const Eigen::VectorXd& max_state) {
+  return std::make_shared<T>(spatial_dim, start_state, end_state, max_state);
 }
 
 void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
-  std::map<std::string, MotionPrimitive* (*)(int spatial_dim,
-                                             const Eigen::VectorXd& start_state,
-                                             const Eigen::VectorXd& end_state,
-                                             const Eigen::VectorXd& max_state)>
+  std::map<std::string, std::shared_ptr<MotionPrimitive> (*)(
+                            int spatial_dim, const Eigen::VectorXd& start_state,
+                            const Eigen::VectorXd& end_state,
+                            const Eigen::VectorXd& max_state)>
       mp_type_map;
 
   mp_type_map["RuckigMotionPrimitive"] = &createInstance<RuckigMotionPrimitive>;
