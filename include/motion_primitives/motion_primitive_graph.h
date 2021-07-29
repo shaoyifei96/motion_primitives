@@ -18,6 +18,7 @@ class MotionPrimitive {
         start_state_(start_state),
         end_state_(end_state),
         max_state_(max_state){};
+  virtual ~MotionPrimitive(){};
 
   friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
 
@@ -35,24 +36,33 @@ class MotionPrimitive {
 
   // Moves the motion primitive to a new position by modifying it's start, end,
   // and polynomial coefficients
-  void translate(const Eigen::VectorXd& new_start);
+  virtual void translate(const Eigen::VectorXd& new_start);
 
   // Samples a motion primitive's position at regular temporal intervals
   // step_size apart.
   // Each row is a position
-  Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
+  virtual Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
-  void populate(double cost, double traj_time,
-                const Eigen::MatrixXd& poly_coeffs) {
+  virtual void populate(double cost, double traj_time,
+                        const Eigen::MatrixXd& poly_coeffs) {
     cost_ = cost;
     traj_time_ = traj_time;
     poly_coeffs_ = poly_coeffs;
   }
 };
 
-class RuckigMotionPrimitive : public MotionPrimitive {
+class OptimizationMotionPrimitive final : public MotionPrimitive {
  public:
-  RuckigMotionPrimitive() = default;
+  using MotionPrimitive::MotionPrimitive;
+};
+
+class PolynomialMotionPrimitive final : public MotionPrimitive {
+ public:
+  using MotionPrimitive::MotionPrimitive;
+};
+
+class RuckigMotionPrimitive final : public MotionPrimitive {
+ public:
   RuckigMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
                         const Eigen::VectorXd& end_state,
                         const Eigen::VectorXd& max_state);
@@ -70,7 +80,8 @@ class MotionPrimitiveGraph {
                                   const MotionPrimitiveGraph& graph);
 
  public:
-  std::shared_ptr<MotionPrimitive> get_mp_between_indices(int i, int j) const noexcept {
+  std::shared_ptr<MotionPrimitive> get_mp_between_indices(
+      int i, int j) const noexcept {
     return mps_[edges_(i, j)];
   }
 

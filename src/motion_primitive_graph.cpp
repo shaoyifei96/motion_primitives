@@ -22,8 +22,7 @@ Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
   Eigen::MatrixXd result(spatial_dim_, num_samples);
 
   for (int i = 0; i < times.size(); ++i) {
-    result.col(i) = evaluate_primitive(
-        times(i));  // TODO not calling correct subclass' evaluate_primitive
+    result.col(i) = evaluate_primitive(times(i));
   }
 
   return result;
@@ -46,28 +45,25 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
   ruckig::InputParameter<3> input;
   ruckig::OutputParameter<3> output;
 
-  input.max_velocity = {max_state_[1], max_state_[1], max_state_[1]};
-  input.max_acceleration = {max_state_[2], max_state_[2], max_state_[2]};
-  input.max_jerk = {max_state_[3], max_state_[3], max_state_[3]};
-
-  input.current_position[0, spatial_dim_] = start_state_(0, spatial_dim_);
-  input.current_position[spatial_dim_, 3] = 0;
-  input.current_velocity[spatial_dim_, 2 * spatial_dim_] =
-      start_state_(spatial_dim_, 2 * spatial_dim_);
-  input.current_velocity[spatial_dim_, 3] = 0;
-  input.current_acceleration[2 * spatial_dim_, 3 * spatial_dim_] =
-      start_state_(2 * spatial_dim_, 3 * spatial_dim_);
-  input.current_acceleration[spatial_dim_, 3] = 0;
-
-  input.target_position[0, spatial_dim_] = end_state_(0, spatial_dim_);
-  input.target_position[spatial_dim_, 3] = 0;
-  input.target_velocity[spatial_dim_, 2 * spatial_dim_] =
-      end_state_(spatial_dim_, 2 * spatial_dim_);
-  input.target_velocity[spatial_dim_, 3] = 0;
-  input.target_acceleration[2 * spatial_dim_, 3 * spatial_dim_] =
-      end_state_(2 * spatial_dim_, 3 * spatial_dim_);
-  input.target_acceleration[spatial_dim_, 3] = 0;
-
+  for (int dim = 0; dim < spatial_dim_; dim++) {
+    input.max_velocity[dim] = max_state_[1];
+    input.max_acceleration[dim] = max_state_[2];
+    input.max_jerk[dim] = max_state_[3];
+    input.current_position[dim] = start_state_(dim);
+    input.current_velocity[dim] = start_state_(2 * dim);
+    input.current_acceleration[dim] = start_state_(3 * dim);
+    input.target_position[dim] = end_state_(dim);
+    input.target_velocity[dim] = end_state_(2 * dim);
+    input.target_acceleration[dim] = end_state_(3 * dim);
+  }
+  if (spatial_dim_ == 2) {
+    input.current_position[2] = 0;
+    input.current_velocity[2] = 0;
+    input.current_acceleration[2] = 0;
+    input.target_position[2] = 0;
+    input.target_velocity[2] = 0;
+    input.target_acceleration[2] = 0;
+  }
   otg.calculate(input, ruckig_traj_);
   traj_time_ = ruckig_traj_.duration;
   cost_ = traj_time_;
@@ -110,8 +106,10 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
       mp_type_map;
 
   mp_type_map["RuckigMotionPrimitive"] = &createInstance<RuckigMotionPrimitive>;
-  mp_type_map["PolynomialMotionPrimitive"] = &createInstance<MotionPrimitive>;
-  mp_type_map["OptimizationMotionPrimitive"] = &createInstance<MotionPrimitive>;
+  mp_type_map["PolynomialMotionPrimitive"] =
+      &createInstance<PolynomialMotionPrimitive>;
+  mp_type_map["OptimizationMotionPrimitive"] =
+      &createInstance<OptimizationMotionPrimitive>;
 
   json_data.at("dispersion").get_to(graph.dispersion_);
   json_data.at("tiling").get_to(graph.tiling_);
