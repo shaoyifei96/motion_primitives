@@ -71,7 +71,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "control_space_q": self.control_space_q,
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
-                            "rho": self.mp_subclass_specific_data.get('rho', 0),
+                            "rho": self.mp_subclass_specific_data.get('rho', 1),
                             "dispersion": self.dispersion,
                             "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,
@@ -621,7 +621,7 @@ if __name__ == "__main__":
     # # # %%
     motion_primitive_type = RuckigMotionPrimitive
     control_space_q = 3
-    num_dims = 3
+    num_dims = 2
     max_state = [.5, 1.5, 2, 100]
     num_dense_samples = 1000
     num_output_pts = 20
@@ -630,6 +630,7 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     tic = time.time()
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/"
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
