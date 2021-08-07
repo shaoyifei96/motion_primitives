@@ -1,11 +1,12 @@
 #ifndef MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
 #define MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
 
+#include <planning_ros_msgs/Spline.h>
+
 #include <Eigen/Core>
 #include <iosfwd>
 #include <nlohmann/json_fwd.hpp>
 #include <ruckig/ruckig.hpp>
-
 namespace motion_primitives {
 
 class MotionPrimitive {
@@ -49,6 +50,8 @@ class MotionPrimitive {
     traj_time_ = traj_time;
     poly_coeffs_ = poly_coeffs;
   }
+
+  virtual planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline, int dim);
 };
 
 class OptimizationMotionPrimitive final : public MotionPrimitive {
@@ -63,6 +66,7 @@ class PolynomialMotionPrimitive final : public MotionPrimitive {
 
 class RuckigMotionPrimitive final : public MotionPrimitive {
  public:
+  RuckigMotionPrimitive() = default;
   RuckigMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
                         const Eigen::VectorXd& end_state,
                         const Eigen::VectorXd& max_state);
@@ -70,6 +74,9 @@ class RuckigMotionPrimitive final : public MotionPrimitive {
   ruckig::Trajectory<3> ruckig_traj_;
 
   Eigen::VectorXd evaluate_primitive(float t) const;
+  void translate(const Eigen::VectorXd& new_start);
+  void calculate_ruckig_traj();
+  planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline, int dim);
 };
 
 class MotionPrimitiveGraph {
@@ -95,13 +102,14 @@ class MotionPrimitiveGraph {
   int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }
 
  private:
-  std::vector<std::shared_ptr<MotionPrimitive>> mps_;
+  std::vector<std::shared_ptr<MotionPrimitive>>
+      mps_;  // TODO maybe should be unique_ptr
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;
   Eigen::VectorXd max_state_;
 
   double dispersion_;
-  double rho_;
+  double rho_ = 1; //TODO decide about using rho in graph search convention (has to do with time optimal vs. LQMT cost)
   int spatial_dim_;
   int control_space_dim_;
   int state_dim_;

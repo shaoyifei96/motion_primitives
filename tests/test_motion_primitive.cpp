@@ -4,22 +4,57 @@
 using namespace motion_primitives;
 
 namespace {
+template <typename T>
+class MotionPrimitiveTest : public ::testing::Test {
+ protected:
+  MotionPrimitiveTest() {
+    Eigen::VectorXd start_state(6), end_state(6), max_state(6);
+    start_state << 0, 0, 2, 2, 1, 1;
+    end_state << 1, 1, 1, 1, 0, 0;
+    max_state << 3, 3, 3, 3;
+    mp_ = T(2, start_state, end_state, max_state);
+  }
+  T mp_;
 
-TEST(MotionPrimitiveTest, TranslateTest) {
-  Eigen::VectorXd start_state(4), end_state(4), max_state(4);
-  start_state << 0, 0, 2, 2;
-  end_state << 1, 1, 1, 1;
-  max_state << 3, 3, 3, 3;
+  Eigen::VectorXd start_state, end_state, max_state;
+};
 
-  RuckigMotionPrimitive rmp(2, start_state, end_state, max_state);
+typedef ::testing::Types<PolynomialMotionPrimitive, OptimizationMotionPrimitive,
+                         RuckigMotionPrimitive>
+    MotionPrimitiveTypes;
+TYPED_TEST_CASE(MotionPrimitiveTest, MotionPrimitiveTypes);
+
+TYPED_TEST(MotionPrimitiveTest, TranslateTest) {
+  // TEST_F(MotionPrimitiveTest, RuckigTranslateTest) {
   Eigen::VectorXd new_start(2);
-  new_start << 4,4;
-  Eigen::Vector4d new_start_state(4, 4, 2, 2);
-  Eigen::Vector4d new_end_state(5, 5, 1, 1);
-  rmp.translate(new_start);
+  new_start << 4, 4;
+  this->mp_.translate(new_start);
+
+  Eigen::Vector4d new_start_state(4, 4, 2, 2), new_end_state(5, 5, 1, 1);
   for (int i = 0; i < 4; i++) {
-    EXPECT_EQ(rmp.start_state_[i], new_start_state[i]);
-    EXPECT_EQ(rmp.end_state_[i], new_end_state[i]);
+    EXPECT_EQ(this->mp_.start_state_[i], new_start_state[i]);
+    EXPECT_EQ(this->mp_.end_state_[i], new_end_state[i]);
+  }
+}
+
+class RuckigMotionPrimitiveTest : public ::testing::Test {
+ protected:
+  RuckigMotionPrimitiveTest() {
+    Eigen::VectorXd start_state(6), end_state(6), max_state(6);
+    start_state << 0, 0, 2, 2, 1, 1;
+    end_state << 1, 1, 1, 1, 0, 0;
+    max_state << 3, 3, 3, 3;
+    mp_ = RuckigMotionPrimitive(2, start_state, end_state, max_state);
+  }
+  RuckigMotionPrimitive mp_;
+};
+TEST_F(RuckigMotionPrimitiveTest, RuckigJerksAndTimesTest) {
+  mp_.calculate_ruckig_traj();
+  auto jerk_time_array = mp_.ruckig_traj_.get_jerks_and_times();
+  for (auto x : jerk_time_array) {
+    for (auto y : x) {
+      std::cout << y << std::endl;
+    }
   }
 }
 

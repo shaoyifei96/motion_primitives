@@ -14,11 +14,12 @@ using planning_ros_msgs::Trajectory;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-Trajectory path_to_traj_msg(const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
-                            const std_msgs::Header& header) {
+Trajectory path_to_traj_msg(
+    const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
+    const std_msgs::Header& header) {
   if (mps.empty()) return {};
 
-  int spatial_dim =  mps[0]->spatial_dim_;
+  int spatial_dim = mps[0]->spatial_dim_;
   Eigen::ArrayXXd pc_resized(spatial_dim, 6);
   Eigen::ArrayXXd coeff_multiplier(pc_resized.rows(), pc_resized.cols());
   Trajectory trajectory;
@@ -60,44 +61,7 @@ Trajectory path_to_traj_msg(const std::vector<std::shared_ptr<MotionPrimitive>>&
 }
 
 SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<std::shared_ptr<MotionPrimitive>>& mps, const std_msgs::Header& header,
-    float z_height) {
-  if (mps.empty()) return {};
-  int spatial_dim = mps[0]->spatial_dim_;
-
-  SplineTrajectory trajectory;
-
-  trajectory.header = header;
-  trajectory.dimensions = 3;
-
-  for (int i = 0; i < 3; i++) {
-    Spline spline;
-    spline.segments = mps.size();
-
-    for (const auto& mp : mps) {
-      if (mp->poly_coeffs_.size() == 0) break;
-      Polynomial poly;
-      poly.degree = mp->poly_coeffs_.cols() - 1;
-      poly.basis = 0;
-      poly.dt = mp->traj_time_;
-      spline.t_total += mp->traj_time_;
-      if (spatial_dim == i) {
-        poly.coeffs = std::vector<float>(mp->poly_coeffs_.cols(), 0.0);
-        poly.coeffs[0] = z_height;
-      } else {
-        Eigen::VectorXd p = mp->poly_coeffs_.row(i).reverse();
-        std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
-        poly.coeffs = pc;
-      }
-      spline.segs.push_back(poly);
-    }
-    trajectory.data.push_back(spline);
-  }
-  return trajectory;
-}
-
-SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<std::shared_ptr<RuckigMotionPrimitive>>& mps,
+    const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height) {
   if (mps.empty()) return {};
 
@@ -109,27 +73,7 @@ SplineTrajectory path_to_spline_traj_msg(
     Spline spline;
     if (mps[0]->spatial_dim_ != dim) {
       for (const auto& mp : mps) {
-        auto jerk_time_array = mp->ruckig_traj_.get_jerks_and_times();
-        std::tuple<float, float, float> state;
-        std::get<0>(state) = mp->start_state_[dim];
-        std::get<1>(state) = mp->start_state_[dim + mp->spatial_dim_];
-        std::get<2>(state) = mp->start_state_[dim + 2 * mp->spatial_dim_];
-        for (int seg = 0; seg < 7; seg++) {
-          Polynomial poly;
-          poly.degree = 3;
-          poly.basis = 0;
-          poly.dt = jerk_time_array[dim * 2][seg];
-          if (poly.dt == 0) {
-            continue;
-          }
-          float j = jerk_time_array[dim * 2 + 1][seg];
-          auto [p, v, a] = state;
-          poly.coeffs = {p, v, a / 2, j / 6};
-          state = ruckig::Profile::integrate(poly.dt, p, v, a, j);
-          spline.segments += 1;
-          spline.segs.push_back(poly);
-          spline.t_total += poly.dt;
-        }
+        spline = mp->add_to_spline(spline, dim);
       }
     } else {
       spline.segments = 1;

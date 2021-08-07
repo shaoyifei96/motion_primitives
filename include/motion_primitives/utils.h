@@ -15,9 +15,6 @@ planning_ros_msgs::SplineTrajectory path_to_spline_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps, const std_msgs::Header& header,
     float z_height = 0.0);
 
-planning_ros_msgs::SplineTrajectory path_to_spline_traj_msg(
-    const std::vector<std::shared_ptr<RuckigMotionPrimitive>>& mps, const std_msgs::Header& header,
-    float z_height = 0.0);
 
 auto StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
                          int spatial_dim, const std_msgs::Header& header,

@@ -1,9 +1,13 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
+#include <planning_ros_msgs/Polynomial.h>
+
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <ostream>
 
+using planning_ros_msgs::Polynomial;
+using planning_ros_msgs::Spline;
 namespace motion_primitives {
 
 void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
@@ -12,6 +16,51 @@ void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
                                   new_start.head(spatial_dim_);
   start_state_.head(spatial_dim_) = new_start.head(spatial_dim_);
   poly_coeffs_.col(poly_coeffs_.cols() - 1) = new_start.head(spatial_dim_);
+}
+
+void RuckigMotionPrimitive::translate(const Eigen::VectorXd& new_start) {
+  MotionPrimitive::translate(new_start);
+  calculate_ruckig_traj();
+}
+
+Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
+  if (poly_coeffs_.size() == 0) return spline;
+  Polynomial poly;
+  poly.degree = poly_coeffs_.cols() - 1;
+  poly.basis = 0;
+  poly.dt = traj_time_;
+  spline.t_total += traj_time_;
+  Eigen::VectorXd p = poly_coeffs_.row(dim).reverse();
+  std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
+  poly.coeffs = pc;
+  spline.segments += 1;
+  spline.segs.push_back(poly);
+  return spline;
+}
+
+Spline RuckigMotionPrimitive::add_to_spline(Spline spline, int dim) {
+  auto jerk_time_array = ruckig_traj_.get_jerks_and_times();
+  std::tuple<float, float, float> state;
+  std::get<0>(state) = start_state_[dim];
+  std::get<1>(state) = start_state_[dim + spatial_dim_];
+  std::get<2>(state) = start_state_[dim + 2 * spatial_dim_];
+  for (int seg = 0; seg < 7; seg++) {
+    Polynomial poly;
+    poly.degree = 3;
+    poly.basis = 0;
+    poly.dt = jerk_time_array[dim * 2][seg];
+    if (poly.dt == 0) {
+      continue;
+    }
+    float j = jerk_time_array[dim * 2 + 1][seg];
+    auto [p, v, a] = state;
+    poly.coeffs = {p, v, a / 2, j / 6};
+    state = ruckig::Profile::integrate(poly.dt, p, v, a, j);
+    spline.segments += 1;
+    spline.segs.push_back(poly);
+    spline.t_total += poly.dt;
+  }
+  return spline;
 }
 
 Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
@@ -41,6 +90,10 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
                                              const Eigen::VectorXd& end_state,
                                              const Eigen::VectorXd& max_state)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
+  calculate_ruckig_traj();
+}
+
+void RuckigMotionPrimitive::calculate_ruckig_traj() {
   ruckig::Ruckig<3> otg{0.001};
   ruckig::InputParameter<3> input;
   ruckig::OutputParameter<3> output;
@@ -50,11 +103,11 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
     input.max_acceleration[dim] = max_state_[2];
     input.max_jerk[dim] = max_state_[3];
     input.current_position[dim] = start_state_(dim);
-    input.current_velocity[dim] = start_state_(2 * dim);
-    input.current_acceleration[dim] = start_state_(3 * dim);
+    input.current_velocity[dim] = start_state_(spatial_dim_ + dim);
+    input.current_acceleration[dim] = start_state_(2 * spatial_dim_ + dim);
     input.target_position[dim] = end_state_(dim);
-    input.target_velocity[dim] = end_state_(2 * dim);
-    input.target_acceleration[dim] = end_state_(3 * dim);
+    input.target_velocity[dim] = end_state_(spatial_dim_ + dim);
+    input.target_acceleration[dim] = end_state_(2 * spatial_dim_ + dim);
   }
   if (spatial_dim_ == 2) {
     input.current_position[2] = 0;
@@ -63,8 +116,14 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
     input.target_position[2] = 0;
     input.target_velocity[2] = 0;
     input.target_acceleration[2] = 0;
+    input.max_velocity[2] = 1e-2;
+    input.max_acceleration[2] = 1e-2;
+    input.max_jerk[2] = 1e-2;
   }
-  otg.calculate(input, ruckig_traj_);
+  auto result = otg.calculate(input, ruckig_traj_);
+  // if (result < 0) {
+  //   ROS_ERROR("Ruckig error %d", result);  // TODO should do print/more than print
+  // }
   traj_time_ = ruckig_traj_.duration;
   cost_ = traj_time_;
 }

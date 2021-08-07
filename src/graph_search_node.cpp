@@ -40,6 +40,8 @@ int main(int argc, char** argv) {
   ros::NodeHandle pnh("~");
   ros::Publisher traj_pub =
       pnh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
+  ros::Publisher spline_traj_pub =
+      pnh.advertise<planning_ros_msgs::SplineTrajectory>("spline_trajectory", 1, true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
@@ -104,14 +106,15 @@ int main(int argc, char** argv) {
     for (const auto& [k, v] : gs.timings()) {
       ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
     }
-
+    const auto visited_marray = StatesToMarkerArray(
+        gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
+    visited_pub.publish(visited_marray);
     if (!path.empty()) {
       const auto traj = path_to_traj_msg(path, voxel_map.header);
       traj_pub.publish(traj);
+      const auto spline_traj = path_to_spline_traj_msg(path, voxel_map.header);
+      spline_traj_pub.publish(spline_traj);
 
-      const auto visited_marray = StatesToMarkerArray(
-          gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
-      visited_pub.publish(visited_marray);
     } else {
       ROS_WARN("No trajectory found.");
     }
