@@ -51,9 +51,16 @@ class RuckigMotionPrimitiveTest : public ::testing::Test {
 TEST_F(RuckigMotionPrimitiveTest, RuckigJerksAndTimesTest) {
   mp_.calculate_ruckig_traj();
   auto jerk_time_array = mp_.ruckig_traj_.get_jerks_and_times();
-  for (auto x : jerk_time_array) {
-    for (auto y : x) {
-      std::cout << y << std::endl;
+  for (int dim = 0; dim < 3; dim++) {
+    double total_time = 0;
+    for (auto dt : jerk_time_array[0 + dim*2]) {
+      total_time += dt;
+    }
+    EXPECT_EQ(total_time, mp_.ruckig_traj_.duration);
+    EXPECT_EQ(total_time, mp_.traj_time_);
+    for (auto jerk : jerk_time_array[1 + dim*2]) {
+      EXPECT_LE(jerk, mp_.max_state_[3]);
+      EXPECT_GE(jerk, -mp_.max_state_[3]);
     }
   }
 }
