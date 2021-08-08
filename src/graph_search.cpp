@@ -94,6 +94,32 @@ std::size_t VectorXdHash::operator()(const Eigen::VectorXd& vd) const noexcept {
   return seed;
 }
 
+auto GraphSearch::ExpandSingleNode(int index1, int index2, const Node& node,
+                                   const State& goal_state) const
+    -> std::pair<bool, Node> {
+  Node next_node;
+  auto failure = std::make_pair(false, next_node);
+
+  // Check if requested motion primitive exists in the graph
+  if (!graph_.HasEdge(index1, index2)) return failure;
+
+  auto mp = graph_.get_mp_between_indices(index1, index2)->clone();
+  mp->translate(node.state);
+
+  // Check if already visited
+  if (visited_states_.find(mp->end_state_) != visited_states_.cend())
+    return failure;
+
+  // Then check if its collision free
+  if (!is_mp_collision_free(mp)) return failure;
+
+  // This is a good next node
+  next_node.state_index = index1;
+  next_node.state = mp->end_state_;
+  next_node.motion_cost = node.motion_cost + mp->cost_;
+  next_node.heuristic_cost = ComputeHeuristic(mp->end_state_, goal_state);
+  return std::make_pair(true, next_node);
+}
 auto GraphSearch::Expand(const Node& node, const State& goal_state) const
     -> std::vector<Node> {
   std::vector<Node> nodes;
@@ -102,25 +128,9 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
   const int state_index = graph_.NormIndex(node.state_index);
 
   for (int i = 0; i < graph_.num_tiled_states(); ++i) {
-    if (!graph_.HasEdge(i, state_index)) continue;
-
-    auto mp = graph_.get_mp_between_indices(i, state_index)->clone();
-    mp->translate(node.state);
-
-    // Check if already visited
-    if (visited_states_.find(mp->end_state_) != visited_states_.cend())
-      continue;
-
-    // Then check if its collision free
-    if (!is_mp_collision_free(mp)) continue;
-
-    // This is a good next node
-    Node next_node;
-    next_node.state_index = i;
-    next_node.state = mp->end_state_;
-    next_node.motion_cost = node.motion_cost + mp->cost_;
-    next_node.heuristic_cost = ComputeHeuristic(mp->end_state_, goal_state);
-    nodes.push_back(next_node);
+    const auto& [success, next_node] =
+        ExpandSingleNode(i, state_index, node, goal_state);
+    if (success) nodes.push_back(next_node);
   }
 
   return nodes;
@@ -133,35 +143,16 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
   using PrivVec = tbb::enumerable_thread_specific<std::vector<Node>>;
   PrivVec priv_nodes;
 
-  tbb::parallel_for(
-      tbb::blocked_range<int>(0, graph_.num_tiled_states()),
-      [&, this](const tbb::blocked_range<int>& r) {
-        auto& local = priv_nodes.local();
+  tbb::parallel_for(tbb::blocked_range<int>(0, graph_.num_tiled_states()),
+                    [&, this](const tbb::blocked_range<int>& r) {
+                      auto& local = priv_nodes.local();
 
-        for (int i = r.begin(); i < r.end(); ++i) {
-          if (!graph_.HasEdge(i, state_index)) continue;
-
-          auto mp = graph_.get_mp_between_indices(i, state_index)->clone();
-          mp->translate(node.state);
-
-          // Check if already visited
-          if (visited_states_.find(mp->end_state_) != visited_states_.end()) {
-            continue;
-          }
-
-          // Then check if its collision free
-          if (!is_mp_collision_free(mp)) continue;
-
-          // This is a good next node
-          Node next_node;
-          next_node.state_index = i;
-          next_node.state = mp->end_state_;
-          next_node.motion_cost = node.motion_cost + mp->cost_;
-          next_node.heuristic_cost =
-              ComputeHeuristic(mp->end_state_, goal_state);
-          local.push_back(std::move(next_node));
-        }
-      });
+                      for (int i = r.begin(); i < r.end(); ++i) {
+                        const auto& [success, next_node] =
+                            ExpandSingleNode(i, state_index, node, goal_state);
+                        if (success) local.push_back(std::move(next_node));
+                      }
+                    });
 
   // combine
   std::vector<Node> nodes;

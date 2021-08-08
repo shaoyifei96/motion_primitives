@@ -5,12 +5,12 @@
 
 #include <functional>
 #include <limits>
+#include <memory>
 #include <queue>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <string>
-#include <memory>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -42,6 +42,7 @@ class GraphSearch {
     double distance_threshold;
     bool parallel_expand{false};
     bool using_ros{true};
+    std::string heuristic{"min_time"};
   };
 
   // Search for a path from start_state to end_state, stops if no path found
@@ -84,10 +85,11 @@ class GraphSearch {
   // Stores all visited states
   std::vector<Node> Expand(const Node& node, const State& goal_state) const;
   std::vector<Node> ExpandPar(const Node& node, const State& goal_state) const;
+  std::pair<bool, Node> ExpandSingleNode(int index1, int index2,
+                                         const Node& node,
+                                         const State& goal_state) const;
 
   std::vector<Node> AccessGraph(const State& start_state) const;
-
-  // TODO(laura) Helper function, currently have duplicate code in Expand
 
   std::shared_ptr<MotionPrimitive> GetPrimitiveBetween(
       const Node& start_node, const Node& end_node) const;
