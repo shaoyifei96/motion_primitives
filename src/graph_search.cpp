@@ -68,8 +68,8 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
   return is_free_and_valid_indices(get_indices_from_position(position));
 }
 
-bool GraphSearch::is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
-                                       double step_size) const {
+bool GraphSearch::is_mp_collision_free(
+    const std::shared_ptr<MotionPrimitive> mp, double step_size) const {
   const auto samples = mp->sample_positions(step_size);
   for (int i = 0; i < samples.cols(); ++i) {
     if (!is_free_and_valid_position(samples.col(i))) {
@@ -103,11 +103,12 @@ auto GraphSearch::Expand(const Node& node, const State& goal_state) const
   for (int i = 0; i < graph_.num_tiled_states(); ++i) {
     if (!graph_.HasEdge(i, state_index)) continue;
 
-    auto mp = graph_.get_mp_between_indices(i, state_index);
+    auto mp = graph_.get_mp_between_indices(i, state_index)->clone();
     mp->translate(node.state);
 
     // Check if already visited
-    if (visited_states_.find(mp->end_state_) != visited_states_.cend()) continue;
+    if (visited_states_.find(mp->end_state_) != visited_states_.cend())
+      continue;
 
     // Then check if its collision free
     if (!is_mp_collision_free(mp)) continue;
@@ -139,7 +140,7 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
         for (int i = r.begin(); i < r.end(); ++i) {
           if (!graph_.HasEdge(i, state_index)) continue;
 
-          auto mp = graph_.get_mp_between_indices(i, state_index);
+          auto mp = graph_.get_mp_between_indices(i, state_index)->clone();
           mp->translate(node.state);
 
           // Check if already visited
@@ -155,8 +156,8 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
           next_node.state_index = i;
           next_node.state = mp->end_state_;
           next_node.motion_cost = node.motion_cost + mp->cost_;
-          next_node.heuristic_cost = ComputeHeuristic(mp->end_state_, goal_state);
-
+          next_node.heuristic_cost =
+              ComputeHeuristic(mp->end_state_, goal_state);
           local.push_back(std::move(next_node));
         }
       });
@@ -172,12 +173,13 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
   return nodes;
 }
 
-std::shared_ptr<MotionPrimitive> GraphSearch::GetPrimitiveBetween(const Node& start_node,
-                                                 const Node& end_node) const {
+std::shared_ptr<MotionPrimitive> GraphSearch::GetPrimitiveBetween(
+    const Node& start_node, const Node& end_node) const {
   const int start_index = graph_.NormIndex(start_node.state_index);
   auto mp = graph_.get_mp_between_indices(end_node.state_index, start_index);
-  mp->translate(start_node.state);
-  return mp;
+  std::shared_ptr<MotionPrimitive> copy_mp = mp->clone();
+  copy_mp->translate(start_node.state);
+  return copy_mp;
 }
 
 std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
@@ -202,12 +204,13 @@ double GraphSearch::ComputeHeuristic(const State& v,
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO [theoretical] needs a lot of improvement. Not admissible, but too
   // slow otherwise with higher velocities.
+  // TODO add ruckig bvp heuristic
   return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
          graph_.max_state()(1);
 }
 
-auto GraphSearch::Search(const Option& option) -> std::vector<std::shared_ptr<MotionPrimitive>> {
-
+auto GraphSearch::Search(const Option& option)
+    -> std::vector<std::shared_ptr<MotionPrimitive>> {
   timings_.clear();
   visited_states_.clear();
 
@@ -247,6 +250,7 @@ auto GraphSearch::Search(const Option& option) -> std::vector<std::shared_ptr<Mo
     // Check if we are close enough to the end
     if (StatePosWithin(curr_node.state, option.goal_state, graph_.spatial_dim(),
                        option.distance_threshold)) {
+      ROS_WARN_STREAM("Motion primitive planning successful");
       ROS_INFO_STREAM("== pq: " << pq.size());
       ROS_INFO_STREAM("== hist: " << history.size());
       ROS_INFO_STREAM("== nodes: " << visited_states_.size());
@@ -306,7 +310,8 @@ auto GraphSearch::AccessGraph(const State& start_state) const
     -> std::vector<Node> {
   for (int i = 0; i < graph_.vertices_.rows(); i++) {
     State end_state = graph_.vertices_.row(i);
-    auto mp = MotionPrimitive(spatial_dim(), start_state, end_state, graph_.max_state_);
+    auto mp = MotionPrimitive(spatial_dim(), start_state, end_state,
+                              graph_.max_state_);
   }
 }
 

@@ -122,7 +122,8 @@ void RuckigMotionPrimitive::calculate_ruckig_traj() {
   }
   auto result = otg.calculate(input, ruckig_traj_);
   // if (result < 0) {
-  //   ROS_ERROR("Ruckig error %d", result);  // TODO should do print/more than print
+  //   ROS_ERROR("Ruckig error %d", result);  // TODO should do print/more than
+  //   print
   // }
   traj_time_ = ruckig_traj_.duration;
   cost_ = traj_time_;
@@ -132,9 +133,11 @@ Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const {
   std::array<double, 3> position, velocity, acceleration;
   ruckig_traj_.at_time(t, position, velocity, acceleration);
   Eigen::VectorXd state(3 * spatial_dim_);
-  state(0, spatial_dim_) = position[0, spatial_dim_];
-  state(spatial_dim_, 2 * spatial_dim_) = velocity[0, spatial_dim_];
-  state(2 * spatial_dim_, 3 * spatial_dim_) = acceleration[0, spatial_dim_];
+  for (int dim = 0; dim < spatial_dim_; dim++) {
+    state[dim] = position[dim];
+    state[spatial_dim_ + dim] = velocity[dim];
+    state[2*spatial_dim_ + dim] = acceleration[dim];
+  }
   return state;
 }
 

@@ -51,7 +51,22 @@ class MotionPrimitive {
     poly_coeffs_ = poly_coeffs;
   }
 
-  virtual planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline, int dim);
+  // Converts and add the dim-th component of the motion primitive to an
+  // input Spline message. Lives in the MotionPrimitive class because converting
+  // to a polynomial may be different between subclasses (RuckigMotionPrimitive
+  // does not store poly_coeffs_ at the moment, just computes them when
+  // requested in this function)
+  virtual planning_ros_msgs::Spline add_to_spline(
+      planning_ros_msgs::Spline spline, int dim);
+
+  // Makes a copy of a shared_ptr to a MotionPrimitive. Smart pointers are
+  // needed in e.g. the graph search for the polymorphism of the class to work.
+  // Translating the objects inside the graph adjacency matrix caused problems,
+  // so we instead make a copy for outputting in the graph search and doing
+  // collision checks.
+  virtual std::shared_ptr<MotionPrimitive> clone() {
+    return std::make_shared<MotionPrimitive>(*this);
+  };
 };
 
 class OptimizationMotionPrimitive final : public MotionPrimitive {
@@ -65,6 +80,8 @@ class PolynomialMotionPrimitive final : public MotionPrimitive {
 };
 
 class RuckigMotionPrimitive final : public MotionPrimitive {
+  // TODO should enforce/warn start_state/end_state must be of dimension 6,
+  // makes silent mistakes now
  public:
   RuckigMotionPrimitive() = default;
   RuckigMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
@@ -76,7 +93,11 @@ class RuckigMotionPrimitive final : public MotionPrimitive {
   Eigen::VectorXd evaluate_primitive(float t) const;
   void translate(const Eigen::VectorXd& new_start);
   void calculate_ruckig_traj();
-  planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline, int dim);
+  planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline,
+                                          int dim);
+  std::shared_ptr<MotionPrimitive> clone() {
+    return std::make_shared<RuckigMotionPrimitive>(*this);
+  }
 };
 
 class MotionPrimitiveGraph {
@@ -109,7 +130,8 @@ class MotionPrimitiveGraph {
   Eigen::VectorXd max_state_;
 
   double dispersion_;
-  double rho_ = 1; //TODO decide about using rho in graph search convention (has to do with time optimal vs. LQMT cost)
+  double rho_ = 1;  // TODO decide about using rho in graph search convention
+                    // (has to do with time optimal vs. LQMT cost)
   int spatial_dim_;
   int control_space_dim_;
   int state_dim_;
