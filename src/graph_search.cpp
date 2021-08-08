@@ -1,3 +1,4 @@
+// Copyright 2021 Laura Jarin-Lipschitz
 #include "motion_primitives/graph_search.h"
 
 #include <ros/console.h>
@@ -57,7 +58,7 @@ bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
   return is_valid_indices(indices) &&
          voxel_map_.data[get_linear_indices(indices)] <= 0;
-  // 0 is free, -1 is unknown. TODO: add back unknown_is_free option
+  // 0 is free, -1 is unknown. TODO(laura): add back unknown_is_free option
 }
 
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
@@ -202,9 +203,9 @@ std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
 double GraphSearch::ComputeHeuristic(const State& v,
                                      const State& goal_state) const noexcept {
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
-  // TODO [theoretical] needs a lot of improvement. Not admissible, but too
-  // slow otherwise with higher velocities.
-  // TODO add ruckig bvp heuristic
+  // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
+  // too slow otherwise with higher velocities.
+  // TODO(laura) add ruckig bvp heuristic
   return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
          graph_.max_state()(1);
 }

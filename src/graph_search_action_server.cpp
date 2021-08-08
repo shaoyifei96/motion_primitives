@@ -1,3 +1,4 @@
+// Copyright 2021 Laura Jarin-Lipschitz
 #include <actionlib/server/simple_action_server.h>
 #include <motion_primitives/graph_search.h>
 #include <motion_primitives/utils.h>
@@ -7,7 +8,7 @@
 #include <planning_ros_msgs/VoxelMap.h>
 #include <ros/ros.h>
 
-using namespace motion_primitives;
+namespace motion_primitives {
 class PlanningServer {
  protected:
   ros::NodeHandle pnh_;
@@ -19,7 +20,7 @@ class PlanningServer {
   ros::Subscriber map_sub_;
 
  public:
-  PlanningServer(const ros::NodeHandle& nh)
+  explicit PlanningServer(const ros::NodeHandle& nh)
       : pnh_(nh), as_(nh, "plan_local_trajectory", false) {
     std::string graph_file;
     pnh_.param("graph_file", graph_file, std::string("dispersionopt101.json"));
@@ -51,7 +52,7 @@ class PlanningServer {
     Eigen::VectorXd start, goal;
     start.resize(graph_.state_dim());
     goal.resize(graph_.state_dim());
-    // TODO fix for other size states
+    // TODO(laura) fix for other size states
     if (graph_.spatial_dim() == 2) {
       start(0) = msg->p_init.position.x;
       start(1) = msg->p_init.position.y;
@@ -104,10 +105,11 @@ class PlanningServer {
     voxel_map_ = *msg;
   }
 };
+}  // namespace motion_primitives
 
 int main(int argc, char* argv[]) {
   ros::init(argc, argv, "motion_primitives_action_server");
   ros::NodeHandle pnh("~");
-  PlanningServer ps(pnh);
+  motion_primitives::PlanningServer ps(pnh);
   ros::spin();
 }

@@ -1,10 +1,16 @@
+// Copyright 2021 Laura Jarin-Lipschitz
 #pragma once
 
 #include <planning_ros_msgs/VoxelMap.h>
 
+#include <functional>
+#include <limits>
 #include <queue>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <memory>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -69,8 +75,8 @@ class GraphSearch {
 
   // Path history stores the parent node of this state and the best cost so far
   using PathHistory = std::unordered_map<State, StateInfo, VectorXdHash>;
-  std::vector<std::shared_ptr<MotionPrimitive>> RecoverPath(const PathHistory& history,
-                                           const Node& end_node) const;
+  std::vector<std::shared_ptr<MotionPrimitive>> RecoverPath(
+      const PathHistory& history, const Node& end_node) const;
 
   double ComputeHeuristic(const State& state,
                           const State& goal_state) const noexcept;
@@ -81,11 +87,10 @@ class GraphSearch {
 
   std::vector<Node> AccessGraph(const State& start_state) const;
 
-  // TODO: Helper function, currently have duplicate code in Expand
-  // void ExpandSingle(int index1, int index2) const
+  // TODO(laura) Helper function, currently have duplicate code in Expand
 
-  std::shared_ptr<MotionPrimitive> GetPrimitiveBetween(const Node& start_node,
-                                      const Node& end_node) const;
+  std::shared_ptr<MotionPrimitive> GetPrimitiveBetween(
+      const Node& start_node, const Node& end_node) const;
 
   using StateSet = std::unordered_set<State, VectorXdHash>;
   StateSet visited_states_;

@@ -1,3 +1,5 @@
+// Copyright 2021 Laura Jarin-Lipschitz
+
 #include "motion_primitives/motion_primitive_graph.h"
 
 #include <planning_ros_msgs/Polynomial.h>
@@ -136,7 +138,7 @@ Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const {
   for (int dim = 0; dim < spatial_dim_; dim++) {
     state[dim] = position[dim];
     state[spatial_dim_ + dim] = velocity[dim];
-    state[2*spatial_dim_ + dim] = acceleration[dim];
+    state[2 * spatial_dim_ + dim] = acceleration[dim];
   }
   return state;
 }
@@ -203,7 +205,6 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
         auto e = edge.at("end_state").get<std::vector<double>>();
         Eigen::Map<Eigen::VectorXd> end_state(e.data(), e.size());
 
-        // TODO check poly_coeffs for ruckig_mp
         Eigen::MatrixXd poly_coeffs;
         if (edge.contains("polys")) {
           poly_coeffs.resize(graph.spatial_dim_, edge.at("polys")[0].size());
@@ -219,7 +220,7 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
         graph.mps_.push_back(mp);
         graph.edges_(i, j) = graph.mps_.size() - 1;
       } else {
-        graph.edges_(i, j) = -1;  // TODO make constant
+        graph.edges_(i, j) = -1;  // TODO(laura) make constant
       }
     }
   }

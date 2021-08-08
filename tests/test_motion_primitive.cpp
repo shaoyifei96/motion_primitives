@@ -1,7 +1,11 @@
+// Copyright 2021 Laura Jarin-Lipschitz
 #include <gtest/gtest.h>
 
 #include "motion_primitives/motion_primitive_graph.h"
-using namespace motion_primitives;
+
+using motion_primitives::OptimizationMotionPrimitive;
+using motion_primitives::PolynomialMotionPrimitive;
+using motion_primitives::RuckigMotionPrimitive;
 
 namespace {
 template <typename T>
@@ -53,12 +57,12 @@ TEST_F(RuckigMotionPrimitiveTest, RuckigJerksAndTimesTest) {
   auto jerk_time_array = mp_.ruckig_traj_.get_jerks_and_times();
   for (int dim = 0; dim < 3; dim++) {
     double total_time = 0;
-    for (auto dt : jerk_time_array[0 + dim*2]) {
+    for (auto dt : jerk_time_array[0 + dim * 2]) {
       total_time += dt;
     }
     EXPECT_EQ(total_time, mp_.ruckig_traj_.duration);
     EXPECT_EQ(total_time, mp_.traj_time_);
-    for (auto jerk : jerk_time_array[1 + dim*2]) {
+    for (auto jerk : jerk_time_array[1 + dim * 2]) {
       EXPECT_LE(jerk, mp_.max_state_[3]);
       EXPECT_GE(jerk, -mp_.max_state_[3]);
     }

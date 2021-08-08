@@ -1,12 +1,18 @@
-#ifndef MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
-#define MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H
+// Copyright 2021 Laura Jarin-Lipschitz
+
+#ifndef INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
+#define INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
 
 #include <planning_ros_msgs/Spline.h>
 
 #include <Eigen/Core>
 #include <iosfwd>
+#include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <ruckig/ruckig.hpp>
+#include <string>
+#include <vector>
+
 namespace motion_primitives {
 
 class MotionPrimitive {
@@ -18,8 +24,8 @@ class MotionPrimitive {
       : spatial_dim_(spatial_dim),
         start_state_(start_state),
         end_state_(end_state),
-        max_state_(max_state){};
-  virtual ~MotionPrimitive(){};
+        max_state_(max_state) {}
+  virtual ~MotionPrimitive() {}
 
   friend std::ostream& operator<<(std::ostream& os, const MotionPrimitive& m);
 
@@ -66,7 +72,7 @@ class MotionPrimitive {
   // collision checks.
   virtual std::shared_ptr<MotionPrimitive> clone() {
     return std::make_shared<MotionPrimitive>(*this);
-  };
+  }
 };
 
 class OptimizationMotionPrimitive final : public MotionPrimitive {
@@ -80,8 +86,8 @@ class PolynomialMotionPrimitive final : public MotionPrimitive {
 };
 
 class RuckigMotionPrimitive final : public MotionPrimitive {
-  // TODO should enforce/warn start_state/end_state must be of dimension 6,
-  // makes silent mistakes now
+  // TODO(laura) should enforce/warn start_state/end_state must be of dimension
+  // 6, makes silent mistakes now
  public:
   RuckigMotionPrimitive() = default;
   RuckigMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
@@ -124,14 +130,14 @@ class MotionPrimitiveGraph {
 
  private:
   std::vector<std::shared_ptr<MotionPrimitive>>
-      mps_;  // TODO maybe should be unique_ptr
+      mps_;  // TODO(laura) maybe should be unique_ptr
   Eigen::ArrayXXi edges_;
   Eigen::MatrixXd vertices_;
   Eigen::VectorXd max_state_;
 
   double dispersion_;
-  double rho_ = 1;  // TODO decide about using rho in graph search convention
-                    // (has to do with time optimal vs. LQMT cost)
+  double rho_ = 1;  // TODO(laura) decide about using rho in graph search
+                    // convention (has to do with time optimal vs. LQMT cost)
   int spatial_dim_;
   int control_space_dim_;
   int state_dim_;
@@ -156,4 +162,4 @@ std::ostream& operator<<(std::ostream& output, std::vector<T> const& values) {
 
 }  // namespace motion_primitives
 
-#endif
+#endif  // INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_

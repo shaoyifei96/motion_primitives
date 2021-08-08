@@ -1,9 +1,11 @@
 
+// Copyright 2021 Laura Jarin-Lipschitz
 #include <gtest/gtest.h>
 
 #include "motion_primitives/graph_search.h"
 
-using namespace motion_primitives;
+using motion_primitives::GraphSearch;
+using motion_primitives::read_motion_primitive_graph;
 namespace {
 
 TEST(GraphSearchTest, OptimalPath) {

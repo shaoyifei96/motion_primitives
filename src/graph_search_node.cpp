@@ -1,3 +1,4 @@
+// Copyright 2021 Laura Jarin-Lipschitz
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -8,7 +9,11 @@
 #include "motion_primitives/graph_search.h"
 #include "motion_primitives/utils.h"
 
-using namespace motion_primitives;
+using motion_primitives::GraphSearch;
+using motion_primitives::path_to_spline_traj_msg;
+using motion_primitives::path_to_traj_msg;
+using motion_primitives::read_motion_primitive_graph;
+using motion_primitives::StatesToMarkerArray;
 // num indicates the max number of elements to read, -1 means read till the end
 template <class T>
 std::vector<T> read_bag(std::string file_name, std::string topic,
@@ -41,7 +46,8 @@ int main(int argc, char** argv) {
   ros::Publisher traj_pub =
       pnh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
   ros::Publisher spline_traj_pub =
-      pnh.advertise<planning_ros_msgs::SplineTrajectory>("spline_trajectory", 1, true);
+      pnh.advertise<planning_ros_msgs::SplineTrajectory>("spline_trajectory", 1,
+                                                         true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =

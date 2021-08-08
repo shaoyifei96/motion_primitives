@@ -1,3 +1,4 @@
+// Copyright 2021 Laura Jarin-Lipschitz
 #include "motion_primitives/utils.h"
 
 #include <geometry_msgs/Point.h>
