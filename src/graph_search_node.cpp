@@ -67,8 +67,10 @@ int main(int argc, char** argv) {
 
   pnh.param("graph_file", graph_file, std::string("dispersionopt101.json"));
   std::vector<double> s, g;
+  std::string heuristic;
   pnh.param("start_state", s, std::vector<double>{0, 0, 0, 0});
   pnh.param("goal_state", g, std::vector<double>{0, 0, 0, 0});
+  pnh.param<std::string>("heuristic", heuristic, "min_time");
   Eigen::Map<Eigen::VectorXd> start(s.data(), s.size());
   Eigen::Map<Eigen::VectorXd> goal(g.data(), g.size());
   const auto mp_graph = read_motion_primitive_graph(graph_file);
@@ -98,13 +100,15 @@ int main(int argc, char** argv) {
   sg_pub.publish(sg_markers);
 
   {
-    GraphSearch gs(mp_graph, voxel_map);
-    ROS_INFO("Started planning gs.");
-    const auto start_time = ros::Time::now();
-    const auto path = gs.Search({.start_state = start,
+    GraphSearch::Option options = {.start_state = start,
                                  .goal_state = goal,
                                  .distance_threshold = 0.5,
-                                 .parallel_expand = true});
+                                 .parallel_expand = true,
+                                 .heuristic = heuristic};
+    GraphSearch gs(mp_graph, voxel_map, options);
+    ROS_INFO("Started planning gs.");
+    const auto start_time = ros::Time::now();
+    const auto path = gs.Search();
     const auto total_time = (ros::Time::now() - start_time).toSec();
 
     ROS_INFO("Finished planning. Planning time %f s", total_time);

@@ -24,14 +24,22 @@ bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
 }  // namespace
 
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
-                         const planning_ros_msgs::VoxelMap& voxel_map)
-    : graph_(graph), voxel_map_(voxel_map) {
+                         const planning_ros_msgs::VoxelMap& voxel_map,
+                         const Option& options)
+    : graph_(graph), voxel_map_(voxel_map), options_(options) {
   map_dims_[0] = voxel_map_.dim.x;
   map_dims_[1] = voxel_map_.dim.y;
   map_dims_[2] = voxel_map_.dim.z;
   map_origin_[0] = voxel_map_.origin.x;
   map_origin_[1] = voxel_map_.origin.y;
   map_origin_[2] = voxel_map_.origin.z;
+  heuristic_types_map_["zero"] = &motion_primitives::GraphSearch::ComputeHeuristicZero;
+  heuristic_types_map_["ruckig_bvp"] = &GraphSearch::ComputeHeuristicRuckigBVP;
+  heuristic_types_map_["min_time"] = &GraphSearch::ComputeHeuristicMinTime;
+  ROS_INFO("Heuristic type: %s", options_.heuristic.c_str());
+  if (heuristic_types_map_.count(options_.heuristic)==0){
+    ROS_ERROR("Heuristic type invalid");
+  }
 }
 
 Eigen::Vector3i GraphSearch::get_indices_from_position(
@@ -157,9 +165,7 @@ auto GraphSearch::ExpandPar(const Node& node, const State& goal_state) const
   // combine
   std::vector<Node> nodes;
   nodes.reserve(64);
-  //  for (auto i = priv_nodes.begin(); i != priv_nodes.end(); ++i) {
   for (const auto& each : priv_nodes) {
-    //    const auto& each = *i;
     nodes.insert(nodes.end(), each.begin(), each.end());
   }
   return nodes;
@@ -191,34 +197,50 @@ std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
   return path_mps;
 }
 
-double GraphSearch::ComputeHeuristic(const State& v,
-                                     const State& goal_state) const noexcept {
+double GraphSearch::ComputeHeuristicMinTime(
+    const State& v, const State& goal_state)  const{
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
   // too slow otherwise with higher velocities.
-  // TODO(laura) add ruckig bvp heuristic
   return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
          graph_.max_state()(1);
 }
 
-auto GraphSearch::Search(const Option& option)
-    -> std::vector<std::shared_ptr<MotionPrimitive>> {
+double GraphSearch::ComputeHeuristicRuckigBVP(
+    const State& v, const State& goal_state) const {
+  //TODO(laura) may be faster to directly call ruckig instead of creating a useless MP
+  auto mp = RuckigMotionPrimitive(spatial_dim(), v, goal_state,graph_.max_state_);
+  return mp.cost_;
+}
+
+double GraphSearch::ComputeHeuristicZero(
+    const State& v, const State& goal_state) const {
+  return 0;
+}
+
+double GraphSearch::ComputeHeuristic(const State& v,
+                                     const State& goal_state) const {
+  auto func_pointer = heuristic_types_map_.at(options_.heuristic);
+  return (this->*func_pointer)(v, goal_state);
+}
+
+auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
   timings_.clear();
   visited_states_.clear();
 
   // Early exit if start and end positions are close
-  if (StatePosWithin(option.start_state, option.goal_state,
-                     graph_.spatial_dim(), option.distance_threshold)) {
+  if (StatePosWithin(options_.start_state, options_.goal_state,
+                     graph_.spatial_dim(), options_.distance_threshold)) {
     ROS_WARN_STREAM("Start already within distance threshold of goal, exiting");
     return {};
   }
 
   Node start_node;
   start_node.state_index = 0;
-  start_node.state = option.start_state;
+  start_node.state = options_.start_state;
   start_node.motion_cost = 0.0;
   start_node.heuristic_cost =
-      ComputeHeuristic(start_node.state, option.goal_state);
+      ComputeHeuristic(start_node.state, options_.goal_state);
 
   // > for min heap
   auto node_cmp = [](const Node& n1, const Node& n2) {
@@ -235,13 +257,13 @@ auto GraphSearch::Search(const Option& option)
 
   // timer
   boost::timer::cpu_timer timer;
-  bool ros_ok = ros::ok() || !option.using_ros;
+  bool ros_ok = ros::ok() || !options_.using_ros;
   while (!pq.empty() && ros_ok) {
     Node curr_node = pq.top();
 
     // Check if we are close enough to the end
-    if (StatePosWithin(curr_node.state, option.goal_state, graph_.spatial_dim(),
-                       option.distance_threshold)) {
+    if (StatePosWithin(curr_node.state, options_.goal_state,
+                       graph_.spatial_dim(), options_.distance_threshold)) {
       ROS_WARN_STREAM("Motion primitive planning successful");
       ROS_INFO_STREAM("== pq: " << pq.size());
       ROS_INFO_STREAM("== hist: " << history.size());
@@ -271,9 +293,9 @@ auto GraphSearch::Search(const Option& option)
     visited_states_.insert(curr_node.state);
 
     timer.start();
-    const auto next_nodes = option.parallel_expand
-                                ? ExpandPar(curr_node, option.goal_state)
-                                : Expand(curr_node, option.goal_state);
+    const auto next_nodes = options_.parallel_expand
+                                ? ExpandPar(curr_node, options_.goal_state)
+                                : Expand(curr_node, options_.goal_state);
     timings_["astar_expand"] += Elapsed(timer);
     for (const auto& next_node : next_nodes) {
       // this is the best cost reaching this state (next_node) so far

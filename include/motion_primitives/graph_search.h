@@ -34,21 +34,25 @@ class GraphSearch {
 
  public:
   using State = Eigen::VectorXd;
-  GraphSearch(const MotionPrimitiveGraph& graph,
-              const planning_ros_msgs::VoxelMap& voxel_map);
   struct Option {
     State start_state;
     State goal_state;
     double distance_threshold;
     bool parallel_expand{false};
-    bool using_ros{true};
     std::string heuristic{"min_time"};
+    bool using_ros{true};
   };
+
+  GraphSearch(const MotionPrimitiveGraph& graph,
+              const planning_ros_msgs::VoxelMap& voxel_map,
+              const Option& options);
+
+  const Option options_;
 
   // Search for a path from start_state to end_state, stops if no path found
   // (returns empty vector) or reach within distance_threshold of start_state
   // parallel == true will expand nodes in parallel (~x2 speedup)
-  std::vector<std::shared_ptr<MotionPrimitive>> Search(const Option& option);
+  std::vector<std::shared_ptr<MotionPrimitive>> Search();
 
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
   const auto& timings() const noexcept { return timings_; }
@@ -79,8 +83,17 @@ class GraphSearch {
   std::vector<std::shared_ptr<MotionPrimitive>> RecoverPath(
       const PathHistory& history, const Node& end_node) const;
 
+  typedef double (motion_primitives::GraphSearch::*FUNCPTR)(const State& v, const State& goal_state) const;
+  std::unordered_map<std::string, FUNCPTR> heuristic_types_map_;
+
   double ComputeHeuristic(const State& state,
-                          const State& goal_state) const noexcept;
+                          const State& goal_state) const;
+  double ComputeHeuristicZero(const State& v,
+                              const State& goal_state)const;
+  double ComputeHeuristicRuckigBVP(const State& v,
+                                   const State& goal_state) const;
+  double ComputeHeuristicMinTime(const State& v,
+                                 const State& goal_state) const ;
 
   // Stores all visited states
   std::vector<Node> Expand(const Node& node, const State& goal_state) const;

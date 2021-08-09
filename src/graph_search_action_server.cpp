@@ -48,7 +48,6 @@ class PlanningServer {
       as_.setAborted();
       return;
     }
-    GraphSearch gs(graph_, voxel_map_);
     Eigen::VectorXd start, goal;
     start.resize(graph_.state_dim());
     goal.resize(graph_.state_dim());
@@ -77,10 +76,12 @@ class PlanningServer {
       goal(5) = msg->v_final.linear.z;
     }
 
-    const auto path = gs.Search({.start_state = start,
+    GraphSearch::Option options = {.start_state = start,
                                  .goal_state = goal,
                                  .distance_threshold = 0.5,
-                                 .parallel_expand = true});
+                                 .parallel_expand = true};
+    GraphSearch gs(graph_, voxel_map_, options);
+    const auto path = gs.Search();
     if (path.empty()) {
       ROS_ERROR("Graph search failed, aborting action server.");
       as_.setAborted();
