@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "motion_primitives/motion_primitive_graph.h"
@@ -83,17 +84,15 @@ class GraphSearch {
   std::vector<std::shared_ptr<MotionPrimitive>> RecoverPath(
       const PathHistory& history, const Node& end_node) const;
 
-  typedef double (motion_primitives::GraphSearch::*FUNCPTR)(const State& v, const State& goal_state) const;
+  typedef double (motion_primitives::GraphSearch::*FUNCPTR)(
+      const State& v, const State& goal_state) const;
   std::unordered_map<std::string, FUNCPTR> heuristic_types_map_;
 
-  double ComputeHeuristic(const State& state,
-                          const State& goal_state) const;
-  double ComputeHeuristicZero(const State& v,
-                              const State& goal_state)const;
+  double ComputeHeuristic(const State& state, const State& goal_state) const;
+  double ComputeHeuristicZero(const State& v, const State& goal_state) const;
   double ComputeHeuristicRuckigBVP(const State& v,
                                    const State& goal_state) const;
-  double ComputeHeuristicMinTime(const State& v,
-                                 const State& goal_state) const ;
+  double ComputeHeuristicMinTime(const State& v, const State& goal_state) const;
 
   // Stores all visited states
   std::vector<Node> Expand(const Node& node, const State& goal_state) const;

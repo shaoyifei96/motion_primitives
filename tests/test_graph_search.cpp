@@ -15,14 +15,17 @@ TEST(GraphSearchTest, OptimalPath) {
   voxel_map.dim.x = 20;
   voxel_map.dim.y = 20;
   voxel_map.data.resize(voxel_map.dim.x * voxel_map.dim.y, 0);
-  GraphSearch gs(mp_graph, voxel_map);
   Eigen::Vector2d start(3, 3);
   Eigen::Vector2d goal(5, 5);
-  const auto path = gs.Search({.start_state = start,
-                               .goal_state = goal,
-                               .distance_threshold = 0.001,
-                               .parallel_expand = true,
-                               .using_ros = false});
+  GraphSearch::Option option = {.start_state = start,
+                                .goal_state = goal,
+                                .distance_threshold = 0.001,
+                                .parallel_expand = true,
+                                .heuristic = "min_time",
+                                .using_ros = false};
+
+  GraphSearch gs(mp_graph, voxel_map, option);
+  const auto path = gs.Search();
 
   float path_cost = 0;
   for (auto seg : path) {

@@ -33,11 +33,12 @@ GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
   map_origin_[0] = voxel_map_.origin.x;
   map_origin_[1] = voxel_map_.origin.y;
   map_origin_[2] = voxel_map_.origin.z;
-  heuristic_types_map_["zero"] = &motion_primitives::GraphSearch::ComputeHeuristicZero;
+  heuristic_types_map_["zero"] =
+      &motion_primitives::GraphSearch::ComputeHeuristicZero;
   heuristic_types_map_["ruckig_bvp"] = &GraphSearch::ComputeHeuristicRuckigBVP;
   heuristic_types_map_["min_time"] = &GraphSearch::ComputeHeuristicMinTime;
   ROS_INFO("Heuristic type: %s", options_.heuristic.c_str());
-  if (heuristic_types_map_.count(options_.heuristic)==0){
+  if (heuristic_types_map_.count(options_.heuristic) == 0) {
     ROS_ERROR("Heuristic type invalid");
   }
 }
@@ -197,8 +198,8 @@ std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
   return path_mps;
 }
 
-double GraphSearch::ComputeHeuristicMinTime(
-    const State& v, const State& goal_state)  const{
+double GraphSearch::ComputeHeuristicMinTime(const State& v,
+                                            const State& goal_state) const {
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
   // too slow otherwise with higher velocities.
@@ -206,15 +207,17 @@ double GraphSearch::ComputeHeuristicMinTime(
          graph_.max_state()(1);
 }
 
-double GraphSearch::ComputeHeuristicRuckigBVP(
-    const State& v, const State& goal_state) const {
-  //TODO(laura) may be faster to directly call ruckig instead of creating a useless MP
-  auto mp = RuckigMotionPrimitive(spatial_dim(), v, goal_state,graph_.max_state_);
+double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
+                                              const State& goal_state) const {
+  // TODO(laura) may be faster to directly call ruckig instead of creating a
+  // useless MP
+  auto mp =
+      RuckigMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_);
   return mp.cost_;
 }
 
-double GraphSearch::ComputeHeuristicZero(
-    const State& v, const State& goal_state) const {
+double GraphSearch::ComputeHeuristicZero(const State& v,
+                                         const State& goal_state) const {
   return 0;
 }
 
