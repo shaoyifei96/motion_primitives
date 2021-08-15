@@ -237,7 +237,10 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
     ROS_WARN_STREAM("Start already within distance threshold of goal, exiting");
     return {};
   }
+  if (!is_free_and_valid_position(options_.start_state)) ROS_WARN_STREAM("Start is not free");
+  if (!is_free_and_valid_position(options_.goal_state)) ROS_WARN_STREAM("Goal is not free");
 
+  //TODO(laura) connect actual start to graph function instead of this
   Node start_node;
   start_node.state_index = 0;
   start_node.state = options_.start_state;
@@ -271,6 +274,10 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
       ROS_INFO_STREAM("== pq: " << pq.size());
       ROS_INFO_STREAM("== hist: " << history.size());
       ROS_INFO_STREAM("== nodes: " << visited_states_.size());
+      ROS_INFO_STREAM("== total_time: " << Elapsed(timer));
+      for (const auto& [k, v] : timings_) {
+        ROS_INFO_STREAM(k << ": " << v << "s, " << (v / Elapsed(timer) * 100) << "%");
+      }
       return RecoverPath(history, curr_node);
     }
 

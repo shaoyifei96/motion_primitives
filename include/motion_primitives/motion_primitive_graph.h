@@ -122,6 +122,7 @@ class MotionPrimitiveGraph {
   double rho() const noexcept { return rho_; }
   int spatial_dim() const noexcept { return spatial_dim_; }
   int state_dim() const noexcept { return state_dim_; }
+  int control_space_dim() const noexcept { return state_dim_/spatial_dim_; }
   int num_tiled_states() const noexcept { return edges_.rows(); }
   const auto& max_state() const noexcept { return max_state_; }
 

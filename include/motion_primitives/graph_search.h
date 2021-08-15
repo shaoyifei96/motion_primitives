@@ -48,6 +48,7 @@ class GraphSearch {
               const planning_ros_msgs::VoxelMap& voxel_map,
               const Option& options);
 
+  ~GraphSearch() = default;
   const Option options_;
 
   // Search for a path from start_state to end_state, stops if no path found

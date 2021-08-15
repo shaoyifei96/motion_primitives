@@ -48,38 +48,14 @@ class PlanningServer {
       as_.setAborted();
       return;
     }
-    Eigen::VectorXd start, goal;
-    start.resize(graph_.state_dim());
-    goal.resize(graph_.state_dim());
-    // TODO(laura) fix for other size states
-    if (graph_.spatial_dim() == 2) {
-      start(0) = msg->p_init.position.x;
-      start(1) = msg->p_init.position.y;
-      start(2) = msg->v_init.linear.x;
-      start(3) = msg->v_init.linear.y;
-      goal(0) = msg->p_final.position.x;
-      goal(1) = msg->p_final.position.y;
-      goal(2) = msg->v_final.linear.x;
-      goal(3) = msg->v_final.linear.y;
-    } else {
-      start(0) = msg->p_init.position.x;
-      start(1) = msg->p_init.position.y;
-      start(2) = msg->p_init.position.z;
-      start(3) = msg->v_init.linear.x;
-      start(4) = msg->v_init.linear.y;
-      start(5) = msg->v_init.linear.z;
-      goal(0) = msg->p_final.position.x;
-      goal(1) = msg->p_final.position.y;
-      goal(2) = msg->p_final.position.z;
-      goal(3) = msg->v_final.linear.x;
-      goal(4) = msg->v_final.linear.y;
-      goal(5) = msg->v_final.linear.z;
-    }
+    const auto& [start, goal] = populateStartGoal(msg);
+    ROS_INFO_STREAM("Planner start: " << start.transpose());
+    ROS_INFO_STREAM("Planner goal: " << goal.transpose());
 
     GraphSearch::Option options = {.start_state = start,
-                                 .goal_state = goal,
-                                 .distance_threshold = 0.5,
-                                 .parallel_expand = true};
+                                   .goal_state = goal,
+                                   .distance_threshold = 0.5,
+                                   .parallel_expand = true};
     GraphSearch gs(graph_, voxel_map_, options);
     const auto path = gs.Search();
     if (path.empty()) {
@@ -104,6 +80,41 @@ class PlanningServer {
   }
   void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {
     voxel_map_ = *msg;
+  }
+
+  std::array<double, 3> pointMsgToArray(const geometry_msgs::Point& point) {
+    return {point.x, point.y, point.z};
+  }
+
+  std::array<double, 3> pointMsgToArray(const geometry_msgs::Vector3& point) {
+    return {point.x, point.y, point.z};
+  }
+  std::array<Eigen::VectorXd, 2> populateStartGoal(
+      const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg) {
+    Eigen::VectorXd start, goal;
+    start.resize(graph_.state_dim());
+    goal.resize(graph_.state_dim());
+    auto p_init = pointMsgToArray(msg->p_init.position);
+    auto v_init = pointMsgToArray(msg->v_init.linear);
+    auto a_init = pointMsgToArray(msg->a_init.linear);
+    auto p_final = pointMsgToArray(msg->p_final.position);
+    auto v_final = pointMsgToArray(msg->v_final.linear);
+    auto a_final = pointMsgToArray(msg->a_final.linear);
+
+    int spatial_dim = graph_.spatial_dim();
+    for (int dim = 0; dim < spatial_dim; dim++) {
+      start[dim] = p_init[dim];
+      goal[dim] = p_final[dim];
+      start[spatial_dim + dim] = v_init[dim];
+      goal[spatial_dim + dim] = v_final[dim];
+      if (graph_.control_space_dim()>2){
+        start[2*spatial_dim + dim] = a_init[dim];
+        goal[2*spatial_dim + dim] = a_final[dim];
+      }
+    }
+
+    std::array<Eigen::VectorXd, 2> start_and_goal{start, goal};
+    return start_and_goal;
   }
 };
 }  // namespace motion_primitives

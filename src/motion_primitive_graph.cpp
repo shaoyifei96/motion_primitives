@@ -51,9 +51,9 @@ Spline RuckigMotionPrimitive::add_to_spline(Spline spline, int dim) {
     poly.degree = 3;
     poly.basis = 0;
     poly.dt = jerk_time_array[dim * 2][seg];
-    if (poly.dt == 0) {
-      continue;
-    }
+    // if (poly.dt == 0) {
+    //   continue;
+    // }
     float j = jerk_time_array[dim * 2 + 1][seg];
     auto [p, v, a] = state;
     poly.coeffs = {p, v, a / 2, j / 6};

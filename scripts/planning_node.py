@@ -19,7 +19,7 @@ class PlanningNode():
         rospack = rospkg.RosPack()
 
         self.mpl = MotionPrimitiveLattice.load(rospack.get_path(
-            'motion_primitives') + "/motion_primitives_py/data/lattices/dispersion100.json")
+            'motion_primitives') + "/motion_primitives_py/data/lattices/dispersionopt101.json")
         print(self.mpl.max_state)
         rospy.Subscriber("/ddk/projected_map", OccupancyGrid, self.occ_grid_callback)
         rospy.Subscriber("/ddk/ground_truth/odom", Odometry, self.odom_callback)
