@@ -11,5 +11,6 @@
     <rosparam param="start_state">[12.5,1.4,0,0]</rosparam>
     <rosparam param="goal_state">[6.4,16.6,0,0]</rosparam>
     <rosparam param="heuristic">"ruckig_bvp"</rosparam>
+    <param name="access_graph" value="false"/>
     </node>
 </launch>

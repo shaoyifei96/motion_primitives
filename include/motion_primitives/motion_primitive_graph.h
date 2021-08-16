@@ -75,11 +75,6 @@ class MotionPrimitive {
   }
 };
 
-class OptimizationMotionPrimitive final : public MotionPrimitive {
- public:
-  using MotionPrimitive::MotionPrimitive;
-};
-
 class PolynomialMotionPrimitive final : public MotionPrimitive {
  public:
   using MotionPrimitive::MotionPrimitive;
@@ -119,10 +114,18 @@ class MotionPrimitiveGraph {
     return mps_[edges_(i, j)];
   }
 
+  std::shared_ptr<MotionPrimitive> createMotionPrimitivePtrFromGraph(
+      int spatial_dim, const Eigen::VectorXd& start_state,
+      const Eigen::VectorXd& end_state,
+      const Eigen::VectorXd& max_state) const {
+    return createMotionPrimitivePtrFromTypeName(
+        mp_type_name_, spatial_dim, start_state, end_state, max_state);
+  }
+
   double rho() const noexcept { return rho_; }
   int spatial_dim() const noexcept { return spatial_dim_; }
   int state_dim() const noexcept { return state_dim_; }
-  int control_space_dim() const noexcept { return state_dim_/spatial_dim_; }
+  int control_space_dim() const noexcept { return state_dim_ / spatial_dim_; }
   int num_tiled_states() const noexcept { return edges_.rows(); }
   const auto& max_state() const noexcept { return max_state_; }
 
@@ -144,6 +147,19 @@ class MotionPrimitiveGraph {
   int state_dim_;
   int num_tiles_;
   bool tiling_;
+  std::string mp_type_name_;
+
+  template <typename T>
+  static std::shared_ptr<MotionPrimitive> createMotionPrimitivePtr(
+      int spatial_dim, const Eigen::VectorXd& start_state,
+      const Eigen::VectorXd& end_state, const Eigen::VectorXd& max_state) {
+    return std::make_shared<T>(spatial_dim, start_state, end_state, max_state);
+  }
+
+  static std::shared_ptr<MotionPrimitive> createMotionPrimitivePtrFromTypeName(
+      std::string type_name, int spatial_dim,
+      const Eigen::VectorXd& start_state, const Eigen::VectorXd& end_state,
+      const Eigen::VectorXd& max_state);
 };
 
 // Overrides a function from nlohmann::json to convert a json file into a

@@ -38,6 +38,7 @@ GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
   heuristic_types_map_["ruckig_bvp"] = &GraphSearch::ComputeHeuristicRuckigBVP;
   heuristic_types_map_["min_time"] = &GraphSearch::ComputeHeuristicMinTime;
   ROS_INFO("Heuristic type: %s", options_.heuristic.c_str());
+  ROS_INFO("Access graph: %d", options_.access_graph);
   if (heuristic_types_map_.count(options_.heuristic) == 0) {
     ROS_ERROR("Heuristic type invalid");
   }
@@ -73,7 +74,7 @@ bool GraphSearch::is_free_and_valid_indices(
 bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
   if (position.rows() < 3) {
     position.conservativeResize(3);
-    position(2) = 0;
+    position(2) = options_.fixed_z;
   }
   return is_free_and_valid_indices(get_indices_from_position(position));
 }
@@ -185,14 +186,21 @@ std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
     const PathHistory& history, const Node& end_node) const {
   std::vector<std::shared_ptr<MotionPrimitive>> path_mps;
   Node const* curr_node = &end_node;
+  Node const* prev_node = &(history.at(curr_node->state).parent_node);
 
   while (true) {
-    if (curr_node->motion_cost == 0) break;
-    Node const* prev_node = &(history.at(curr_node->state).parent_node);
+    prev_node = &(history.at(curr_node->state).parent_node);
+    if (prev_node->motion_cost == 0) break;
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
     curr_node = prev_node;
   }
-
+  if (options_.access_graph){
+    path_mps.push_back(graph_.createMotionPrimitivePtrFromGraph(
+          spatial_dim(), prev_node->state, curr_node->state, graph_.max_state_));
+  }
+  else{
+    path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
+  }
   std::reverse(path_mps.begin(), path_mps.end());
   ROS_INFO_STREAM("Path cost: " << end_node.motion_cost);
   return path_mps;
@@ -237,16 +245,10 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
     ROS_WARN_STREAM("Start already within distance threshold of goal, exiting");
     return {};
   }
-  if (!is_free_and_valid_position(options_.start_state)) ROS_WARN_STREAM("Start is not free");
-  if (!is_free_and_valid_position(options_.goal_state)) ROS_WARN_STREAM("Goal is not free");
-
-  //TODO(laura) connect actual start to graph function instead of this
-  Node start_node;
-  start_node.state_index = 0;
-  start_node.state = options_.start_state;
-  start_node.motion_cost = 0.0;
-  start_node.heuristic_cost =
-      ComputeHeuristic(start_node.state, options_.goal_state);
+  if (!is_free_and_valid_position(options_.start_state))
+    ROS_WARN_STREAM("Start is not free");
+  if (!is_free_and_valid_position(options_.goal_state))
+    ROS_WARN_STREAM("Goal is not free");
 
   // > for min heap
   auto node_cmp = [](const Node& n1, const Node& n2) {
@@ -256,10 +258,15 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
       std::priority_queue<Node, std::vector<Node>, decltype(node_cmp)>;
 
   MinHeap pq{node_cmp};
-  pq.push(start_node);
-
   // Shortest path history, stores the parent node of a particular mp (int)
-  PathHistory history;
+  // PathHistory history;
+
+  // TODO(laura) connect actual start to graph function instead of this
+  auto [nodes, history] = AccessGraph(options_.start_state);
+
+  for (auto node : nodes) {
+    pq.push(node);
+  }
 
   // timer
   boost::timer::cpu_timer timer;
@@ -274,10 +281,6 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
       ROS_INFO_STREAM("== pq: " << pq.size());
       ROS_INFO_STREAM("== hist: " << history.size());
       ROS_INFO_STREAM("== nodes: " << visited_states_.size());
-      ROS_INFO_STREAM("== total_time: " << Elapsed(timer));
-      for (const auto& [k, v] : timings_) {
-        ROS_INFO_STREAM(k << ": " << v << "s, " << (v / Elapsed(timer) * 100) << "%");
-      }
       return RecoverPath(history, curr_node);
     }
 
@@ -331,12 +334,38 @@ std::vector<Eigen::VectorXd> GraphSearch::GetVisitedStates() const noexcept {
 }
 
 auto GraphSearch::AccessGraph(const State& start_state) const
-    -> std::vector<Node> {
-  for (int i = 0; i < graph_.vertices_.rows(); i++) {
-    State end_state = graph_.vertices_.row(i);
-    auto mp = MotionPrimitive(spatial_dim(), start_state, end_state,
-                              graph_.max_state_);
+    -> std::pair<std::vector<Node>, PathHistory> {
+  PathHistory history;
+  std::vector<Node> nodes;
+  nodes.reserve(64);
+  Node start_node;
+  start_node.state_index = 0;
+  start_node.state = start_state;
+  start_node.motion_cost = 0.0;
+  start_node.heuristic_cost =
+      ComputeHeuristic(start_node.state, options_.goal_state);
+
+  if (options_.access_graph) {
+    //TODO(laura) should be translating start to be the start of the graph
+    for (int i = 0; i < graph_.vertices_.rows(); i++) {
+      State end_state = graph_.vertices_.row(i);
+      //TODO(laura) decide if this is better than end_state(...) = start_state(...)
+      end_state.head(spatial_dim()) += start_state.head(spatial_dim());
+      auto mp = graph_.createMotionPrimitivePtrFromGraph(
+          spatial_dim(), start_state, end_state, graph_.max_state_);
+      Node next_node;
+      next_node.state_index = i;
+      next_node.state = mp->end_state_;
+      next_node.motion_cost = mp->cost_;
+      next_node.heuristic_cost =
+          ComputeHeuristic(mp->end_state_, options_.goal_state);
+      history[next_node.state] = {start_node, next_node.motion_cost};
+      if (is_mp_collision_free(mp)) nodes.push_back(next_node);
+    }
+  } else {
+    nodes.push_back(start_node);
   }
+  return std::make_pair(nodes, history);
 }
 
 }  // namespace motion_primitives

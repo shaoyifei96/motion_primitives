@@ -155,31 +155,28 @@ std::ostream& operator<<(std::ostream& os, const MotionPrimitiveGraph& mpg) {
   return os;
 }
 
-template <typename T>
-std::shared_ptr<MotionPrimitive> createInstance(
-    int spatial_dim, const Eigen::VectorXd& start_state,
+std::shared_ptr<MotionPrimitive>
+MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
+    std::string type_name, int spatial_dim, const Eigen::VectorXd& start_state,
     const Eigen::VectorXd& end_state, const Eigen::VectorXd& max_state) {
-  return std::make_shared<T>(spatial_dim, start_state, end_state, max_state);
+  if (type_name == "RuckigMotionPrimitive") {
+    return createMotionPrimitivePtr<RuckigMotionPrimitive>(
+        spatial_dim, start_state, end_state, max_state);
+  } else if (type_name == "PolynomialMotionPrimitive" ||
+             type_name == "OptimizationMotionPrimitive") {
+    return createMotionPrimitivePtr<PolynomialMotionPrimitive>(
+        spatial_dim, start_state, end_state, max_state);
+  }
 }
 
 void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
-  std::map<std::string, std::shared_ptr<MotionPrimitive> (*)(
-                            int spatial_dim, const Eigen::VectorXd& start_state,
-                            const Eigen::VectorXd& end_state,
-                            const Eigen::VectorXd& max_state)>
-      mp_type_map;
-
-  mp_type_map["RuckigMotionPrimitive"] = &createInstance<RuckigMotionPrimitive>;
-  mp_type_map["PolynomialMotionPrimitive"] =
-      &createInstance<PolynomialMotionPrimitive>;
-  mp_type_map["OptimizationMotionPrimitive"] =
-      &createInstance<OptimizationMotionPrimitive>;
-
   json_data.at("dispersion").get_to(graph.dispersion_);
   json_data.at("tiling").get_to(graph.tiling_);
   json_data.at("num_dims").get_to(graph.spatial_dim_);
   json_data.at("control_space_q").get_to(graph.control_space_dim_);
   json_data.at("rho").get_to(graph.rho_);
+  json_data.at("mp_type").get_to(graph.mp_type_name_);
+  
   graph.state_dim_ = graph.spatial_dim_ * graph.control_space_dim_;
   graph.num_tiles_ = graph.tiling_ ? pow(3, graph.spatial_dim_) : 1;
   auto s = json_data.at("max_state").get<std::vector<double>>();
@@ -214,8 +211,9 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
                 Eigen::Map<Eigen::VectorXd>(x.data(), x.size());
           }
         }
-        auto mp = mp_type_map[json_data.at("mp_type")](
-            graph.spatial_dim_, start_state, end_state, graph.max_state_);
+        auto mp = MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
+            json_data.at("mp_type"), graph.spatial_dim_, start_state, end_state,
+            graph.max_state_);
         mp->populate(edge.at("cost"), edge.at("traj_time"), poly_coeffs);
         graph.mps_.push_back(mp);
         graph.edges_(i, j) = graph.mps_.size() - 1;

@@ -7,6 +7,7 @@
 #include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
 #include <ros/ros.h>
+#include <visualization_msgs/MarkerArray.h>
 
 namespace motion_primitives {
 class PlanningServer {
@@ -15,6 +16,7 @@ class PlanningServer {
   actionlib::SimpleActionServer<planning_ros_msgs::PlanTwoPointAction> as_;
   ros::Publisher traj_vis_pub_;
   ros::Publisher spline_traj_pub_;
+  ros::Publisher sg_pub_;
   planning_ros_msgs::VoxelMap voxel_map_;
   motion_primitives::MotionPrimitiveGraph graph_;
   ros::Subscriber map_sub_;
@@ -26,12 +28,15 @@ class PlanningServer {
     pnh_.param("graph_file", graph_file, std::string("dispersionopt101.json"));
     ROS_INFO("Reading graph file %s", graph_file.c_str());
     graph_ = read_motion_primitive_graph(graph_file);
-    traj_vis_pub_ = pnh_.advertise<planning_ros_msgs::Trajectory>(
-        "viz_trajectory", 1, true);
+    traj_vis_pub_ =
+        pnh_.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
     spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
         "spline_trajectory", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
+    sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
+                                                              1, true);
+
     as_.registerGoalCallback(boost::bind(&PlanningServer::executeCB, this));
     as_.start();
   }
@@ -48,14 +53,22 @@ class PlanningServer {
       as_.setAborted();
       return;
     }
-    const auto& [start, goal] = populateStartGoal(msg);
+    auto start_and_goal = populateStartGoal(msg);
+    const auto& [start, goal] = start_and_goal;
+
     ROS_INFO_STREAM("Planner start: " << start.transpose());
     ROS_INFO_STREAM("Planner goal: " << goal.transpose());
 
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
                                    .distance_threshold = 0.5,
-                                   .parallel_expand = true};
+                                   .parallel_expand = true,
+                                   .heuristic = "min_time",
+                                   .access_graph = true};
+    if (graph_.spatial_dim() == 2) {
+      options.fixed_z = msg->p_init.position.z;
+    }
+    publishStartAndGoal(start_and_goal, options.fixed_z);
     GraphSearch gs(graph_, voxel_map_, options);
     const auto path = gs.Search();
     if (path.empty()) {
@@ -107,14 +120,46 @@ class PlanningServer {
       goal[dim] = p_final[dim];
       start[spatial_dim + dim] = v_init[dim];
       goal[spatial_dim + dim] = v_final[dim];
-      if (graph_.control_space_dim()>2){
-        start[2*spatial_dim + dim] = a_init[dim];
-        goal[2*spatial_dim + dim] = a_final[dim];
+      if (graph_.control_space_dim() > 2) {
+        start[2 * spatial_dim + dim] = a_init[dim];
+        goal[2 * spatial_dim + dim] = a_final[dim];
       }
     }
 
     std::array<Eigen::VectorXd, 2> start_and_goal{start, goal};
     return start_and_goal;
+  }
+
+  void publishStartAndGoal(
+      const std::array<Eigen::VectorXd, 2>& start_and_goal, double fixed_z) {
+    visualization_msgs::MarkerArray sg_markers;
+    visualization_msgs::Marker start_marker, goal_marker;
+    start_marker.header = voxel_map_.header;
+    start_marker.pose.position.x = start_and_goal[0][0],
+    start_marker.pose.position.y = start_and_goal[0][1];
+    start_marker.pose.orientation.w = 1;
+    start_marker.color.g = 1;
+    start_marker.color.a = 1;
+    start_marker.type = 2;
+    start_marker.scale.x = start_marker.scale.y = start_marker.scale.z = 0.3;
+    goal_marker = start_marker;
+    goal_marker.id = 1;
+    goal_marker.pose.position.x = start_and_goal[1][0],
+    goal_marker.pose.position.y = start_and_goal[1][1];
+
+    if (graph_.spatial_dim() == 2) {
+      start_marker.pose.position.z = fixed_z;
+      goal_marker.pose.position.z = fixed_z;
+    }
+    else {
+      start_marker.pose.position.z = start_and_goal[0][2];
+      goal_marker.pose.position.z = start_and_goal[1][2];
+    }
+    goal_marker.color.g = 0;
+    goal_marker.color.r = 1;
+    sg_markers.markers.push_back(start_marker);
+    sg_markers.markers.push_back(goal_marker);
+    sg_pub_.publish(sg_markers);
   }
 };
 }  // namespace motion_primitives

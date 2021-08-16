@@ -41,6 +41,8 @@ class GraphSearch {
     double distance_threshold;
     bool parallel_expand{false};
     std::string heuristic{"min_time"};
+    bool access_graph{false};
+    double fixed_z{0};
     bool using_ros{true};
   };
 
@@ -102,7 +104,8 @@ class GraphSearch {
                                          const Node& node,
                                          const State& goal_state) const;
 
-  std::vector<Node> AccessGraph(const State& start_state) const;
+  std::pair<std::vector<Node>, PathHistory> AccessGraph(
+      const State& start_state) const;
 
   std::shared_ptr<MotionPrimitive> GetPrimitiveBetween(
       const Node& start_node, const Node& end_node) const;
