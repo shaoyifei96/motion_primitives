@@ -194,11 +194,10 @@ std::vector<std::shared_ptr<MotionPrimitive>> GraphSearch::RecoverPath(
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
     curr_node = prev_node;
   }
-  if (options_.access_graph){
+  if (options_.access_graph) {
     path_mps.push_back(graph_.createMotionPrimitivePtrFromGraph(
-          spatial_dim(), prev_node->state, curr_node->state, graph_.max_state_));
-  }
-  else{
+        prev_node->state, curr_node->state));
+  } else {
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
   }
   std::reverse(path_mps.begin(), path_mps.end());
@@ -263,7 +262,6 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
 
   // TODO(laura) connect actual start to graph function instead of this
   auto [nodes, history] = AccessGraph(options_.start_state);
-
   for (auto node : nodes) {
     pq.push(node);
   }
@@ -324,8 +322,8 @@ auto GraphSearch::Search() -> std::vector<std::shared_ptr<MotionPrimitive>> {
       }
     }
   }
-
-  ROS_WARN_STREAM("Priority queue empty, exiting");
+  if (pq.empty()) ROS_WARN_STREAM("Priority queue empty, exiting");
+  if (!ros_ok) ROS_WARN_STREAM("Exiting because of ROS");
   return {};
 }
 
@@ -346,13 +344,13 @@ auto GraphSearch::AccessGraph(const State& start_state) const
       ComputeHeuristic(start_node.state, options_.goal_state);
 
   if (options_.access_graph) {
-    //TODO(laura) should be translating start to be the start of the graph
     for (int i = 0; i < graph_.vertices_.rows(); i++) {
       State end_state = graph_.vertices_.row(i);
-      //TODO(laura) decide if this is better than end_state(...) = start_state(...)
+      // TODO(laura) decide if this is better than end_state(...) =
+      // start_state(...)
       end_state.head(spatial_dim()) += start_state.head(spatial_dim());
-      auto mp = graph_.createMotionPrimitivePtrFromGraph(
-          spatial_dim(), start_state, end_state, graph_.max_state_);
+      auto mp =
+          graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
       Node next_node;
       next_node.state_index = i;
       next_node.state = mp->end_state_;

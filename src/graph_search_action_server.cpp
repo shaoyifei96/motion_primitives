@@ -130,8 +130,8 @@ class PlanningServer {
     return start_and_goal;
   }
 
-  void publishStartAndGoal(
-      const std::array<Eigen::VectorXd, 2>& start_and_goal, double fixed_z) {
+  void publishStartAndGoal(const std::array<Eigen::VectorXd, 2>& start_and_goal,
+                           double fixed_z) {
     visualization_msgs::MarkerArray sg_markers;
     visualization_msgs::Marker start_marker, goal_marker;
     start_marker.header = voxel_map_.header;
@@ -150,8 +150,7 @@ class PlanningServer {
     if (graph_.spatial_dim() == 2) {
       start_marker.pose.position.z = fixed_z;
       goal_marker.pose.position.z = fixed_z;
-    }
-    else {
+    } else {
       start_marker.pose.position.z = start_and_goal[0][2];
       goal_marker.pose.position.z = start_and_goal[1][2];
     }

@@ -115,11 +115,10 @@ class MotionPrimitiveGraph {
   }
 
   std::shared_ptr<MotionPrimitive> createMotionPrimitivePtrFromGraph(
-      int spatial_dim, const Eigen::VectorXd& start_state,
-      const Eigen::VectorXd& end_state,
-      const Eigen::VectorXd& max_state) const {
+      const Eigen::VectorXd& start_state,
+      const Eigen::VectorXd& end_state) const {
     return createMotionPrimitivePtrFromTypeName(
-        mp_type_name_, spatial_dim, start_state, end_state, max_state);
+        mp_type_name_, spatial_dim_, start_state, end_state, max_state_);
   }
 
   double rho() const noexcept { return rho_; }

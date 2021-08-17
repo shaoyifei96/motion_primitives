@@ -23,6 +23,9 @@ TEST(GraphSearchTest, OptimalPath) {
       .distance_threshold = 0.001,
       .parallel_expand = true,
       .heuristic = "min_time",
+      .access_graph = false,
+      .fixed_z = 0,
+      .using_ros = false
   };
 
   GraphSearch gs(mp_graph, voxel_map, option);

@@ -166,6 +166,8 @@ MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
              type_name == "OptimizationMotionPrimitive") {
     return createMotionPrimitivePtr<PolynomialMotionPrimitive>(
         spatial_dim, start_state, end_state, max_state);
+  } else {
+    throw;
   }
 }
 
@@ -176,7 +178,7 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
   json_data.at("control_space_q").get_to(graph.control_space_dim_);
   json_data.at("rho").get_to(graph.rho_);
   json_data.at("mp_type").get_to(graph.mp_type_name_);
-  
+
   graph.state_dim_ = graph.spatial_dim_ * graph.control_space_dim_;
   graph.num_tiles_ = graph.tiling_ ? pow(3, graph.spatial_dim_) : 1;
   auto s = json_data.at("max_state").get<std::vector<double>>();
@@ -212,7 +214,7 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
           }
         }
         auto mp = MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
-            json_data.at("mp_type"), graph.spatial_dim_, start_state, end_state,
+            graph.mp_type_name_, graph.spatial_dim_, start_state, end_state,
             graph.max_state_);
         mp->populate(edge.at("cost"), edge.at("traj_time"), poly_coeffs);
         graph.mps_.push_back(mp);
