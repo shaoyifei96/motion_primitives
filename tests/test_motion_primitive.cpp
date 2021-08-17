@@ -3,7 +3,6 @@
 
 #include "motion_primitives/motion_primitive_graph.h"
 
-using motion_primitives::OptimizationMotionPrimitive;
 using motion_primitives::PolynomialMotionPrimitive;
 using motion_primitives::RuckigMotionPrimitive;
 
@@ -23,8 +22,7 @@ class MotionPrimitiveTest : public ::testing::Test {
   Eigen::VectorXd start_state, end_state, max_state;
 };
 
-typedef ::testing::Types<PolynomialMotionPrimitive, OptimizationMotionPrimitive,
-                         RuckigMotionPrimitive>
+typedef ::testing::Types<PolynomialMotionPrimitive, RuckigMotionPrimitive>
     MotionPrimitiveTypes;
 TYPED_TEST_CASE(MotionPrimitiveTest, MotionPrimitiveTypes);
 
