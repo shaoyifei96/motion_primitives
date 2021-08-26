@@ -103,15 +103,15 @@ int main(int argc, char** argv) {
 
   {
     GraphSearch::Option options = {.start_state = start,
-                                 .goal_state = goal,
-                                 .distance_threshold = 0.5,
-                                 .parallel_expand = true,
-                                 .heuristic = heuristic,
-                                 .access_graph = access_graph};
+                                   .goal_state = goal,
+                                   .distance_threshold = 0.5,
+                                   .parallel_expand = true,
+                                   .heuristic = heuristic,
+                                   .access_graph = access_graph};
     GraphSearch gs(mp_graph, voxel_map, options);
     ROS_INFO("Started planning gs.");
     const auto start_time = ros::Time::now();
-    const auto path = gs.Search();
+    const auto path = gs.Search().first;
     const auto total_time = (ros::Time::now() - start_time).toSec();
 
     ROS_INFO("Finished planning. Planning time %f s", total_time);

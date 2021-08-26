@@ -44,6 +44,17 @@ class GraphSearch {
     bool access_graph{false};
     double fixed_z{0};
     bool using_ros{true};
+    int start_index{0};
+  };
+  struct Node {
+    static constexpr auto kInfCost = std::numeric_limits<double>::infinity();
+
+    int state_index{0};  // used to retrieve mp from graph
+    State state;
+    double motion_cost{kInfCost};
+    double heuristic_cost{0.0};
+
+    double total_cost() const noexcept { return motion_cost + heuristic_cost; }
   };
 
   GraphSearch(const MotionPrimitiveGraph& graph,
@@ -56,26 +67,20 @@ class GraphSearch {
   // Search for a path from start_state to end_state, stops if no path found
   // (returns empty vector) or reach within distance_threshold of start_state
   // parallel == true will expand nodes in parallel (~x2 speedup)
-  std::vector<std::shared_ptr<MotionPrimitive>> Search();
+  std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, std::vector<Node>>
+  Search();
 
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
   const auto& timings() const noexcept { return timings_; }
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
 
- private:
   // State is the real node
   // Node is a wrapper around state that also carries the cost info
-  struct Node {
-    static constexpr auto kInfCost = std::numeric_limits<double>::infinity();
 
-    int state_index{0};  // used to retrieve mp from graph
-    State state;
-    double motion_cost{kInfCost};
-    double heuristic_cost{0.0};
+  std::vector<std::shared_ptr<MotionPrimitive>> last_path_mps_;
+  std::vector<Node> last_path_nodes_;
 
-    double total_cost() const noexcept { return motion_cost + heuristic_cost; }
-  };
-
+ private:
   // The state is the key of PathHistory and will not be stored here
   struct StateInfo {
     Node parent_node;                  // parent node of this state
@@ -84,8 +89,8 @@ class GraphSearch {
 
   // Path history stores the parent node of this state and the best cost so far
   using PathHistory = std::unordered_map<State, StateInfo, VectorXdHash>;
-  std::vector<std::shared_ptr<MotionPrimitive>> RecoverPath(
-      const PathHistory& history, const Node& end_node) const;
+  std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, std::vector<Node>>
+  RecoverPath(const PathHistory& history, const Node& end_node) const;
 
   typedef double (motion_primitives::GraphSearch::*FUNCPTR)(
       const State& v, const State& goal_state) const;

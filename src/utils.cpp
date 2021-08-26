@@ -78,13 +78,13 @@ SplineTrajectory path_to_spline_traj_msg(
       }
     } else {
       spline.segments = spline_traj.data[0].segments;
+      spline.t_total = spline_traj.data[0].t_total;
       for (int i = 0; i < spline.segments; i++) {
         Polynomial poly;
         poly.degree = 0;
         poly.coeffs = {z_height};
-        poly.dt = spline_traj.data[0].t_total;
+        poly.dt = spline_traj.data[0].t_total/spline.segments;
         spline.segs.push_back(poly);
-        spline.t_total = spline_traj.data[0].t_total;
       }
     }
     spline_traj.data.push_back(spline);

@@ -1,6 +1,7 @@
 <launch>
 <arg name="robot" default="quadrotor" />  
 <arg name="map_topic" default="mapper/local_voxel_map" />  
+<arg name="feedback_topic" default="trackers_manager/execute_trajectory/feedback" />  
 <arg name="param_file" default="$(find motion_primitives)/config/quad_control_tracker_params.yaml" />  
 
 <group ns="$(arg robot)">
@@ -11,6 +12,7 @@
         <rosparam file="$(arg param_file)"/>
         <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
         <remap from="~voxel_map" to="$(arg map_topic)"/>
+        <remap from="~feedback" to="$(arg feedback_topic)"/>
       </node>
   </group>
 

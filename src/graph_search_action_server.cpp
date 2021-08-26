@@ -3,12 +3,14 @@
 #include <motion_primitives/graph_search.h>
 #include <motion_primitives/utils.h>
 #include <planning_ros_msgs/PlanTwoPointAction.h>
+#include <planning_ros_msgs/RunTrajectoryAction.h>
 #include <planning_ros_msgs/SplineTrajectory.h>
 #include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 
+// TODO(laura) add clearFootprint
 namespace motion_primitives {
 class PlanningServer {
  protected:
@@ -20,6 +22,10 @@ class PlanningServer {
   planning_ros_msgs::VoxelMap voxel_map_;
   motion_primitives::MotionPrimitiveGraph graph_;
   ros::Subscriber map_sub_;
+  ros::Subscriber traj_feedback_sub_;
+  int seg_num_{-1};
+  float traj_time_elapsed_;
+  std::vector<GraphSearch::Node> last_nodes_;
 
  public:
   explicit PlanningServer(const ros::NodeHandle& nh)
@@ -34,6 +40,8 @@ class PlanningServer {
         "spline_trajectory", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
+    traj_feedback_sub_ =
+        pnh_.subscribe("feedback", 1, &PlanningServer::trajFeedbackCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
                                                               1, true);
 
@@ -64,13 +72,26 @@ class PlanningServer {
                                    .distance_threshold = 0.5,
                                    .parallel_expand = true,
                                    .heuristic = "min_time",
-                                   .access_graph = true};
-    if (graph_.spatial_dim() == 2) {
-      options.fixed_z = msg->p_init.position.z;
-    }
+                                   .access_graph = false};
+    if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
+
+    if (!last_nodes_.empty())
+      options.start_index = graph_.NormIndex(last_nodes_[seg_num_].state_index);
+
     publishStartAndGoal(start_and_goal, options.fixed_z);
     GraphSearch gs(graph_, voxel_map_, options);
-    const auto path = gs.Search();
+    // if (!last_nodes_.empty() && seg_num_ < last_nodes_.size() && seg_num_ >= 0) {
+    //   auto x = gs.GetPrimitiveBetween(last_nodes_[seg_num_],
+    //                                   last_nodes_[seg_num_ + 1]);
+    //   ROS_INFO_STREAM(x->start_state_.transpose());
+    //   ROS_INFO_STREAM(x->end_state_.transpose());
+    // }
+
+    last_nodes_.clear();
+    const auto [path, nodes] = gs.Search();
+    for (auto node:nodes){ //TODO(laura) why isnt this being copied correctly with equals
+      last_nodes_.push_back(node);
+    }
     if (path.empty()) {
       ROS_ERROR("Graph search failed, aborting action server.");
       as_.setAborted();
@@ -93,6 +114,12 @@ class PlanningServer {
   }
   void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {
     voxel_map_ = *msg;
+  }
+
+  void trajFeedbackCB(
+      const planning_ros_msgs::RunTrajectoryActionFeedback::ConstPtr& msg) {
+    seg_num_ = msg->feedback.seg_number;
+    traj_time_elapsed_ = msg->feedback.time_elapsed;
   }
 
   std::array<double, 3> pointMsgToArray(const geometry_msgs::Point& point) {
@@ -141,7 +168,7 @@ class PlanningServer {
     start_marker.color.g = 1;
     start_marker.color.a = 1;
     start_marker.type = 2;
-    start_marker.scale.x = start_marker.scale.y = start_marker.scale.z = 0.3;
+    start_marker.scale.x = start_marker.scale.y = start_marker.scale.z = 1;
     goal_marker = start_marker;
     goal_marker.id = 1;
     goal_marker.pose.position.x = start_and_goal[1][0],

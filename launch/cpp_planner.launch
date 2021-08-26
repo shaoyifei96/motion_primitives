@@ -4,13 +4,12 @@
     name="graph_search_node"
     output="screen" 
     >
-    <!-- <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/> -->
-    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/lattice_test2.json"/>
+    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
     <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
     <param name="map_topic" value="/voxel_map"/>
     <rosparam param="start_state">[12.5,1.4,0,0]</rosparam>
     <rosparam param="goal_state">[6.4,16.6,0,0]</rosparam>
-    <rosparam param="heuristic">"ruckig_bvp"</rosparam>
-    <param name="access_graph" value="true"/>
+    <rosparam param="heuristic">"min_time"</rosparam>
+    <param name="access_graph" value="false"/>
     </node>
 </launch>

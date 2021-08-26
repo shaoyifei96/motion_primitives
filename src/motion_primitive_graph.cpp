@@ -134,11 +134,12 @@ void RuckigMotionPrimitive::calculate_ruckig_traj() {
 Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const {
   std::array<double, 3> position, velocity, acceleration;
   ruckig_traj_.at_time(t, position, velocity, acceleration);
-  Eigen::VectorXd state(3 * spatial_dim_);
+  // Eigen::VectorXd state(3 * spatial_dim_);
+  Eigen::VectorXd state(spatial_dim_);
   for (int dim = 0; dim < spatial_dim_; dim++) {
     state[dim] = position[dim];
-    state[spatial_dim_ + dim] = velocity[dim];
-    state[2 * spatial_dim_ + dim] = acceleration[dim];
+    // state[spatial_dim_ + dim] = velocity[dim];
+    // state[2 * spatial_dim_ + dim] = acceleration[dim];
   }
   return state;
 }
