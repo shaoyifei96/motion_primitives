@@ -42,6 +42,19 @@ GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
   if (heuristic_types_map_.count(options_.heuristic) == 0) {
     ROS_ERROR("Heuristic type invalid");
   }
+
+
+  combinatorials_ << 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  
+                     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                     1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                     1, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0,
+                     1, 4, 6, 4, 1, 0, 0, 0, 0, 0, 0,
+                     1, 5, 0, 10, 5, 1, 0, 0, 0, 0, 0,
+                     1, 6, 15, 20, 15, 6, 1, 0, 0, 0, 0,
+                     1, 7, 21, 35, 35, 21, 7, 1, 0, 0, 0,
+                     1, 8, 28, 56, 70, 56, 28, 8, 1, 0, 0,
+                     1, 9, 36, 84, 126, 126, 84, 36, 9, 1, 0,
+                     1, 10, 45, 120, 210, 252, 210, 120, 45, 10, 1;
 }
 
 Eigen::Vector3i GraphSearch::get_indices_from_position(
@@ -384,5 +397,24 @@ auto GraphSearch::AccessGraph(const State& start_state) const
   }
   return std::make_pair(nodes, history);
 }
+
+
+Eigen::MatrixXd GraphSearch::shift_polynomial(const Eigen::MatrixXd poly_coeffs, float shift) const {
+  int n_rows = poly_coeffs.rows();
+  int n_cols = poly_coeffs.cols();
+  int highest_order = n_cols - 1;
+  Eigen::MatrixXd ret_coeffs = Eigen::MatrixXd::Constant(n_rows, n_cols, 0.0);;
+
+  for (int dim = 0; dim < n_rows; dim++) {
+    for (int order = highest_order; order >= 0; order--) {
+      for (int pos = 0; pos <= n_cols - 1 - order; pos++) {
+        ret_coeffs(dim, n_cols-1-order) += poly_coeffs(dim, pos) * combinatorials_(highest_order - pos, highest_order - pos - order) * std::pow(shift, highest_order - pos - order);
+      }
+    }
+  }
+  return ret_coeffs;
+}
+
+
 
 }  // namespace motion_primitives

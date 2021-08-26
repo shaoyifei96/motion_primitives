@@ -132,6 +132,13 @@ class GraphSearch {
   // collisions
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                             double step_size = 0.1) const;
+
+
+  // Store combinatorial numbers
+  Eigen::Matrix<int, 11, 11> combinatorials_;
+                                              
+  // Shift polynomial functions
+  Eigen::MatrixXd shift_polynomial(const Eigen::MatrixXd poly_coeffs, float shift) const;
 };
 
 }  // namespace motion_primitives
