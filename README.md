@@ -16,7 +16,10 @@ sudo apt-get install -y libeigen3-dev libtbb-dev libgtest-dev python3-vcstool
 mkdir -p dispersion_ws/src
 cd dispersion_ws
 catkin init
+cd src
 git clone git@github.com:ljarin/motion_primitives.git
 git clone git@github.com:ljarin/planning_ros_msgs.git
+cd motion_primitives
+vcs import < external.repos
 catkin b
 ```

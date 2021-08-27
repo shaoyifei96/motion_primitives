@@ -51,6 +51,53 @@ class PlanningServer {
 
   ~PlanningServer(void) {}
 
+  bool is_outside_map(const Eigen::Vector3i& pn, const Eigen::Vector3i& dim) {
+    return pn(0) < 0 || pn(0) >= dim(0) || pn(1) < 0 || pn(1) >= dim(1) ||
+           pn(2) < 0 || pn(2) >= dim(2);
+  }
+
+  void clear_footprint(planning_ros_msgs::VoxelMap& local_map,
+                       const Eigen::Vector3f& start) {
+    // Clear robot footprint
+    // TODO (YUEZHAN): pass robot radius as param
+    // TODO (YUEZHAN): fix val_free;
+    int8_t val_free = 0;
+    ROS_WARN_ONCE("Value free is set as %d", val_free);
+    double robot_r = 0.5;
+    int robot_r_n = std::ceil(robot_r / local_map.resolution);
+
+    std::vector<Eigen::Vector3i> clear_ns;
+    for (int nx = -robot_r_n; nx <= robot_r_n; nx++) {
+      for (int ny = -robot_r_n; ny <= robot_r_n; ny++) {
+        for (int nz = -robot_r_n; nz <= robot_r_n; nz++) {
+          clear_ns.push_back(Eigen::Vector3i(nx, ny, nz));
+        }
+      }
+    }
+
+    auto origin_x = local_map.origin.x;
+    auto origin_y = local_map.origin.y;
+    auto origin_z = local_map.origin.z;
+    Eigen::Vector3i dim = Eigen::Vector3i::Zero();
+    dim(0) = local_map.dim.x;
+    dim(1) = local_map.dim.y;
+    dim(2) = local_map.dim.z;
+    auto res = local_map.resolution;
+    const Eigen::Vector3i pn =
+        Eigen::Vector3i(std::round((start(0) - origin_x) / res),
+                        std::round((start(1) - origin_y) / res),
+                        std::round((start(2) - origin_z) / res));
+
+    for (const auto& n : clear_ns) {
+      Eigen::Vector3i pnn = pn + n;
+      int idx_tmp = pnn(0) + pnn(1) * dim(0) + pnn(2) * dim(0) * dim(1);
+      if (!is_outside_map(pnn, dim) && local_map.data[idx_tmp] != val_free) {
+        local_map.data[idx_tmp] = val_free;
+        // ROS_ERROR("clearing!!! idx %d", idx_tmp);
+      }
+    }
+  }
+
   void executeCB() {
     const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();
@@ -79,17 +126,18 @@ class PlanningServer {
       options.start_index = graph_.NormIndex(last_nodes_[seg_num_].state_index);
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
+    Eigen::Vector3f map_start;
+    map_start(0) = start(0);
+    map_start(1) = start(1);
+    map_start(2) = msg->p_init.position.z;
+    clear_footprint(voxel_map_, map_start);
+
     GraphSearch gs(graph_, voxel_map_, options);
-    // if (!last_nodes_.empty() && seg_num_ < last_nodes_.size() && seg_num_ >= 0) {
-    //   auto x = gs.GetPrimitiveBetween(last_nodes_[seg_num_],
-    //                                   last_nodes_[seg_num_ + 1]);
-    //   ROS_INFO_STREAM(x->start_state_.transpose());
-    //   ROS_INFO_STREAM(x->end_state_.transpose());
-    // }
 
     last_nodes_.clear();
-    const auto [path, nodes] = gs.Search();
-    for (auto node:nodes){ //TODO(laura) why isnt this being copied correctly with equals
+    auto [path, nodes] = gs.Search();
+    for (auto node : nodes) {  // TODO(laura) why isnt this being copied
+                               // correctly with equals
       last_nodes_.push_back(node);
     }
     if (path.empty()) {
@@ -97,6 +145,16 @@ class PlanningServer {
       as_.setAborted();
       return;
     }
+    auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
+        options.start_state, path[0]->end_state_);
+    Eigen::MatrixXd new_poly_coeffs =
+        gs.shift_polynomial(path[0]->poly_coeffs_, traj_time_elapsed_);
+    float new_traj_time = path[0]->traj_time_ - traj_time_elapsed_;
+    first_mp->populate(0, new_traj_time, new_poly_coeffs);
+    // path.erase(path.begin());
+    path[0] = first_mp;
+    ROS_INFO_STREAM(options.start_state);
+    ROS_INFO_STREAM(path[0]->start_state_);
 
     ROS_INFO("Graph search succeeded.");
     planning_ros_msgs::PlanTwoPointResult result;
@@ -188,6 +246,7 @@ class PlanningServer {
     sg_pub_.publish(sg_markers);
   }
 };
+
 }  // namespace motion_primitives
 
 int main(int argc, char* argv[]) {
