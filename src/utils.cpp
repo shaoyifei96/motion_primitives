@@ -81,9 +81,12 @@ SplineTrajectory path_to_spline_traj_msg(
       spline.t_total = spline_traj.data[0].t_total;
       for (int i = 0; i < spline.segments; i++) {
         Polynomial poly;
-        poly.degree = 0;
-        poly.coeffs = {z_height};
-        poly.dt = spline_traj.data[0].t_total/spline.segments;
+        poly.degree = spline_traj.data[0].segs[0].degree;
+        for (int j=0; j< poly.degree+1; j++){
+          poly.coeffs.push_back(0.);
+        }
+        poly.coeffs[0] = {z_height};
+        poly.dt = spline_traj.data[0].segs[i].dt;
         spline.segs.push_back(poly);
       }
     }

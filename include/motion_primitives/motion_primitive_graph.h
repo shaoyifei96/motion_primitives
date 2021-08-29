@@ -127,6 +127,7 @@ class MotionPrimitiveGraph {
   int control_space_dim() const noexcept { return state_dim_ / spatial_dim_; }
   int num_tiled_states() const noexcept { return edges_.rows(); }
   const auto& max_state() const noexcept { return max_state_; }
+  Eigen::MatrixXd vertices() const noexcept { return vertices_;}
 
   bool HasEdge(int i, int j) const noexcept { return edges_(i, j) >= 0; }
   int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }
