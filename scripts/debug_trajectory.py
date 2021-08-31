@@ -32,7 +32,7 @@ class CheckTrajectory():
         traj_ln2.set_norm(norm)
 
         self.fig.colorbar(traj_ln2, label="Planner trajectory")
-        self.fig.colorbar(traj_ln, label="Tracker trajectory")
+        # self.fig.colorbar(traj_ln, label="Tracker trajectory")
         start_ln, = self.ax.plot([], [], 'go', label="Planner start")
         goal_ln, = self.ax.plot([], [], 'ro', label="Planner goal")
         seg_num_ln = self.ax.text(1.1, 1.1, '', fontsize=15, horizontalalignment='center',
@@ -57,10 +57,10 @@ class CheckTrajectory():
         self.planning_query_start = None
 
         rospy.Subscriber("/quadrotor/local_plan_server/trajectory", SplineTrajectory, self.planner_spline_traj_cb, queue_size=100)
-        rospy.Subscriber("/quadrotor/quadrotor_manager_control/trajectory",
-                         SplineTrajectory, self.traj_tracker_spline_traj_cb, queue_size=100)
-        rospy.Subscriber("/quadrotor/trackers_manager/execute_trajectory/feedback",
-                         RunTrajectoryActionFeedback, self.feedback_callback, queue_size=1)
+        # rospy.Subscriber("/quadrotor/quadrotor_manager_control/trajectory",
+        #                  SplineTrajectory, self.traj_tracker_spline_traj_cb, queue_size=100)
+        # rospy.Subscriber("/quadrotor/trackers_manager/execute_trajectory/feedback",
+        #                  RunTrajectoryActionFeedback, self.feedback_callback, queue_size=1)
         rospy.Subscriber("/quadrotor/odom", Odometry, self.odom_callback, queue_size=100)
         rospy.Subscriber("/quadrotor/local_plan_server/start_and_goal", MarkerArray, self.start_goal_callback, queue_size=100)
         rospy.Subscriber("/quadrotor/local_plan_server/plan_local_trajectory/goal",
@@ -104,10 +104,8 @@ class CheckTrajectory():
         self.odom_data[0] = msg.pose.pose.position.x
         self.odom_data[1] = msg.pose.pose.position.y
         self.odom_data[2] = msg.pose.pose.position.z
-        if(self.first_pos):
-            self.ax.set_xlim(msg.pose.pose.position.x-20, msg.pose.pose.position.x+20)
-            self.ax.set_ylim(msg.pose.pose.position.y-20, msg.pose.pose.position.y+20)
-            self.first_pos = False
+        self.ax.set_xlim(msg.pose.pose.position.x-20, msg.pose.pose.position.x+20)
+        self.ax.set_ylim(msg.pose.pose.position.y-20, msg.pose.pose.position.y+20)
 
     def action_goal_callback(self, msg):
         self.planning_query_start = [msg.goal.p_init.position.x, msg.goal.p_init.position.y, msg.goal.p_init.position.z]
@@ -122,15 +120,15 @@ class CheckTrajectory():
         self.time_remaining = msg.feedback.time_remaining
 
     def update_plot(self, frame):
-        if len(self.tracker_pos_data) == 0 or len(self.planner_pos_data) == 0:
-            print("waiting for data")
+        if len(self.planner_pos_data) == 0:
+            # print("waiting for data")
             return self.ln,
         self.odom_history.append(self.odom_data)
         odom_history = np.array(self.odom_history)
         self.ln[0].set_data(odom_history[:, 0], odom_history[:, 1])
 
-        num_segs = len(self.tracker_pos_data[0])
-        segs = [np.column_stack([self.tracker_pos_data[0][i], self.tracker_pos_data[1][i]]) for i in range(num_segs)]
+        # num_segs = len(self.tracker_pos_data[0])
+        # segs = [np.column_stack([self.tracker_pos_data[0][i], self.tracker_pos_data[1][i]]) for i in range(num_segs)]
         # self.ln[1].set_segments(segs)
         # self.ln[1].set_array(np.arange(num_segs))
 
@@ -138,13 +136,13 @@ class CheckTrajectory():
             self.ln[2].set_data(self.start[0], self.start[1])
             self.ln[3].set_data(self.goal[0], self.goal[1])
 
-        poly_start_time = 0
-        if self.seg_number < len(self.planner_traj.data[0].segs):
-            for seg_num in range(self.seg_number):
-                poly_start_time += self.planner_traj.data[0].segs[seg_num].dt
-        poly_time_elapsed = self.time_elapsed - poly_start_time
-        self.ln[4].set_text(f'{self.seg_number}, {self.time_elapsed:.2f}, {poly_time_elapsed: .2f}')
-        self.ln[5].set_data(self.traj_feedback[0], self.traj_feedback[1])
+        # poly_start_time = 0
+        # if self.seg_number < len(self.planner_traj.data[0].segs):
+        #     for seg_num in range(self.seg_number):
+        #         poly_start_time += self.planner_traj.data[0].segs[seg_num].dt
+        # poly_time_elapsed = self.time_elapsed - poly_start_time
+        # self.ln[4].set_text(f'{self.seg_number}, {self.time_elapsed:.2f}, {poly_time_elapsed: .2f}')
+        # self.ln[5].set_data(self.traj_feedback[0], self.traj_feedback[1])
 
         num_segs = len(self.planner_pos_data[0])
         segs = [np.column_stack([self.planner_pos_data[0][i], self.planner_pos_data[1][i]]) for i in range(num_segs)]
@@ -173,7 +171,7 @@ class CheckTrajectory():
 if __name__ == "__main__":
     rospy.init_node('check_trajectory', anonymous=True)
     ct = CheckTrajectory()
-    ani = FuncAnimation(ct.fig, ct.update_plot)
+    ani = FuncAnimation(ct.fig, ct.update_plot, interval=50)
     plt.show(block=True)
 
     rospy.spin()

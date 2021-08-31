@@ -4,6 +4,7 @@
 <arg name="feedback_topic" default="trackers_manager/execute_trajectory/feedback" />  
 <arg name="tracker_traj_topic" default="quadrotor_manager_control/trajectory" />  
 <arg name="param_file" default="$(find motion_primitives)/config/quad_control_tracker_params.yaml" />  
+<arg name="bagging" default="true"/>
 
 <group ns="$(arg robot)">
       <node pkg="motion_primitives"
@@ -14,8 +15,9 @@
         <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/50.json"/>
         <remap from="~voxel_map" to="$(arg map_topic)"/>
         <remap from="~feedback" to="$(arg feedback_topic)"/>
-        <remap from="~tracker_traj" to="$(arg tracker_traj_topic)"/>
       </node>
   </group>
 
+ <include file="$(find motion_primitives)/launch/bagging.launch"  if="$(arg bagging)"/>
+ 
 </launch>

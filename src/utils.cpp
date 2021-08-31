@@ -17,7 +17,7 @@ using visualization_msgs::MarkerArray;
 
 Trajectory path_to_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
-    const std_msgs::Header& header) {
+    const std_msgs::Header& header, float z_height) {
   if (mps.empty()) return {};
 
   int spatial_dim = mps[0]->spatial_dim_;
@@ -52,6 +52,7 @@ Trajectory path_to_traj_msg(
         primitive.cz.push_back(pc_resized(2, i));
       } else {
         primitive.cz.push_back(0.);
+        if (i==pc_resized.cols()-1)primitive.cz.back() = z_height;
       }
       primitive.cyaw.push_back(0.);
     }
@@ -82,7 +83,7 @@ SplineTrajectory path_to_spline_traj_msg(
       for (int i = 0; i < spline.segments; i++) {
         Polynomial poly;
         poly.degree = spline_traj.data[0].segs[0].degree;
-        for (int j=0; j< poly.degree+1; j++){
+        for (int j = 0; j < poly.degree + 1; j++) {
           poly.coeffs.push_back(0.);
         }
         poly.coeffs[0] = {z_height};

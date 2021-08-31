@@ -37,6 +37,10 @@ Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
   poly.end_index = end_index_;
   spline.t_total += traj_time_;
   Eigen::VectorXd p = poly_coeffs_.row(dim).reverse();
+  // convert between Mike's paramterization and mine
+  for (int i = 0; i < p.size(); i++) {
+    p[i] *= std::pow(poly.dt, i);
+  }
   std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
   poly.coeffs = pc;
   spline.segments += 1;
@@ -61,6 +65,11 @@ Spline RuckigMotionPrimitive::add_to_spline(Spline spline, int dim) {
     float j = jerk_time_array[dim * 2 + 1][seg];
     auto [p, v, a] = state;
     poly.coeffs = {p, v, a / 2, j / 6};
+    // convert between Mike's paramterization and mine
+
+    for (int i = 0; i < poly.coeffs.size(); i++) {
+      poly.coeffs[i] *= std::pow(poly.dt, i);
+    }
     state = ruckig::Profile::integrate(poly.dt, p, v, a, j);
     spline.segments += 1;
     spline.segs.push_back(poly);
@@ -128,12 +137,16 @@ void RuckigMotionPrimitive::calculate_ruckig_traj() {
     input.max_jerk[2] = 1e-2;
   }
   auto result = otg.calculate(input, ruckig_traj_);
-  // if (result < 0) {
-  //   ROS_ERROR("Ruckig error %d", result);  // TODO should do print/more than
-  //   print
-  // }
-  traj_time_ = ruckig_traj_.duration;
-  cost_ = traj_time_;
+  if (result < 0) {
+    traj_time_ = -1;
+    cost_ = -1;
+    ROS_ERROR("Ruckig error %d",
+              result);  // TODO should do more than print
+  } else {
+    traj_time_ = ruckig_traj_.duration;
+
+    cost_ = traj_time_;
+  }
 }
 
 Eigen::VectorXd RuckigMotionPrimitive::evaluate_primitive(float t) const {

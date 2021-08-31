@@ -14,7 +14,7 @@ namespace motion_primitives {
 
 planning_ros_msgs::Trajectory path_to_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
-    const std_msgs::Header& header);
+    const std_msgs::Header& header, float z_height = 0.0);
 
 planning_ros_msgs::SplineTrajectory path_to_spline_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,

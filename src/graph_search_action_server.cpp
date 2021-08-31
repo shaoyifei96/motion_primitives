@@ -3,7 +3,6 @@
 #include <motion_primitives/graph_search.h>
 #include <motion_primitives/utils.h>
 #include <planning_ros_msgs/PlanTwoPointAction.h>
-#include <planning_ros_msgs/RunTrajectoryAction.h>
 #include <planning_ros_msgs/SplineTrajectory.h>
 #include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
@@ -18,6 +17,7 @@ class PlanningServer {
   actionlib::SimpleActionServer<planning_ros_msgs::PlanTwoPointAction> as_;
   ros::Publisher traj_vis_pub_;
   ros::Publisher spline_traj_pub_;
+  ros::Publisher viz_traj_pub_;
   ros::Publisher sg_pub_;
   planning_ros_msgs::VoxelMap voxel_map_;
   planning_ros_msgs::SplineTrajectory tracker_traj_;
@@ -26,7 +26,6 @@ class PlanningServer {
   ros::Subscriber traj_feedback_sub_;
   ros::Subscriber tracker_traj_sub_;
   int seg_num_{-1};
-  float traj_time_elapsed_;
 
  public:
   explicit PlanningServer(const ros::NodeHandle& nh)
@@ -39,10 +38,10 @@ class PlanningServer {
     //     pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
     spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
         "trajectory", 1, true);
+    viz_traj_pub_ =
+        pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
-    traj_feedback_sub_ =
-        pnh_.subscribe("feedback", 1, &PlanningServer::trajFeedbackCB, this);
     tracker_traj_sub_ =
         pnh_.subscribe("tracker_traj", 1, &PlanningServer::trajTrackerCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
@@ -118,70 +117,65 @@ class PlanningServer {
     ROS_INFO_STREAM("Planner start: " << start.transpose());
     ROS_INFO_STREAM("Planner goal: " << goal.transpose());
 
-    // todo check freshness of last traj
-    // todo check if too close to end of traj and then switch to next segment
+    const planning_ros_msgs::SplineTrajectory last_traj = msg->last_traj;
+    double eval_time = msg->eval_time;
+
     int planner_start_index = 0;
-    Eigen::VectorXd cropped_start(graph_.state_dim());
-    Eigen::MatrixXd cropped_poly_coeffs;
-    float poly_time_elapsed = 0;
-    bool compute_first_mp = tracker_traj_.data.size() > 0 &&
-                            seg_num_ < tracker_traj_.data[0].segs.size() &&
-                            seg_num_ > -1;
+    bool compute_first_mp = last_traj.data.size() > 0;
+    int seg_num = -1;
+    double mp_time;
+    double poly_start_time = 0;
+    std::shared_ptr<MotionPrimitive> mp;
     if (compute_first_mp) {
-      planner_start_index = tracker_traj_.data[0].segs[seg_num_].end_index;
-      // planner_start_index =
-      //     graph_.NormIndex(tracker_traj_.data[0].segs[seg_num_].end_index);
-      auto mp = graph_.get_mp_between_indices(
-          tracker_traj_.data[0].segs[seg_num_].end_index,
-          tracker_traj_.data[0].segs[seg_num_].start_index);
+      // Figure out which segment of the last trajectory we will be at at the
+      // requested eval time
+      for (int i = 0; i < last_traj.data[0].segments; i++) {
+        auto seg = last_traj.data[0].segs[i];
+        poly_start_time += seg.dt;
+        if (poly_start_time > eval_time) {
+          poly_start_time -= seg.dt;
+          seg_num = i;
+          break;
+        }
+      }
+      // todo(laura) what to do if eval time is past the end of the traj
+      if (seg_num == -1) seg_num = last_traj.data[0].segments - 1;
+      ROS_INFO_STREAM("Seg num " << seg_num);
+      ROS_INFO_STREAM("Poly start time " << poly_start_time);
+      ROS_INFO_STREAM("Eval time " << eval_time);
+
+      // Planner will start at the end of the segment we are evaluating at. Will
+      // add a custom first primtive after the planner runs
+      planner_start_index = last_traj.data[0].segs[seg_num].end_index;
+
+      // Recover Motion Primitive from the graph using the indices
+      mp = graph_.get_mp_between_indices(
+          last_traj.data[0].segs[seg_num].end_index,
+          last_traj.data[0].segs[seg_num].start_index);
       Eigen::VectorXd seg_start(graph_.spatial_dim());
       for (int i = 0; i < graph_.spatial_dim(); i++) {
-        seg_start(i) = tracker_traj_.data[i].segs[seg_num_].coeffs[0];
+        seg_start(i) = last_traj.data[i].segs[seg_num].coeffs[0];
       }
+      // MP from graph is not in correct translation, it must be moved to the
+      // time 0 point of the segment (retrieved using the first
+      // polynomial coefficient). We also want the absolute position of the
+      // planner to start from the end of the segment we are on.
       mp->translate(seg_start);
+      mp_time = mp->traj_time_;
       start = mp->end_state_;
       start_and_goal[0] = start;
       ROS_INFO_STREAM("planner uncropped start" << start.transpose());
-
-      Eigen::MatrixXd poly_coeffs(3,
-                                  tracker_traj_.data[0].segs[0].coeffs.size());
-      for (int i = 0; i < 3; i++) {
-        auto raw_coeffs = tracker_traj_.data[i].segs[seg_num_].coeffs;
-        std::vector<double> raw_coeffsD(raw_coeffs.begin(), raw_coeffs.end());
-        std::reverse(raw_coeffsD.begin(), raw_coeffsD.end());
-        Eigen::Map<Eigen::VectorXd> eigen_coeff(raw_coeffsD.data(),
-                                                raw_coeffsD.size());
-        poly_coeffs.row(i) = eigen_coeff;
-      }
-      float poly_start_time = 0;
-      for (int i = 0; i < seg_num_; i++) {
-        poly_start_time += tracker_traj_.data[0].segs[i].dt;
-      }
-      poly_time_elapsed = traj_time_elapsed_ - poly_start_time;
-      if (poly_time_elapsed < 0) poly_time_elapsed = 0;
-      cropped_poly_coeffs =
-          GraphSearch::shift_polynomial(poly_coeffs, poly_time_elapsed);
-
-      for (int i = 0; i < graph_.spatial_dim(); i++) {
-        cropped_start(i) =
-            cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 1);
-        cropped_start(graph_.spatial_dim() + i) =
-            cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 2);
-        if (graph_.control_space_dim() > 2) {
-          cropped_start(2 * graph_.spatial_dim() + i) =
-              cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 3);
-        }
-      }
-      ROS_INFO_STREAM("Cropped Start " << cropped_start.transpose());
-      ROS_INFO_STREAM("Traj time " << traj_time_elapsed_);
 
     } else {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
 
+    double tol_pos;
+    pnh_.param("tol_pos", tol_pos, 0.5);
+
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
-                                   .distance_threshold = 2,
+                                   .distance_threshold = tol_pos,
                                    .parallel_expand = true,
                                    .heuristic = "min_time",
                                    .access_graph = false,
@@ -205,14 +199,39 @@ class PlanningServer {
       return;
     }
     if (compute_first_mp) {
+      // To our planned trajectory, we add a cropped motion primitive that is in
+      // the middle of the last_traj segment that we are evaluating at
+
+      Eigen::VectorXd cropped_start(graph_.state_dim());
+      Eigen::MatrixXd cropped_poly_coeffs;
+
+      double shift_time = 0;
+      if (seg_num == 0)
+        shift_time = (mp_time - last_traj.data[0].segs[0].dt) + eval_time;
+      else
+        shift_time = eval_time - poly_start_time;
+      cropped_poly_coeffs =
+          GraphSearch::shift_polynomial(mp->poly_coeffs_, shift_time);
+
+      for (int i = 0; i < graph_.spatial_dim(); i++) {
+        cropped_start(i) =
+            cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 1);
+        cropped_start(graph_.spatial_dim() + i) =
+            cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 2);
+        if (graph_.control_space_dim() > 2) {
+          cropped_start(2 * graph_.spatial_dim() + i) =
+              cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 3);
+        }
+      }
+      ROS_INFO_STREAM("Cropped Start " << cropped_start.transpose());
+
       auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
           cropped_start, path[0]->start_state_);
 
-      float new_traj_time = tracker_traj_.data[0].segs[seg_num_].dt - poly_time_elapsed;
-      first_mp->populate(
-          0, new_traj_time, cropped_poly_coeffs, tracker_traj_.data[0].segs[seg_num_].start_index,
-          path[0]->start_index_);  // todo what to do if next planner query is
-                                   // also in the middle of the same first_mp
+      double new_seg_time = mp_time - shift_time;
+      first_mp->populate(0, new_seg_time, cropped_poly_coeffs,
+                         last_traj.data[0].segs[seg_num].start_index,
+                         last_traj.data[0].segs[seg_num].end_index);
       path.insert(path.begin(), first_mp);
       // path[0] = first_mp;
     }
@@ -228,6 +247,8 @@ class PlanningServer {
     result.traj = path_to_spline_traj_msg(path, result.traj.header,
                                           msg->p_init.position.z);
     spline_traj_pub_.publish(result.traj);
+    auto viz_traj_msg = path_to_traj_msg(path, result.traj.header, msg->p_init.position.z);
+    viz_traj_pub_.publish(viz_traj_msg);
     as_.setSucceeded(result);
   }
 
@@ -239,11 +260,6 @@ class PlanningServer {
     tracker_traj_ = *msg;
   }
 
-  void trajFeedbackCB(
-      const planning_ros_msgs::RunTrajectoryActionFeedback::ConstPtr& msg) {
-    seg_num_ = msg->feedback.seg_number;
-    traj_time_elapsed_ = msg->feedback.time_elapsed;
-  }
 
   std::array<double, 3> pointMsgToArray(const geometry_msgs::Point& point) {
     return {point.x, point.y, point.z};
