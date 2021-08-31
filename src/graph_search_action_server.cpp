@@ -58,16 +58,15 @@ class PlanningServer {
            pn(2) < 0 || pn(2) >= dim(2);
   }
 
-  void clear_footprint(planning_ros_msgs::VoxelMap& local_map,
-                       const Eigen::Vector3f& start) {
-    // TODO (laura) copy-pasted from local_plan_server
+  void clear_footprint(const Eigen::Vector3f& start) {
+    // TODO(laura) copy-pasted from local_plan_server
     // Clear robot footprint
-    // TODO (YUEZHAN): pass robot radius as param
-    // TODO (YUEZHAN): fix val_free;
+    // TODO(YUEZHAN): pass robot radius as param
+    // TODO(YUEZHAN): fix val_free;
     int8_t val_free = 0;
     ROS_WARN_ONCE("Value free is set as %d", val_free);
     double robot_r = 0.5;
-    int robot_r_n = std::ceil(robot_r / local_map.resolution);
+    int robot_r_n = std::ceil(robot_r / voxel_map_.resolution);
 
     std::vector<Eigen::Vector3i> clear_ns;
     for (int nx = -robot_r_n; nx <= robot_r_n; nx++) {
@@ -78,14 +77,14 @@ class PlanningServer {
       }
     }
 
-    auto origin_x = local_map.origin.x;
-    auto origin_y = local_map.origin.y;
-    auto origin_z = local_map.origin.z;
+    auto origin_x = voxel_map_.origin.x;
+    auto origin_y = voxel_map_.origin.y;
+    auto origin_z = voxel_map_.origin.z;
     Eigen::Vector3i dim = Eigen::Vector3i::Zero();
-    dim(0) = local_map.dim.x;
-    dim(1) = local_map.dim.y;
-    dim(2) = local_map.dim.z;
-    auto res = local_map.resolution;
+    dim(0) = voxel_map_.dim.x;
+    dim(1) = voxel_map_.dim.y;
+    dim(2) = voxel_map_.dim.z;
+    auto res = voxel_map_.resolution;
     const Eigen::Vector3i pn =
         Eigen::Vector3i(std::round((start(0) - origin_x) / res),
                         std::round((start(1) - origin_y) / res),
@@ -94,8 +93,8 @@ class PlanningServer {
     for (const auto& n : clear_ns) {
       Eigen::Vector3i pnn = pn + n;
       int idx_tmp = pnn(0) + pnn(1) * dim(0) + pnn(2) * dim(0) * dim(1);
-      if (!is_outside_map(pnn, dim) && local_map.data[idx_tmp] != val_free) {
-        local_map.data[idx_tmp] = val_free;
+      if (!is_outside_map(pnn, dim) && voxel_map_.data[idx_tmp] != val_free) {
+        voxel_map_.data[idx_tmp] = val_free;
         // ROS_ERROR("clearing!!! idx %d", idx_tmp);
       }
     }
@@ -187,7 +186,7 @@ class PlanningServer {
     map_start(0) = start(0);
     map_start(1) = start(1);
     map_start(2) = msg->p_init.position.z;
-    clear_footprint(voxel_map_, map_start);
+    clear_footprint(map_start);
 
     GraphSearch gs(graph_, voxel_map_, options);
 
@@ -247,7 +246,8 @@ class PlanningServer {
     result.traj = path_to_spline_traj_msg(path, result.traj.header,
                                           msg->p_init.position.z);
     spline_traj_pub_.publish(result.traj);
-    auto viz_traj_msg = path_to_traj_msg(path, result.traj.header, msg->p_init.position.z);
+    auto viz_traj_msg =
+        path_to_traj_msg(path, result.traj.header, msg->p_init.position.z);
     viz_traj_pub_.publish(viz_traj_msg);
     as_.setSucceeded(result);
   }
@@ -259,7 +259,6 @@ class PlanningServer {
   void trajTrackerCB(const planning_ros_msgs::SplineTrajectory::ConstPtr& msg) {
     tracker_traj_ = *msg;
   }
-
 
   std::array<double, 3> pointMsgToArray(const geometry_msgs::Point& point) {
     return {point.x, point.y, point.z};

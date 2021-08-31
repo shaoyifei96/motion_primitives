@@ -401,7 +401,6 @@ Eigen::MatrixXd GraphSearch::shift_polynomial(const Eigen::MatrixXd poly_coeffs,
   int n_cols = poly_coeffs.cols();
   int highest_order = n_cols - 1;
   Eigen::MatrixXd ret_coeffs = Eigen::MatrixXd::Constant(n_rows, n_cols, 0.0);
-  ;
 
   for (int dim = 0; dim < n_rows; dim++) {
     for (int order = highest_order; order >= 0; order--) {

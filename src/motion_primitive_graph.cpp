@@ -141,7 +141,7 @@ void RuckigMotionPrimitive::calculate_ruckig_traj() {
     traj_time_ = -1;
     cost_ = -1;
     ROS_ERROR("Ruckig error %d",
-              result);  // TODO should do more than print
+              result);  // TODO(laura) should do more than print
   } else {
     traj_time_ = ruckig_traj_.duration;
 

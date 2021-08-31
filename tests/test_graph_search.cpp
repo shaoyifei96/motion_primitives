@@ -22,7 +22,7 @@ class GraphSearchTest : public ::testing::Test {
                                   .parallel_expand = true,
                                   .heuristic = "min_time",
                                   .access_graph = false,
-                                  .start_index=0,
+                                  .start_index = 0,
                                   .fixed_z = 0,
                                   .using_ros = false};
   }

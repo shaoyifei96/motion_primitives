@@ -52,7 +52,7 @@ Trajectory path_to_traj_msg(
         primitive.cz.push_back(pc_resized(2, i));
       } else {
         primitive.cz.push_back(0.);
-        if (i==pc_resized.cols()-1)primitive.cz.back() = z_height;
+        if (i == pc_resized.cols() - 1) primitive.cz.back() = z_height;
       }
       primitive.cyaw.push_back(0.);
     }

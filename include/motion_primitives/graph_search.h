@@ -74,7 +74,7 @@ class GraphSearch {
   const auto& timings() const noexcept { return timings_; }
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
   static Eigen::MatrixXd shift_polynomial(const Eigen::MatrixXd poly_coeffs,
-                                   float shift);
+                                          float shift);
 
   // State is the real node
   // Node is a wrapper around state that also carries the cost info
@@ -134,7 +134,6 @@ class GraphSearch {
   // collisions
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                             double step_size = 0.1) const;
-
 };
 
 }  // namespace motion_primitives
