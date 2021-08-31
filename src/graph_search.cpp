@@ -42,13 +42,6 @@ GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
   if (heuristic_types_map_.count(options_.heuristic) == 0) {
     ROS_ERROR("Heuristic type invalid");
   }
-
-  combinatorials_ << 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1,
-      4, 6, 4, 1, 0, 0, 0, 0, 0, 0, 1, 5, 0, 10, 5, 1, 0, 0, 0, 0, 0, 1, 6, 15,
-      20, 15, 6, 1, 0, 0, 0, 0, 1, 7, 21, 35, 35, 21, 7, 1, 0, 0, 0, 1, 8, 28,
-      56, 70, 56, 28, 8, 1, 0, 0, 1, 9, 36, 84, 126, 126, 84, 36, 9, 1, 0, 1,
-      10, 45, 120, 210, 252, 210, 120, 45, 10, 1;
 }
 
 Eigen::Vector3i GraphSearch::get_indices_from_position(
@@ -90,7 +83,7 @@ bool GraphSearch::is_free_and_valid_position(Eigen::VectorXd position) const {
 
 bool GraphSearch::is_mp_collision_free(
     const std::shared_ptr<MotionPrimitive> mp, double step_size) const {
-  const auto samples = mp->sample_positions(step_size);
+  const Eigen::MatrixXd samples = mp->sample_positions(step_size);
   for (int i = 0; i < samples.cols(); ++i) {
     if (!is_free_and_valid_position(samples.col(i))) {
       return false;
@@ -280,7 +273,6 @@ auto GraphSearch::Search()
   // Shortest path history, stores the parent node of a particular mp (int)
   // PathHistory history;
 
-  // TODO(laura) connect actual start to graph function instead of this
   auto [nodes, history] = AccessGraph(options_.start_state);
   for (auto node : nodes) {
     pq.push(node);
@@ -393,7 +385,17 @@ auto GraphSearch::AccessGraph(const State& start_state) const
 }
 
 Eigen::MatrixXd GraphSearch::shift_polynomial(const Eigen::MatrixXd poly_coeffs,
-                                              float shift) const {
+                                              float shift) {
+  // Pascal's triangle for computing the binomial theorem
+  static Eigen::Matrix<int, 11, 11> combinatorials_ =
+      (Eigen::Matrix<int, 11, 11>() << 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0,
+       0, 0, 0, 0, 0, 0, 1, 4, 6, 4, 1, 0, 0, 0, 0, 0, 0, 1, 5, 0, 10, 5, 1, 0,
+       0, 0, 0, 0, 1, 6, 15, 20, 15, 6, 1, 0, 0, 0, 0, 1, 7, 21, 35, 35, 21, 7,
+       1, 0, 0, 0, 1, 8, 28, 56, 70, 56, 28, 8, 1, 0, 0, 1, 9, 36, 84, 126, 126,
+       84, 36, 9, 1, 0, 1, 10, 45, 120, 210, 252, 210, 120, 45, 10, 1)
+          .finished();
+
   if (shift == 0) return poly_coeffs;
   int n_rows = poly_coeffs.rows();
   int n_cols = poly_coeffs.cols();

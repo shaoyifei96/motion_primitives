@@ -17,13 +17,14 @@ class GraphSearchTest : public ::testing::Test {
     Eigen::Vector2d start(3, 3);
     Eigen::Vector2d goal(5, 5);
     option_ = GraphSearch::Option{.start_state = start,
-                                   .goal_state = goal,
-                                   .distance_threshold = 0.001,
-                                   .parallel_expand = true,
-                                   .heuristic = "min_time",
-                                   .access_graph = false,
-                                   .fixed_z = 0,
-                                   .using_ros = false};
+                                  .goal_state = goal,
+                                  .distance_threshold = 0.001,
+                                  .parallel_expand = true,
+                                  .heuristic = "min_time",
+                                  .access_graph = false,
+                                  .start_index=0,
+                                  .fixed_z = 0,
+                                  .using_ros = false};
   }
   planning_ros_msgs::VoxelMap voxel_map_;
   GraphSearch::Option option_;
@@ -46,28 +47,24 @@ TEST_F(GraphSearchTest, OptimalPath) {
 TEST_F(GraphSearchTest, ShiftPolynomial) {
   const auto mp_graph = read_motion_primitive_graph("complex_test.json");
   GraphSearch gs(mp_graph, voxel_map_, option_);
-  Eigen::MatrixXd poly_coeffs(3,5);
-  poly_coeffs << 1, 2, 3, 2, 2,
-                 2, 3, 4, 5, 6,
-                 3, 2, 1, 1, 4;
+  Eigen::MatrixXd poly_coeffs(3, 5);
+  poly_coeffs << 1, 2, 3, 2, 2, 2, 3, 4, 5, 6, 3, 2, 1, 1, 4;
   float t1 = 3.5;
   float t2 = 2.5;
 
   Eigen::VectorXd ts(5);
-  for (int i=0; i<5; i++){
-    ts[i] = std::pow(t1,4-i);
+  for (int i = 0; i < 5; i++) {
+    ts[i] = std::pow(t1, 4 - i);
   }
-  Eigen::VectorXd unshifted_state = poly_coeffs*ts;
-  
-  for (int i=0; i<5; i++){
-    ts[i] = std::pow(t1-t2,4-i);
+  Eigen::VectorXd unshifted_state = poly_coeffs * ts;
+
+  for (int i = 0; i < 5; i++) {
+    ts[i] = std::pow(t1 - t2, 4 - i);
   }
 
-  Eigen::MatrixXd shifted_poly_coeffs = gs.shift_polynomial(poly_coeffs,t2);
-  Eigen::VectorXd shifted_state = shifted_poly_coeffs*ts;
-  EXPECT_EQ(unshifted_state,shifted_state); 
-
-
+  Eigen::MatrixXd shifted_poly_coeffs = gs.shift_polynomial(poly_coeffs, t2);
+  Eigen::VectorXd shifted_state = shifted_poly_coeffs * ts;
+  EXPECT_EQ(unshifted_state, shifted_state);
 }
 
 }  // namespace

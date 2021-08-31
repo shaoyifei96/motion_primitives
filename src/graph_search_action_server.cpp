@@ -20,12 +20,13 @@ class PlanningServer {
   ros::Publisher spline_traj_pub_;
   ros::Publisher sg_pub_;
   planning_ros_msgs::VoxelMap voxel_map_;
+  planning_ros_msgs::SplineTrajectory tracker_traj_;
   motion_primitives::MotionPrimitiveGraph graph_;
   ros::Subscriber map_sub_;
   ros::Subscriber traj_feedback_sub_;
+  ros::Subscriber tracker_traj_sub_;
   int seg_num_{-1};
   float traj_time_elapsed_;
-  std::vector<GraphSearch::Node> last_nodes_;
 
  public:
   explicit PlanningServer(const ros::NodeHandle& nh)
@@ -34,14 +35,16 @@ class PlanningServer {
     pnh_.param("graph_file", graph_file, std::string("dispersionopt101.json"));
     ROS_INFO("Reading graph file %s", graph_file.c_str());
     graph_ = read_motion_primitive_graph(graph_file);
-    traj_vis_pub_ =
-        pnh_.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
+    // traj_vis_pub_ =
+    //     pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
     spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
-        "spline_trajectory", 1, true);
+        "trajectory", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
     traj_feedback_sub_ =
         pnh_.subscribe("feedback", 1, &PlanningServer::trajFeedbackCB, this);
+    tracker_traj_sub_ =
+        pnh_.subscribe("tracker_traj", 1, &PlanningServer::trajTrackerCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
                                                               1, true);
 
@@ -58,6 +61,7 @@ class PlanningServer {
 
   void clear_footprint(planning_ros_msgs::VoxelMap& local_map,
                        const Eigen::Vector3f& start) {
+    // TODO (laura) copy-pasted from local_plan_server
     // Clear robot footprint
     // TODO (YUEZHAN): pass robot radius as param
     // TODO (YUEZHAN): fix val_free;
@@ -108,22 +112,81 @@ class PlanningServer {
       as_.setAborted();
       return;
     }
-    auto start_and_goal = populateStartGoal(msg);
-    const auto& [start, goal] = start_and_goal;
+    std::array<Eigen::VectorXd, 2> start_and_goal = populateStartGoal(msg);
+    auto [start, goal] = start_and_goal;
 
     ROS_INFO_STREAM("Planner start: " << start.transpose());
     ROS_INFO_STREAM("Planner goal: " << goal.transpose());
 
+    // todo check freshness of last traj
+    // todo check if too close to end of traj and then switch to next segment
+    int planner_start_index = 0;
+    Eigen::VectorXd cropped_start(graph_.state_dim());
+    Eigen::MatrixXd cropped_poly_coeffs;
+    float poly_time_elapsed = 0;
+    bool compute_first_mp = tracker_traj_.data.size() > 0 &&
+                            seg_num_ < tracker_traj_.data[0].segs.size() &&
+                            seg_num_ > -1;
+    if (compute_first_mp) {
+      planner_start_index = tracker_traj_.data[0].segs[seg_num_].end_index;
+      // planner_start_index =
+      //     graph_.NormIndex(tracker_traj_.data[0].segs[seg_num_].end_index);
+      auto mp = graph_.get_mp_between_indices(
+          tracker_traj_.data[0].segs[seg_num_].end_index,
+          tracker_traj_.data[0].segs[seg_num_].start_index);
+      Eigen::VectorXd seg_start(graph_.spatial_dim());
+      for (int i = 0; i < graph_.spatial_dim(); i++) {
+        seg_start(i) = tracker_traj_.data[i].segs[seg_num_].coeffs[0];
+      }
+      mp->translate(seg_start);
+      start = mp->end_state_;
+      start_and_goal[0] = start;
+      ROS_INFO_STREAM("planner uncropped start" << start.transpose());
+
+      Eigen::MatrixXd poly_coeffs(3,
+                                  tracker_traj_.data[0].segs[0].coeffs.size());
+      for (int i = 0; i < 3; i++) {
+        auto raw_coeffs = tracker_traj_.data[i].segs[seg_num_].coeffs;
+        std::vector<double> raw_coeffsD(raw_coeffs.begin(), raw_coeffs.end());
+        std::reverse(raw_coeffsD.begin(), raw_coeffsD.end());
+        Eigen::Map<Eigen::VectorXd> eigen_coeff(raw_coeffsD.data(),
+                                                raw_coeffsD.size());
+        poly_coeffs.row(i) = eigen_coeff;
+      }
+      float poly_start_time = 0;
+      for (int i = 0; i < seg_num_; i++) {
+        poly_start_time += tracker_traj_.data[0].segs[i].dt;
+      }
+      poly_time_elapsed = traj_time_elapsed_ - poly_start_time;
+      if (poly_time_elapsed < 0) poly_time_elapsed = 0;
+      cropped_poly_coeffs =
+          GraphSearch::shift_polynomial(poly_coeffs, poly_time_elapsed);
+
+      for (int i = 0; i < graph_.spatial_dim(); i++) {
+        cropped_start(i) =
+            cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 1);
+        cropped_start(graph_.spatial_dim() + i) =
+            cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 2);
+        if (graph_.control_space_dim() > 2) {
+          cropped_start(2 * graph_.spatial_dim() + i) =
+              cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 3);
+        }
+      }
+      ROS_INFO_STREAM("Cropped Start " << cropped_start.transpose());
+      ROS_INFO_STREAM("Traj time " << traj_time_elapsed_);
+
+    } else {
+      ROS_WARN("Unable to compute first MP, starting planner from rest.");
+    }
+
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
-                                   .distance_threshold = 0.5,
+                                   .distance_threshold = 2,
                                    .parallel_expand = true,
                                    .heuristic = "min_time",
-                                   .access_graph = false};
+                                   .access_graph = false,
+                                   .start_index = planner_start_index};
     if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
-
-    if (!last_nodes_.empty())
-      options.start_index = graph_.NormIndex(last_nodes_[seg_num_].state_index);
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
     Eigen::Vector3f map_start;
@@ -134,27 +197,25 @@ class PlanningServer {
 
     GraphSearch gs(graph_, voxel_map_, options);
 
-    last_nodes_.clear();
     auto [path, nodes] = gs.Search();
-    for (auto node : nodes) {  // TODO(laura) why isnt this being copied
-                               // correctly with equals
-      last_nodes_.push_back(node);
-    }
+
     if (path.empty()) {
       ROS_ERROR("Graph search failed, aborting action server.");
       as_.setAborted();
       return;
     }
-    auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
-        options.start_state, path[0]->end_state_);
-    Eigen::MatrixXd new_poly_coeffs =
-        gs.shift_polynomial(path[0]->poly_coeffs_, traj_time_elapsed_);
-    float new_traj_time = path[0]->traj_time_ - traj_time_elapsed_;
-    first_mp->populate(0, new_traj_time, new_poly_coeffs);
-    // path.erase(path.begin());
-    path[0] = first_mp;
-    ROS_INFO_STREAM(options.start_state);
-    ROS_INFO_STREAM(path[0]->start_state_);
+    if (compute_first_mp) {
+      auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
+          cropped_start, path[0]->start_state_);
+
+      float new_traj_time = tracker_traj_.data[0].segs[seg_num_].dt - poly_time_elapsed;
+      first_mp->populate(
+          0, new_traj_time, cropped_poly_coeffs, tracker_traj_.data[0].segs[seg_num_].start_index,
+          path[0]->start_index_);  // todo what to do if next planner query is
+                                   // also in the middle of the same first_mp
+      path.insert(path.begin(), first_mp);
+      // path[0] = first_mp;
+    }
 
     ROS_INFO("Graph search succeeded.");
     planning_ros_msgs::PlanTwoPointResult result;
@@ -167,11 +228,15 @@ class PlanningServer {
     result.traj = path_to_spline_traj_msg(path, result.traj.header,
                                           msg->p_init.position.z);
     spline_traj_pub_.publish(result.traj);
-    traj_vis_pub_.publish(path_to_traj_msg(path, result.traj.header));
     as_.setSucceeded(result);
   }
+
   void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {
     voxel_map_ = *msg;
+  }
+
+  void trajTrackerCB(const planning_ros_msgs::SplineTrajectory::ConstPtr& msg) {
+    tracker_traj_ = *msg;
   }
 
   void trajFeedbackCB(

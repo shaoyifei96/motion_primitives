@@ -4,7 +4,7 @@
     name="graph_search_node"
     output="screen" 
     >
-    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/dispersionopt101.json"/>
+    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/50.json"/>
     <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
     <param name="map_topic" value="/voxel_map"/>
     <rosparam param="start_state">[12.5,1.4,0,0]</rosparam>

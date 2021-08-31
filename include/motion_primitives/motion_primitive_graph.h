@@ -34,6 +34,8 @@ class MotionPrimitive {
   Eigen::VectorXd end_state_;
   Eigen::VectorXd max_state_;
 
+  int start_index_;
+  int end_index_;
   double cost_;
   double traj_time_;
   Eigen::MatrixXd poly_coeffs_;
@@ -51,10 +53,13 @@ class MotionPrimitive {
   virtual Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
   virtual void populate(double cost, double traj_time,
-                        const Eigen::MatrixXd& poly_coeffs) {
+                        const Eigen::MatrixXd& poly_coeffs, int start_index,
+                        int end_index) {
     cost_ = cost;
     traj_time_ = traj_time;
     poly_coeffs_ = poly_coeffs;
+    start_index_ = start_index;
+    end_index_ = end_index;
   }
 
   // Converts and add the dim-th component of the motion primitive to an
@@ -127,15 +132,16 @@ class MotionPrimitiveGraph {
   int control_space_dim() const noexcept { return state_dim_ / spatial_dim_; }
   int num_tiled_states() const noexcept { return edges_.rows(); }
   const auto& max_state() const noexcept { return max_state_; }
-  Eigen::MatrixXd vertices() const noexcept { return vertices_;}
+  Eigen::MatrixXd vertices() const noexcept { return vertices_; }
 
   bool HasEdge(int i, int j) const noexcept { return edges_(i, j) >= 0; }
   int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }
 
  private:
   std::vector<std::shared_ptr<MotionPrimitive>>
-      mps_;  // TODO(laura) maybe should be unique_ptr
-  Eigen::ArrayXXi edges_;
+      mps_;                // TODO(laura) maybe should be unique_ptr
+  Eigen::ArrayXXi edges_;  // indexing is kind of counterinuitive (end index =
+                           // row, start index = column)
   Eigen::MatrixXd vertices_;
   Eigen::VectorXd max_state_;
 

@@ -3,6 +3,7 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
 #include <planning_ros_msgs/Polynomial.h>
+#include <ros/console.h>
 
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -31,6 +32,9 @@ Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
   poly.degree = poly_coeffs_.cols() - 1;
   poly.basis = 0;
   poly.dt = traj_time_;
+  if (poly.dt < 0) ROS_ERROR("Negative time in traj");
+  poly.start_index = start_index_;
+  poly.end_index = end_index_;
   spline.t_total += traj_time_;
   Eigen::VectorXd p = poly_coeffs_.row(dim).reverse();
   std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
@@ -60,8 +64,9 @@ Spline RuckigMotionPrimitive::add_to_spline(Spline spline, int dim) {
     state = ruckig::Profile::integrate(poly.dt, p, v, a, j);
     spline.segments += 1;
     spline.segs.push_back(poly);
-    spline.t_total += poly.dt;
+    // spline.t_total += poly.dt;
   }
+  spline.t_total += ruckig_traj_.duration;
   return spline;
 }
 
@@ -217,9 +222,9 @@ void from_json(const nlohmann::json& json_data, MotionPrimitiveGraph& graph) {
         auto mp = MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
             graph.mp_type_name_, graph.spatial_dim_, start_state, end_state,
             graph.max_state_);
-        mp->populate(edge.at("cost"), edge.at("traj_time"), poly_coeffs);
+        mp->populate(edge.at("cost"), edge.at("traj_time"), poly_coeffs, j, i);
+        graph.edges_(i, j) = graph.mps_.size();
         graph.mps_.push_back(mp);
-        graph.edges_(i, j) = graph.mps_.size() - 1;
       } else {
         graph.edges_(i, j) = -1;  // TODO(laura) make constant
       }

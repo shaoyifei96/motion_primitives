@@ -42,9 +42,9 @@ class GraphSearch {
     bool parallel_expand{false};
     std::string heuristic{"min_time"};
     bool access_graph{false};
+    int start_index{0};
     double fixed_z{0};
     bool using_ros{true};
-    int start_index{0};
   };
   struct Node {
     static constexpr auto kInfCost = std::numeric_limits<double>::infinity();
@@ -73,8 +73,8 @@ class GraphSearch {
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
   const auto& timings() const noexcept { return timings_; }
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
-  Eigen::MatrixXd shift_polynomial(const Eigen::MatrixXd poly_coeffs,
-                                   float shift) const;
+  static Eigen::MatrixXd shift_polynomial(const Eigen::MatrixXd poly_coeffs,
+                                   float shift);
 
   // State is the real node
   // Node is a wrapper around state that also carries the cost info
@@ -135,8 +135,6 @@ class GraphSearch {
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                             double step_size = 0.1) const;
 
-  // Store combinatorial numbers
-  Eigen::Matrix<int, 11, 11> combinatorials_;
 };
 
 }  // namespace motion_primitives
