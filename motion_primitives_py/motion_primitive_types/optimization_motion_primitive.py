@@ -80,9 +80,13 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
             print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
         else:
             self.cost, self.traj, self.inputs = self.inner_bvp(self.optimal_dt, return_traj=True)
-            self.traj_time = self.optimal_dt * self.steps
-            time_vec = np.linspace(0, self.optimal_dt*(self.steps), self.traj.shape[0])
-            self.poly_coeffs = np.polyfit(time_vec, self.traj[:, :self.num_dims], self.n).T  # TODO what degree polynomial
+            if self.traj is None or self.cost == np.inf:
+                self.is_valid = False
+                print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
+            else:
+                self.traj_time = self.optimal_dt * self.steps
+                time_vec = np.linspace(0, self.optimal_dt*(self.steps), self.traj.shape[0])
+                self.poly_coeffs = np.polyfit(time_vec, self.traj[:, :self.num_dims], self.n).T  # TODO what degree polynomial
 
     def setup_bvp(self):
         self.state_variables = []
@@ -143,14 +147,17 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
             total_cost = np.inf
             print(f"inner bvp failure {self.start_state}, {self.end_state}")
         # print("Solution is {}".format(prob.status))
-        if return_traj and total_cost is not np.inf:
+        if return_traj:
+            trajectory = None
+            inputs = None
             try:
                 trajectory = np.array([state.value for state in self.state_variables])
                 inputs = np.array([control.value for control in self.input_variables])
-                return total_cost, trajectory, inputs
             except:
                 print("No trajectory to return")
-        return total_cost
+            return total_cost, trajectory, inputs
+        else:
+            return total_cost
 
     def plot_inner_bvp_sweep_t(self):
         plt.figure()
@@ -213,15 +220,13 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
 
 
 if __name__ == "__main__":
-    from pycallgraph import PyCallGraph, Config
-    from pycallgraph.output import GraphvizOutput
     import time
 
     rho = 1e-3
     max_t = 10
     num_dims = 2
 
-    start_state = np.array([0.63703125, 0.63703125, 0.40109375, 1.48640625]) *1e1 # initial state
+    start_state = np.array([0.63703125, 0.63703125, 0.40109375, 1.48640625]) # initial state
     end_state = np.array([0.,  0, 0.,  0., ])  # terminal state
     # end_state = np.zeros(num_dims*control_space_q)  # terminal state
     max_state = [0, 1.51, 5, 100]
