@@ -123,16 +123,21 @@ class PlanningServer {
     bool compute_first_mp = last_traj.data.size() > 0;
     int seg_num = -1;
     double mp_time;
-    double poly_start_time = 0;
+    double finished_segs_time = 0;
     std::shared_ptr<MotionPrimitive> mp;
+
+    // If we received a last trajectory, we want to use it to create a new
+    // trajectory that starts on with the segment of the old trajectory that we
+    // are flying on, at the requested eval time (which is a little bit in the
+    // future of where its currently flying). With a slight abuse of notation, I
+    // will refer to this as the "current segment"
     if (compute_first_mp) {
-      // Figure out which segment of the last trajectory we will be at at the
-      // requested eval time
+      // Figure out which segment of the last trajectory is the current segment
       for (int i = 0; i < last_traj.data[0].segments; i++) {
         auto seg = last_traj.data[0].segs[i];
-        poly_start_time += seg.dt;
-        if (poly_start_time > eval_time) {
-          poly_start_time -= seg.dt;
+        finished_segs_time += seg.dt;
+        if (finished_segs_time > eval_time) {
+          finished_segs_time -= seg.dt;
           seg_num = i;
           break;
         }
@@ -140,37 +145,46 @@ class PlanningServer {
       // todo(laura) what to do if eval time is past the end of the traj
       if (seg_num == -1) seg_num = last_traj.data[0].segments - 1;
       ROS_INFO_STREAM("Seg num " << seg_num);
-      ROS_INFO_STREAM("Poly start time " << poly_start_time);
-      ROS_INFO_STREAM("Eval time " << eval_time);
 
-      // Planner will start at the end of the segment we are evaluating at. Will
-      // add a custom first primtive after the planner runs
+      // The planner will start at the end of the current segment, so we get its
+      // end index.
       planner_start_index = last_traj.data[0].segs[seg_num].end_index;
 
-      // Recover Motion Primitive from the graph using the indices
+      // Recover the current segment's motion primitive from the planning graph
       mp = graph_.get_mp_between_indices(
           last_traj.data[0].segs[seg_num].end_index,
           last_traj.data[0].segs[seg_num].start_index);
-      Eigen::VectorXd seg_start(graph_.spatial_dim());
+
+      // The raw MP from the graph is not in correct translation. We want the
+      // absolute position of the planner to start from the end of the current
+      // segment.
+
+      // We calculate the MP from the last traj's coefficients, being careful to
+      // use Mike's parameterization, not the one inside motion_primitives
+      Eigen::VectorXd seg_end(graph_.spatial_dim());
       for (int i = 0; i < graph_.spatial_dim(); i++) {
-        seg_start(i) = last_traj.data[i].segs[seg_num].coeffs[0];
+        for (int j = 0; j < last_traj.data[i].segs[seg_num].degree; j++) {
+          auto coeffs = last_traj.data[i].segs[seg_num].coeffs;
+          double time = last_traj.data[i].segs[seg_num].dt;
+          // all traj's are scaled to be duration 1 in Mike's parameterization
+          seg_end(i) += coeffs[j];
+        }
       }
-      // MP from graph is not in correct translation, it must be moved to the
-      // time 0 point of the segment (retrieved using the first
-      // polynomial coefficient). We also want the absolute position of the
-      // planner to start from the end of the segment we are on.
-      mp->translate(seg_start);
+      // Translate the MP to the right place
+      mp->translate_using_end(seg_end);
       mp_time = mp->traj_time_;
+      // Set the planner to start from the MP's end state (should be the same as
+      // seg_end)
       start = mp->end_state_;
       start_and_goal[0] = start;
-      ROS_INFO_STREAM("planner uncropped start" << start.transpose());
+      ROS_INFO_STREAM("Planner adjusted start: " << start.transpose());
 
     } else {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
 
     double tol_pos;
-    pnh_.param("tol_pos", tol_pos, 0.5);
+    pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
 
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
@@ -186,6 +200,7 @@ class PlanningServer {
     map_start(0) = start(0);
     map_start(1) = start(1);
     map_start(2) = msg->p_init.position.z;
+    // Sets the voxel_map_ start to be collision free
     clear_footprint(map_start);
 
     GraphSearch gs(graph_, voxel_map_, options);
@@ -205,13 +220,21 @@ class PlanningServer {
       Eigen::MatrixXd cropped_poly_coeffs;
 
       double shift_time = 0;
+      // We need to shift the motion primitive to start at the eval_time. If we
+      // are the first segment, it might have been itself a cropped motion
+      // primitive, so the shift_time is a little more complicated.
+      // finished_segs_time is the total time of all the segments before the
+      // current segment.
       if (seg_num == 0)
         shift_time = (mp_time - last_traj.data[0].segs[0].dt) + eval_time;
       else
-        shift_time = eval_time - poly_start_time;
+        shift_time = eval_time - finished_segs_time;
+
       cropped_poly_coeffs =
           GraphSearch::shift_polynomial(mp->poly_coeffs_, shift_time);
 
+      // Use the polynomial coefficients to get the new start, which is
+      // hopefully the same as the planning query requested start.
       for (int i = 0; i < graph_.spatial_dim(); i++) {
         cropped_start(i) =
             cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 1);
@@ -222,7 +245,7 @@ class PlanningServer {
               cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 3);
         }
       }
-      ROS_INFO_STREAM("Cropped Start " << cropped_start.transpose());
+      ROS_INFO_STREAM("Cropped start " << cropped_start.transpose());
 
       auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
           cropped_start, path[0]->start_state_);
@@ -231,8 +254,9 @@ class PlanningServer {
       first_mp->populate(0, new_seg_time, cropped_poly_coeffs,
                          last_traj.data[0].segs[seg_num].start_index,
                          last_traj.data[0].segs[seg_num].end_index);
+      // Add the cropped motion primitive to the beginning of the planned
+      // trajectory
       path.insert(path.begin(), first_mp);
-      // path[0] = first_mp;
     }
 
     ROS_INFO("Graph search succeeded.");

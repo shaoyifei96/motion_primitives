@@ -21,6 +21,15 @@ void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {
   poly_coeffs_.col(poly_coeffs_.cols() - 1) = new_start.head(spatial_dim_);
 }
 
+void MotionPrimitive::translate_using_end(const Eigen::VectorXd& new_end) {
+  Eigen::VectorXd delta =
+      new_end.head(spatial_dim_) - end_state_.head(spatial_dim_);
+
+  start_state_.head(spatial_dim_) += delta;
+  end_state_.head(spatial_dim_) = new_end.head(spatial_dim_);
+  poly_coeffs_.col(poly_coeffs_.cols() - 1) = start_state_.head(spatial_dim_);
+}
+
 void RuckigMotionPrimitive::translate(const Eigen::VectorXd& new_start) {
   MotionPrimitive::translate(new_start);
   calculate_ruckig_traj();

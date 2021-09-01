@@ -46,6 +46,7 @@ class MotionPrimitive {
   // Moves the motion primitive to a new position by modifying it's start, end,
   // and polynomial coefficients
   virtual void translate(const Eigen::VectorXd& new_start);
+  virtual void translate_using_end(const Eigen::VectorXd& new_end);
 
   // Samples a motion primitive's position at regular temporal intervals
   // step_size apart.

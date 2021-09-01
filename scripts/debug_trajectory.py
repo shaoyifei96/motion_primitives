@@ -78,8 +78,9 @@ class CheckTrajectory():
                 velocity = []
                 for dt in np.arange(0, seg.dt, .02):
                     dts.append(dt)
-                    position.append(np.polyval(seg.coeffs[::-1], dt))
-                    velocity.append(np.polyval(np.polyder(seg.coeffs[::-1]), dt))
+                    position.append(np.polyval(seg.coeffs[::-1], dt/seg.dt))
+                    ratio = (1/seg.dt)
+                    velocity.append(ratio*np.polyval(np.polyder(seg.coeffs[::-1]), dt/seg.dt))
                 # self.ax[dim].plot(total_t + np.array(dts), position, '-k')
                 # self.ax[dim].plot(total_t + np.array(dts), velocity, '-b')
                 total_t += seg.dt
