@@ -30,6 +30,7 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         self.poly_coeffs = None
         self.poly_multiplier = None
         self.traj_time = 0
+        self.num_inner_bvp_failures = 0
         self.setup_bvp()
         self.outer_bvp()
         if self.is_valid:
@@ -77,12 +78,13 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         self.optimal_dt = sol.x
         self.is_valid = sol.success
         if not self.is_valid:
-            print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
+            pass
+            # print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
         else:
             self.cost, self.traj, self.inputs = self.inner_bvp(self.optimal_dt, return_traj=True)
             if self.traj is None or self.cost == np.inf:
                 self.is_valid = False
-                print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
+                # print(f"Did not find solution to outer BVP, {self.start_state},{self.end_state}")
             else:
                 self.traj_time = self.optimal_dt * self.steps
                 time_vec = np.linspace(0, self.optimal_dt*(self.steps), self.traj.shape[0])
@@ -117,13 +119,14 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         # obey terminal condition
         self.state_constraints.append(self.state_variables[-1] == self.end_state)
 
-
     def inner_bvp(self, dt, return_traj=False):
         """
         Computes an optimal MP between a start and goal state, under bounding box constraints with a given time interval (dt) allocation.
         Accomplishes this by constraining x(t) and u(t) at discrete steps to obey the input, state, and dynamic constraints.
         Note that it is parameterized by time step size (dt), with a fixed number of time steps set in the constructor.
         """
+        if self.num_inner_bvp_failures > 5:
+            return
 
         # Transform a continuous to a discrete state-space system, given dt
         sysd = cont2discrete((self.c_A, self.c_B, np.eye(self.n), 0), dt)
@@ -144,8 +147,9 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         try:
             total_cost = prob.solve()
         except:
+            self.num_inner_bvp_failures += 1
             total_cost = np.inf
-            print(f"inner bvp failure {self.start_state}, {self.end_state}")
+            # print(f"inner bvp failure {self.start_state}, {self.end_state}")
         # print("Solution is {}".format(prob.status))
         if return_traj:
             trajectory = None
@@ -154,7 +158,8 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
                 trajectory = np.array([state.value for state in self.state_variables])
                 inputs = np.array([control.value for control in self.input_variables])
             except:
-                print("No trajectory to return")
+                pass
+            #     print("No trajectory to return")
             return total_cost, trajectory, inputs
         else:
             return total_cost

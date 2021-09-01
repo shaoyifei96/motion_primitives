@@ -1,5 +1,5 @@
 name: cpplint-reviewdog
-on: [pull_request]
+on: [push]
 
 jobs:
   cpplint:
