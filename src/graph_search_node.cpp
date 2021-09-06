@@ -123,8 +123,10 @@ int main(int argc, char** argv) {
         gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
     visited_pub.publish(visited_marray);
     if (!path.empty()) {
-      const auto traj = path_to_traj_msg(path, voxel_map.header);
-      traj_pub.publish(traj);
+      if (path[0]->poly_coeffs_.size() <= 6) {
+        const auto traj = path_to_traj_msg(path, voxel_map.header);
+        traj_pub.publish(traj);
+      }
       const auto spline_traj = path_to_spline_traj_msg(path, voxel_map.header);
       spline_traj_pub.publish(spline_traj);
 

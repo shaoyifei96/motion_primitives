@@ -118,6 +118,10 @@ class PlanningServer {
 
     const planning_ros_msgs::SplineTrajectory last_traj = msg->last_traj;
     double eval_time = msg->eval_time;
+    bool access_graph;
+    pnh_.param("access_graph", access_graph, false);
+    double tol_pos;
+    pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
 
     int planner_start_index = 0;
     bool compute_first_mp = last_traj.data.size() > 0;
@@ -183,15 +187,13 @@ class PlanningServer {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
 
-    double tol_pos;
-    pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
 
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
                                    .parallel_expand = true,
                                    .heuristic = "min_time",
-                                   .access_graph = false,
+                                   .access_graph = access_graph,
                                    .start_index = planner_start_index};
     if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
 
@@ -270,9 +272,11 @@ class PlanningServer {
     result.traj = path_to_spline_traj_msg(path, result.traj.header,
                                           msg->p_init.position.z);
     spline_traj_pub_.publish(result.traj);
-    auto viz_traj_msg =
-        path_to_traj_msg(path, result.traj.header, msg->p_init.position.z);
-    viz_traj_pub_.publish(viz_traj_msg);
+    if (path[0]->poly_coeffs_.size() <= 6) {
+      auto viz_traj_msg =
+          path_to_traj_msg(path, result.traj.header, msg->p_init.position.z);
+      viz_traj_pub_.publish(viz_traj_msg);
+    }
     as_.setSucceeded(result);
   }
 

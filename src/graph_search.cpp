@@ -201,8 +201,11 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
   }
   path_nodes.push_back(*prev_node);
   if (options_.access_graph) {
-    path_mps.push_back(graph_.createMotionPrimitivePtrFromGraph(
-        prev_node->state, curr_node->state));
+    path_mps.push_back(std::make_shared<RuckigMotionPrimitive>(
+        graph_.spatial_dim_, prev_node->state, curr_node->state,
+        graph_.max_state_));
+    // path_mps.push_back(graph_.createMotionPrimitivePtrFromGraph(
+    //     prev_node->state, curr_node->state));
   } else {
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
   }
@@ -217,7 +220,7 @@ double GraphSearch::ComputeHeuristicMinTime(const State& v,
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
   // too slow otherwise with higher velocities.
-  return 1.1 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
+  return 1.0 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
          graph_.max_state()(1);
 }
 
@@ -364,8 +367,10 @@ auto GraphSearch::AccessGraph(const State& start_state) const
       // start_state(...)
       // end_state.head(spatial_dim()) = start_state.head(spatial_dim());
       end_state.head(spatial_dim()) += start_state.head(spatial_dim());
-      auto mp =
-          graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
+      auto mp = std::make_shared<RuckigMotionPrimitive>(
+          graph_.spatial_dim_, start_state, end_state, graph_.max_state_);
+      // auto mp =
+      // graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
       Node next_node;
       next_node.state_index = i;
       next_node.state = mp->end_state_;
@@ -381,6 +386,7 @@ auto GraphSearch::AccessGraph(const State& start_state) const
   } else {
     nodes.push_back(start_node);
   }
+  if (nodes.size() == 0) ROS_ERROR("Access graph failure");
   return std::make_pair(nodes, history);
 }
 

@@ -115,6 +115,8 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
                                              const Eigen::VectorXd& end_state,
                                              const Eigen::VectorXd& max_state)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
+  if (max_state.size()  < 4)
+    ROS_ERROR("Ruckig MP not valid for control space < 3");
   calculate_ruckig_traj();
 }
 
