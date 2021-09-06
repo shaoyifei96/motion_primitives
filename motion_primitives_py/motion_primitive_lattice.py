@@ -581,7 +581,6 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 
 if __name__ == "__main__":
-    # %%
     # https://pythonspeed.com/articles/python-multiprocessing/
     # prevent C++ logging from locking processes
     # set_start_method('spawn')
@@ -602,7 +601,6 @@ if __name__ == "__main__":
     check_backwards_dispersion = True
     mp_subclass_specific_data = {}
 
-    # %%
     # define parameters
     # control_space_q = 2
     # num_dims = 2
@@ -612,7 +610,6 @@ if __name__ == "__main__":
     # num_dense_samples = 100
     # num_output_pts = 20
 
-    # # # %%
     # motion_primitive_type = OptimizationMotionPrimitive
     # control_space_q = 2
     # num_dims = 2
@@ -621,15 +618,14 @@ if __name__ == "__main__":
     # num_dense_samples = 10
     # num_output_pts =20
 
-    # # # %%
     motion_primitive_type = ETHMotionPrimitive
     control_space_q = 2
     num_dims = 2
-    max_state = [1, 2, 3, 5]
+    max_state = [2, 5, 5]
     num_dense_samples = 100
     num_output_pts = 100
     mp_subclass_specific_data = {'rho': 10}
-    # %%
+
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     tic = time.time()
@@ -640,16 +636,15 @@ if __name__ == "__main__":
     # toc = time.time()
     # print(toc-tic)
     # mpl.limit_connections(2*mpl.dispersion)
-    # mpl.save(f"{pkg_path}data/lattices/lattice_test2.json")
+    mpl.save(f"{pkg_path}data/lattices/lattice_test.json")
 
-    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/2.json", plot)
+    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test.json", plot)
     # mpl.limit_connections(np.inf)
     mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)
     print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
     print(max([len([j for j in i if j != None]) for i in mpl.edges]))
 
-    # %%
     # plot
     plt.show()
 

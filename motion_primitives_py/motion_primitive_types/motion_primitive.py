@@ -24,10 +24,10 @@ class MotionPrimitive():
         self.is_valid = False
         self.cost = None
         self.traj_time = None
-        #TODO error out if start/end state violate max_state
+        # TODO error out if start/end state violate max_state
 
     @classmethod
-    def from_dict(cls, dict, num_dims, max_state):
+    def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
         """
         load a motion primitive from a dictionary
         """
@@ -35,7 +35,7 @@ class MotionPrimitive():
             mp = cls.__new__(cls)
             MotionPrimitive.__init__(mp, np.array(dict["start_state"]),
                                      np.array(dict["end_state"]),
-                                     num_dims, max_state)
+                                     num_dims, max_state, subclass_specific_data)
             mp.cost = dict["cost"]
             mp.traj_time = dict["traj_time"]
             mp.is_valid = True
@@ -107,32 +107,32 @@ class MotionPrimitive():
             axes[1].set_ylabel("Velocity")
             axes[2].set_ylabel("Acceleration")
             axes[3].set_ylabel("Jerk")
-            labels = ['x','y','z']
+            labels = ['x', 'y', 'z']
             for j in range(self.control_space_q+1):
                 for i in range(self.num_dims):
-                    axes[j].plot(sampling_array[0,:],sampling_array[j*self.num_dims+i+1,:],label=labels[i])
-                    if (j>0):
-                        axes[j].plot([0,sampling_array[0,-1]],[self.max_state[j],self.max_state[j]],'k--')
-                        axes[j].plot([0,sampling_array[0,-1]],[-self.max_state[j],-self.max_state[j]],'k--')
+                    axes[j].plot(sampling_array[0, :], sampling_array[j*self.num_dims+i+1, :], label=labels[i])
+                    if (j > 0):
+                        axes[j].plot([0, sampling_array[0, -1]], [self.max_state[j], self.max_state[j]], 'k--')
+                        axes[j].plot([0, sampling_array[0, -1]], [-self.max_state[j], -self.max_state[j]], 'k--')
             axes[0].legend()
 
         else:
             if ax is None:
                 ax = plt.gca()
             samples = sampling_array[1:1+self.num_dims, :]
-            if self.num_dims==2:
-                ax.plot(samples[0,:], samples[1,:], color=color, zorder=zorder)
-            elif self.num_dims==3:
-                ax.plot(samples[0,:], samples[1,:], samples[2,:], color=color, zorder=zorder)
+            if self.num_dims == 2:
+                ax.plot(samples[0, :], samples[1, :], color=color, zorder=zorder)
+            elif self.num_dims == 3:
+                ax.plot(samples[0, :], samples[1, :], samples[2, :], color=color, zorder=zorder)
 
-    def plot(self, position_only=False, ax=None, color=None, zorder=1, step_size = .1):
+    def plot(self, position_only=False, ax=None, color=None, zorder=1, step_size=.1):
         """
         Generate the sampled state and input trajectories and plot them
         """
         state_sampling = self.get_sampled_states(step_size=step_size)
         _, input_sampling = self.get_sampled_input(step_size=step_size)
         if state_sampling is not None and input_sampling is not None:
-            sampling_array = np.vstack((state_sampling,input_sampling))
+            sampling_array = np.vstack((state_sampling, input_sampling))
             self.plot_from_sampled_states(sampling_array, position_only, ax, color, zorder)
         else:
             print("Trajectory was not found")
@@ -145,7 +145,7 @@ class MotionPrimitive():
                 return False
         if self.__dict__.keys() != other.__dict__.keys():
             return False
-        return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__ if key is not 'subclass_specific_data')        
+        return all(np.array_equal(self.__dict__[key], other.__dict__[key]) for key in self.__dict__ if key is not 'subclass_specific_data')
 
     def __lt__(self, other):
         return self.cost < other.cost

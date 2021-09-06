@@ -16,6 +16,7 @@ class ETHMotionPrimitive(MotionPrimitive):
         self.is_valid = False
         self.traj_time = 0
         self.cost = np.inf
+        self.poly_coeffs = None
 
         self.calculate_trajectory()
 
@@ -28,6 +29,7 @@ class ETHMotionPrimitive(MotionPrimitive):
                 self.cost += np.linalg.norm(np.sum((su)**2 * st, axis=1))
 
     def calculate_trajectory(self):
+        self.is_valid = False
         dimension = self.num_dims
 
         derivative_to_optimize = derivative_order.SNAP
@@ -50,7 +52,6 @@ class ETHMotionPrimitive(MotionPrimitive):
         if segment_times[0] <= 0:
             return None
         parameters = NonlinearOptimizationParameters()
-
         opt = PolynomialOptimizationNonLinear(dimension, parameters)
         opt.setupFromVertices(vertices, segment_times, derivative_to_optimize)
 
@@ -58,15 +59,15 @@ class ETHMotionPrimitive(MotionPrimitive):
         opt.addMaximumMagnitudeConstraint(derivative_order.ACCELERATION, max_a)
 
         result_code = opt.optimize()
-        if result_code > 0:
-            trajectory = Trajectory()
-            opt.getTrajectory(trajectory)
-            self.traj_time = trajectory.get_segment_times()[0]
-            seg = trajectory.get_segments()[0]
-            self.is_valid = True
-            self.poly_coeffs = np.array([seg.getPolynomialsRef()[i].getCoefficients(0) for i in range(self.num_dims)])
-            return seg
-        return None
+        if result_code < 0:
+            return None
+        trajectory = Trajectory()
+        opt.getTrajectory(trajectory)
+        self.traj_time = trajectory.get_segment_times()[0]
+        seg = trajectory.get_segments()[0]
+        self.is_valid = True
+        self.poly_coeffs = np.array([seg.getPolynomialsRef()[i].getCoefficients(0) for i in range(self.num_dims)])
+        return seg
 
     def get_state(self, t, seg=None):
         if seg is None:
@@ -83,32 +84,52 @@ class ETHMotionPrimitive(MotionPrimitive):
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
         seg = self.calculate_trajectory()
-        st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
-        sampled_array = np.zeros((1+self.n, st.shape[0]))
-        sampled_array[0, :] = st
-        for i, t in enumerate(st):
-            sampled_array[1:, i] = self.get_state(t, seg)
-        return sampled_array
+        if self.is_valid:
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
+            sampled_array = np.zeros((1+self.n, st.shape[0]))
+            sampled_array[0, :] = st
+            for i, t in enumerate(st):
+                sampled_array[1:, i] = self.get_state(t, seg)
+            return sampled_array
+        return None
 
     def get_sampled_position(self, step_size=0.1):
         seg = self.calculate_trajectory()
-        st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
-        sp = np.zeros((1+self.num_dims, st.shape[0]))
-        for i, t in enumerate(st):
-            sp[1:, i] = seg.evaluate(t, 0)
-        return st, sp
+        if self.is_valid:
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
+            sp = np.zeros((self.num_dims, st.shape[0]))
+            for i, t in enumerate(st):
+                sp[:, i] = seg.evaluate(t, 0)
+            return st, sp
+        return None, None
 
     def get_input(self, t):
         seg = self.calculate_trajectory()
-        return seg.evaluate(t, self.control_space_q)
+        if self.is_valid:
+            return seg.evaluate(t, self.control_space_q)
+        return None
 
     def get_sampled_input(self, step_size=0.1):
-        seg = self.calculate_trajectory()
-        st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
-        su = np.zeros((1+self.num_dims, st.shape[0]))
-        for i, t in enumerate(st):
-            su[1:, i] = seg.evaluate(t, self.control_space_q)
-        return st, su
+        if self.is_valid:
+            seg = self.calculate_trajectory()
+            st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
+            su = np.zeros((1+self.num_dims, st.shape[0]))
+            for i, t in enumerate(st):
+                su[1:, i] = seg.evaluate(t, self.control_space_q)
+            return st, su
+        return None, None
+
+    def translate_start_position(self, start_pt):
+        self.poly_coeffs[:, -1] = start_pt
+        self.end_state[:self.num_dims] = self.end_state[:self.num_dims] - self.start_state[:self.num_dims] + start_pt
+        self.start_state[:self.num_dims] = start_pt
+
+    @classmethod
+    def from_dict(cls, dict, num_dims, max_state, subclass_specific_data={}):
+        mp = super().from_dict(dict, num_dims, max_state, subclass_specific_data)
+        if mp:
+            mp.calculate_trajectory()
+        return mp
 
 
 if __name__ == "__main__":
@@ -116,14 +137,12 @@ if __name__ == "__main__":
     from copy import deepcopy
 
     num_dims = 2
-    control_space_q = 3
+    control_space_q = 2
 
-    start_state = np.zeros((num_dims * control_space_q,))
-    end_state = np.ones((num_dims * control_space_q,))
+    start_state = [-0.921875, -0.734375, 17.1875,   -5.9375]
+    end_state = [-2, 0, 0, 0]
     # end_state = np.random.rand(num_dims * control_space_q,)*2
-    start_state[0] = 10
-    start_state[1] = -5
-    max_state = 2 * np.ones((control_space_q+1))
+    max_state = [1, 20, 30, 5]
 
     mp = ETHMotionPrimitive(start_state, end_state, num_dims, max_state)
 
