@@ -125,7 +125,7 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
         Accomplishes this by constraining x(t) and u(t) at discrete steps to obey the input, state, and dynamic constraints.
         Note that it is parameterized by time step size (dt), with a fixed number of time steps set in the constructor.
         """
-        if self.num_inner_bvp_failures > 5:
+        if self.num_inner_bvp_failures > 20:
             return
 
         # Transform a continuous to a discrete state-space system, given dt
@@ -227,26 +227,29 @@ class OptimizationMotionPrimitive(PolynomialMotionPrimitive):
 if __name__ == "__main__":
     import time
 
-    rho = 1e-3
-    max_t = 10
+    from pycallgraph import PyCallGraph, Config
+    from pycallgraph.output import GraphvizOutput
+    rho = 1e3
+    max_t = 20
     num_dims = 2
 
-    start_state = np.array([0.63703125, 0.63703125, 0.40109375, 1.48640625]) # initial state
-    end_state = np.array([0.,  0, 0.,  0., ])  # terminal state
+    start_state = np.array([0.63703125, 0.63703125, 1.9,1.9, 1,1])  # initial state
+    end_state = np.array([0.,  0, 0.,  0., 0, 0])  # terminal state
     # end_state = np.zeros(num_dims*control_space_q)  # terminal state
-    max_state = [0, 1.51, 5, 100]
-    subclass_specific_data = {'rho': rho, 'iterative_bvp_max_t': max_t}
+    max_state = [0, 2, 3, 10]
+    subclass_specific_data = {'rho': rho, 'iterative_bvp_max_t': max_t, 'iterative_bvp_steps' : 10}
 
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
+    with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=5)):
 
-    #     mp = OptimizationMotionPrimitive(start_state, end_state, num_dims, max_state,
-    #                                      subclass_specific_data=subclass_specific_data)
+        mp = OptimizationMotionPrimitive(start_state, end_state, num_dims, max_state,
+                                         subclass_specific_data=subclass_specific_data)
     t = time.time()
 
     mp = OptimizationMotionPrimitive(start_state, end_state, num_dims, max_state,
                                      subclass_specific_data=subclass_specific_data)
     elapsed = time.time() - t
     print(elapsed)
+    print(mp.traj_time)
 
     # mp.plot_inner_bvp_sweep_t()
     # mp.plot_outer_bvp_x()

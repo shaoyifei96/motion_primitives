@@ -6,7 +6,7 @@ import matplotlib.animation as animation
 import itertools
 import ujson as json
 import sys
-from multiprocessing import Pool
+from multiprocessing import Pool, set_start_method
 from copy import deepcopy
 
 
@@ -99,7 +99,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         return mp
 
     def multiprocessing_init(self):
-         # hacky stuff to avoid pickling lambda functions
+        # hacky stuff to avoid pickling lambda functions
         global mp_subclass_specific_data
         mp_subclass_specific_data = self.mp_subclass_specific_data
 
@@ -112,7 +112,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         """
         start_and_end_pts = list(itertools.product(start_pts, end_pts))
         dynamics = None
-        if 'dynamics' in self.mp_subclass_specific_data:
+        if self.mp_subclass_specific_data.get('dynamics', None) != None:
             dynamics = deepcopy(self.mp_subclass_specific_data['dynamics'])
             self.mp_subclass_specific_data['dynamics'] = None  # hacky stuff to avoid pickling lambda functions
         pool_output = pool.map(self.compute_mp, start_and_end_pts)
@@ -211,7 +211,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
             if np.isinf(min_score[index, 0]):
                 print("""WARNING: no new valid trajectories to *a* point in the
-                      sample set. Not exiting.""")
+                    sample set. Not exiting.""")
                 # raise SystemExit
 
             # save motion primitives in the adjacency matrix
@@ -226,14 +226,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
-            if dispersion_threshhold==-1 and self.dispersion!=np.inf:
+            if dispersion_threshhold == -1 and self.dispersion != np.inf:
                 copy = deepcopy(self)
                 asi_copy = deepcopy(actual_sample_indices)
                 asi_copy = asi_copy[:i+1]
                 copy.vertices = potential_sample_pts[asi_copy]
                 copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
                 copy.limit_connections(2*copy.dispersion)
-                disp_list = [i for i in self.dispersion_list if i!=np.inf]
+                disp_list = [i for i in self.dispersion_list if i != np.inf]
                 print(f"Saving at dispersion {self.dispersion:.2f}")
                 copy.save(f"{self.saving_file_prefix}{len(disp_list)}.json")
                 del copy
@@ -312,14 +312,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         if ax is None:
             _, ax = plt.subplots(1, 1, subplot_kw={'projection': {2: 'rectilinear', 3: '3d'}[self.num_dims]})
-        if self.num_dims==2:
+        if self.num_dims == 2:
             ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og', zorder=5)
             if self.num_tiles > 1:
                 ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'o', color='palegreen', zorder=4)
-        elif self.num_dims==3:
-            ax.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:,2], 'og', zorder=5)
+        elif self.num_dims == 3:
+            ax.plot(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], 'og', zorder=5)
             if self.num_tiles > 1:
-                ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], tiled_verts[:,2], 'o', color='palegreen', zorder=4)
+                ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], tiled_verts[:, 2], 'o', color='palegreen', zorder=4)
 
         if plot_mps:
             for i in range(len(self.edges)):
@@ -582,6 +582,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
 if __name__ == "__main__":
     # %%
+    # https://pythonspeed.com/articles/python-multiprocessing/
+    # prevent C++ logging from locking processes
+    # set_start_method('spawn')
     from motion_primitives_py import *
     import numpy as np
     import time
@@ -610,37 +613,36 @@ if __name__ == "__main__":
     # num_output_pts = 20
 
     # # # %%
-    # motion_primitive_type = PolynomialMotionPrimitive
+    # motion_primitive_type = OptimizationMotionPrimitive
     # control_space_q = 2
     # num_dims = 2
-    # max_state = [1.5, 1.5, 8, 10]
-    # mp_subclass_specific_data = {'iterative_bvp_dt': .1, 'iterative_bvp_max_t': 5, 'rho': 10}
-    # num_dense_samples = 1000
+    # max_state = [.5, 3,3,2]
+    # mp_subclass_specific_data = { 'iterative_bvp_max_t': 5, 'rho': 10}
+    # num_dense_samples = 10
     # num_output_pts =20
 
     # # # %%
-    motion_primitive_type = RuckigMotionPrimitive
-    control_space_q = 3
+    motion_primitive_type = ETHMotionPrimitive
+    control_space_q = 2
     num_dims = 2
-    max_state = [.5, 1.5, 2, 100]
-    num_dense_samples = 1000
-    num_output_pts = 20
-
+    max_state = [1, 2, 3, 5]
+    num_dense_samples = 100
+    num_output_pts = 100
+    mp_subclass_specific_data = {'rho': 10}
     # %%
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     tic = time.time()
-    mpl.saving_file_prefix = f"{pkg_path}data/lattices/"
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth"
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
-    toc = time.time()
-    print(toc-tic)
-    mpl.limit_connections(2*mpl.dispersion)
-    mpl.save(f"{pkg_path}data/lattices/lattice_test2.json")
+    # toc = time.time()
+    # print(toc-tic)
+    # mpl.limit_connections(2*mpl.dispersion)
+    # mpl.save(f"{pkg_path}data/lattices/lattice_test2.json")
 
-    # mpl = MotionPrimitiveLattice.load("/home/laura/dispersion_ws/src/motion_primitives_py/motion_primitives_py/data/polynomial_lattice4d_max_state[.51,1.51,15]_nds_40.json", plot)
-    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test2.json", plot)
+    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/2.json", plot)
     # mpl.limit_connections(np.inf)
     mpl.plot_config(plot_mps=True)
     # print(mpl.dispersion)
