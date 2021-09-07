@@ -14,43 +14,19 @@ jobs:
       - name: install apt deps
         run: |
           apt-get update
-          apt-get install -y libeigen3-dev libtbb-dev libgtest-dev
+          apt-get install -y libeigen3-dev libtbb-dev libgtest-dev python3-vcstool libgoogle-glog-dev ros-melodic-mav-msgs autoconf libtool
 
       - name: checkout motion_primitives
         uses: actions/checkout@v2
         with:
           path: src/motion_primitives
 
-      - name: checkout planning_ros_msgs
-        uses: actions/checkout@v2
-        with:
-          repository: ljarin/planning_ros_msgs
-          path: src/planning_ros_msgs
-
-      - name: checkout nlohmann json
-        uses: actions/checkout@v2
-        with:
-          repository: nlohmann/json
-          path: src/motion_primitives/external/json
-
-      - name: checkout googletest
-        uses: actions/checkout@v2
-        with:
-          repository: google/googletest
-          path: src/motion_primitives/external/googletest
-
-      - name: checkout ruckig
-        uses: actions/checkout@v2
-        with:
-          repository: ljarin/ruckig
-          path: src/motion_primitives/external/ruckig
-          ref: laura_dev
-
-      - name: checkout pybind
-        uses: actions/checkout@v2
-        with:
-          repository: pybind/pybind11
-          path: src/motion_primitives/external/ruckig/pybind11
+      - name: pull repos
+        shell: bash
+        run: |
+          cd src
+          cp motion_primitives/deps_https.repos .
+          vcs import < deps_https.repos
 
       - name: build googletest
         shell: bash
@@ -92,11 +68,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install numpy
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          cd src/motion_primitives
+          pip install -r requirements.txt
 
-      - name: Install local ruckig
+      - name: Install ruckig python
         run: |
           cd src/motion_primitives/external/ruckig
+          pip install .
+
+      - name: Install mav_traj_gen python
+        shell: bash
+        run: |
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          source devel/setup.bash
+          cd src/mav_trajectory_generation
           pip install .
 
       - name: Install package

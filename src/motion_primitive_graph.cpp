@@ -125,9 +125,9 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
                                        const Eigen::VectorXd& start_state,
                                        const Eigen::VectorXd& end_state,
                                        const Eigen::VectorXd& max_state,
-                                       bool compute)
+                                       bool heuristic)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
-  if (compute) {
+  if (heuristic) {
     // 3 Dimensional trajectory => through carteisan space, no orientation
     const int dimension = spatial_dim_;
 
@@ -145,15 +145,15 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
                         start_state_.segment(spatial_dim_, spatial_dim_));
     end.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
                       end_state_.head(spatial_dim_));
-    end.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
-                      end_state_.segment(spatial_dim_, spatial_dim_));
+    // end.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
+    //                   end_state_.segment(spatial_dim_, spatial_dim_));
     if (start_state_.size() / spatial_dim_ > 2) {
       start.addConstraint(
           mav_trajectory_generation::derivative_order::ACCELERATION,
           start_state_.segment(spatial_dim_ * 2, spatial_dim_));
-      end.addConstraint(
-          mav_trajectory_generation::derivative_order::ACCELERATION,
-          end_state_.segment(spatial_dim_ * 2, spatial_dim_));
+      // end.addConstraint(
+      //     mav_trajectory_generation::derivative_order::ACCELERATION,
+      //     end_state_.segment(spatial_dim_ * 2, spatial_dim_));
     }
 
     vertices.push_back(start);
@@ -184,14 +184,16 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
     opt.optimize();
 
     // get trajectory as polynomial parameters
-    mav_trajectory_generation::Trajectory trajectory;
-    opt.getTrajectory(&(trajectory));
-    traj_time_ = trajectory.getSegmentTimes()[0];
-    mav_trajectory_generation::Segment seg = trajectory.segments()[0];
-    for (int i = 0; i < spatial_dim_; i++) {
-      poly_coeffs_.row(i) = seg.getPolynomialsRef()[i].getCoefficients(0);
-    }
-    cost_ = opt.getTotalCostWithSoftConstraints();
+    // mav_trajectory_generation::Trajectory trajectory;
+    // opt.getTrajectory(&(trajectory));
+    // traj_time_ = trajectory.getSegmentTimes()[0];
+    // mav_trajectory_generation::Segment seg = trajectory.segments()[0];
+    // for (int i = 0; i < spatial_dim_; i++) {
+    //   poly_coeffs_.row(i) = seg.getPolynomialsRef()[i].getCoefficients(0);
+    // }
+    // cost_ = opt.getTotalCostWithoutSoftConstraints();
+    // cost_ = opt.getTotalCostWithSoftConstraints();
+    cost_ = opt.getTotalTimeCost();
   }
 }
 

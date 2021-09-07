@@ -234,6 +234,7 @@ double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
 }
 double GraphSearch::ComputeHeuristicETHBVP(const State& v,
                                            const State& goal_state) const {
+  // Not consistent, don't actually use
   auto mp =
       ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_, true);
   return mp.cost_;

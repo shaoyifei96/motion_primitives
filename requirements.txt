@@ -1,5 +1,6 @@
 wheel==0.34.2
 attrs==20.3.0
+catkin-pkg==0.4.23
 cycler==0.10.0
 flake8==3.8.4
 importlib-metadata==3.1.0

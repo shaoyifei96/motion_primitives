@@ -111,8 +111,8 @@ class ETHMotionPrimitive final : public MotionPrimitive {
  public:
   ETHMotionPrimitive() = default;
   ETHMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
-                        const Eigen::VectorXd& end_state,
-                        const Eigen::VectorXd& max_state, bool compute = false);
+                     const Eigen::VectorXd& end_state,
+                     const Eigen::VectorXd& max_state, bool heuristic = false);
 };
 
 class MotionPrimitiveGraph {
