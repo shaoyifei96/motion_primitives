@@ -8,6 +8,8 @@ from copy import copy
 from mav_traj_gen import *
 import time
 
+# TODO(laura) fix so not recomputing the trajectory at graph search time (see polynomial MP setup)
+
 
 class ETHMotionPrimitive(MotionPrimitive):
 
@@ -18,15 +20,17 @@ class ETHMotionPrimitive(MotionPrimitive):
         self.cost = np.inf
         self.poly_coeffs = None
 
-        self.calculate_trajectory()
+        seg, cost = self.calculate_trajectory()
 
         if self.is_valid:
-            if self.subclass_specific_data.get('rho') is None:
-                self.cost = self.traj_time
-            else:
-                self.cost = self.traj_time * self.subclass_specific_data['rho']
-                st, su = self.get_sampled_input()
-                self.cost += np.linalg.norm(np.sum((su)**2 * st, axis=1))
+            self.cost = cost
+            # self.cost = self.traj_time
+            # if self.subclass_specific_data.get('rho') is None:
+            #     self.cost = self.traj_time
+            # else:
+            #     self.cost = self.traj_time * self.subclass_specific_data['rho']
+            #     st, su = self.get_sampled_input()
+            #     self.cost += np.linalg.norm(np.sum((su)**2 * st, axis=1))
 
     def calculate_trajectory(self):
         self.is_valid = False
@@ -50,8 +54,9 @@ class ETHMotionPrimitive(MotionPrimitive):
         max_a = self.max_state[2]
         segment_times = estimateSegmentTimes(vertices, max_v, max_a)
         if segment_times[0] <= 0:
-            return None
+            return None, None
         parameters = NonlinearOptimizationParameters()
+        self.rho = parameters.time_penalty #TODO(laura) propogate back to graph
         opt = PolynomialOptimizationNonLinear(dimension, parameters)
         opt.setupFromVertices(vertices, segment_times, derivative_to_optimize)
 
@@ -60,18 +65,20 @@ class ETHMotionPrimitive(MotionPrimitive):
 
         result_code = opt.optimize()
         if result_code < 0:
-            return None
+            return None, None
         trajectory = Trajectory()
         opt.getTrajectory(trajectory)
         self.traj_time = trajectory.get_segment_times()[0]
         seg = trajectory.get_segments()[0]
         self.is_valid = True
         self.poly_coeffs = np.array([seg.getPolynomialsRef()[i].getCoefficients(0) for i in range(self.num_dims)])
-        return seg
+        self.poly_coeffs = np.flip(self.poly_coeffs,axis=1)
+        cost = opt.getTotalCostWithSoftConstraints()
+        return seg, cost
 
     def get_state(self, t, seg=None):
         if seg is None:
-            seg = self.calculate_trajectory()
+            seg, cost = self.calculate_trajectory()
         if seg is not None:
             state = np.zeros(self.n)
             for i in range(self.control_space_q):
@@ -83,7 +90,7 @@ class ETHMotionPrimitive(MotionPrimitive):
         Return an array consisting of sample times and a sampling of the trajectory for plotting 
         Will be specific to the subclass, so we raise an error if the subclass has not implemented it
         """
-        seg = self.calculate_trajectory()
+        seg, cost = self.calculate_trajectory()
         if self.is_valid:
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             sampled_array = np.zeros((1+self.n, st.shape[0]))
@@ -94,7 +101,7 @@ class ETHMotionPrimitive(MotionPrimitive):
         return None
 
     def get_sampled_position(self, step_size=0.1):
-        seg = self.calculate_trajectory()
+        seg, cost = self.calculate_trajectory()
         if self.is_valid:
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
             sp = np.zeros((self.num_dims, st.shape[0]))
@@ -104,18 +111,18 @@ class ETHMotionPrimitive(MotionPrimitive):
         return None, None
 
     def get_input(self, t):
-        seg = self.calculate_trajectory()
+        seg, cost = self.calculate_trajectory()
         if self.is_valid:
             return seg.evaluate(t, self.control_space_q)
         return None
 
     def get_sampled_input(self, step_size=0.1):
         if self.is_valid:
-            seg = self.calculate_trajectory()
+            seg, cost = self.calculate_trajectory()
             st = np.linspace(0, self.traj_time, int(np.ceil(self.traj_time/step_size)+1))
-            su = np.zeros((1+self.num_dims, st.shape[0]))
+            su = np.zeros((self.num_dims, st.shape[0]))
             for i, t in enumerate(st):
-                su[1:, i] = seg.evaluate(t, self.control_space_q)
+                su[:, i] = seg.evaluate(t, derivative_order.SNAP)
             return st, su
         return None, None
 
@@ -131,6 +138,15 @@ class ETHMotionPrimitive(MotionPrimitive):
             mp.calculate_trajectory()
         return mp
 
+    def to_dict(self):
+        """
+        Write important attributes of motion primitive to a dictionary
+        """
+        dict = super().to_dict()
+        if dict:
+            dict["polys"] = self.poly_coeffs.tolist()
+        return dict
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -139,10 +155,10 @@ if __name__ == "__main__":
     num_dims = 2
     control_space_q = 2
 
-    start_state = [-0.921875, -0.734375, 17.1875,   -5.9375]
+    start_state = [1, 1, 1, 1]
     end_state = [-2, 0, 0, 0]
     # end_state = np.random.rand(num_dims * control_space_q,)*2
-    max_state = [1, 20, 30, 5]
+    max_state = [1, 2, 3, 5]
 
     mp = ETHMotionPrimitive(start_state, end_state, num_dims, max_state)
 

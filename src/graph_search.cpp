@@ -220,7 +220,7 @@ double GraphSearch::ComputeHeuristicMinTime(const State& v,
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
   // too slow otherwise with higher velocities.
-  return 1.0 * graph_.rho() * x.lpNorm<Eigen::Infinity>() /
+  return graph_.rho() * x.lpNorm<Eigen::Infinity>() /
          graph_.max_state()(1);
 }
 
@@ -230,6 +230,11 @@ double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
   // useless MP
   auto mp =
       RuckigMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_);
+  return mp.cost_;
+}
+double GraphSearch::ComputeHeuristicETHBVP(const State& v,
+                                           const State& goal_state) const {
+  auto mp = ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_);
   return mp.cost_;
 }
 
@@ -396,7 +401,7 @@ Eigen::MatrixXd GraphSearch::shift_polynomial(const Eigen::MatrixXd poly_coeffs,
   static Eigen::Matrix<int, 11, 11> combinatorials_ =
       (Eigen::Matrix<int, 11, 11>() << 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0,
        0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0,
-       0, 0, 0, 0, 0, 0, 1, 4, 6, 4, 1, 0, 0, 0, 0, 0, 0, 1, 5, 0, 10, 5, 1, 0,
+       0, 0, 0, 0, 0, 0, 1, 4, 6, 4, 1, 0, 0, 0, 0, 0, 0, 1, 5, 10, 10, 5, 1, 0,
        0, 0, 0, 0, 1, 6, 15, 20, 15, 6, 1, 0, 0, 0, 0, 1, 7, 21, 35, 35, 21, 7,
        1, 0, 0, 0, 1, 8, 28, 56, 70, 56, 28, 8, 1, 0, 0, 1, 9, 36, 84, 126, 126,
        84, 36, 9, 1, 0, 1, 10, 45, 120, 210, 252, 210, 120, 45, 10, 1)

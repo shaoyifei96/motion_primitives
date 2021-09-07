@@ -167,7 +167,7 @@ class PlanningServer {
       // use Mike's parameterization, not the one inside motion_primitives
       Eigen::VectorXd seg_end(graph_.spatial_dim());
       for (int i = 0; i < graph_.spatial_dim(); i++) {
-        for (int j = 0; j < last_traj.data[i].segs[seg_num].degree; j++) {
+        for (int j = 0; j < last_traj.data[i].segs[seg_num].degree + 1; j++) {
           auto coeffs = last_traj.data[i].segs[seg_num].coeffs;
           double time = last_traj.data[i].segs[seg_num].dt;
           // all traj's are scaled to be duration 1 in Mike's parameterization
