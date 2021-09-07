@@ -103,6 +103,7 @@ class GraphSearch {
   double ComputeHeuristicRuckigBVP(const State& v,
                                    const State& goal_state) const;
   double ComputeHeuristicMinTime(const State& v, const State& goal_state) const;
+  double ComputeHeuristicETHBVP(const State& v, const State& goal_state) const;
 
   // Stores all visited states
   std::vector<Node> Expand(const Node& node, const State& goal_state) const;
@@ -133,7 +134,7 @@ class GraphSearch {
   // Samples motion primitive along step_size time steps and checks for
   // collisions
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
-                            double step_size = 0.1) const;
+                            double step_size = 0.05) const;
 };
 
 }  // namespace motion_primitives

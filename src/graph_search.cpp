@@ -37,6 +37,7 @@ GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
       &motion_primitives::GraphSearch::ComputeHeuristicZero;
   heuristic_types_map_["ruckig_bvp"] = &GraphSearch::ComputeHeuristicRuckigBVP;
   heuristic_types_map_["min_time"] = &GraphSearch::ComputeHeuristicMinTime;
+  heuristic_types_map_["eth_bvp"] = &GraphSearch::ComputeHeuristicETHBVP;
   ROS_INFO("Heuristic type: %s", options_.heuristic.c_str());
   ROS_INFO("Access graph: %d", options_.access_graph);
   if (heuristic_types_map_.count(options_.heuristic) == 0) {
@@ -220,8 +221,7 @@ double GraphSearch::ComputeHeuristicMinTime(const State& v,
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
   // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
   // too slow otherwise with higher velocities.
-  return graph_.rho() * x.lpNorm<Eigen::Infinity>() /
-         graph_.max_state()(1);
+  return graph_.rho() * x.lpNorm<Eigen::Infinity>() / graph_.max_state()(1);
 }
 
 double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
@@ -234,7 +234,8 @@ double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
 }
 double GraphSearch::ComputeHeuristicETHBVP(const State& v,
                                            const State& goal_state) const {
-  auto mp = ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_);
+  auto mp =
+      ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_, true);
   return mp.cost_;
 }
 

@@ -37,6 +37,7 @@
     <depend>planning_ros_msgs</depend>
     <depend>rosbag</depend>
     <depend>actionlib</depend>
+    <depend>mav_trajectory_generation</depend>
   <!--   Note that this is equivalent to the following: -->
   <!--   <build_depend>roscpp</build_depend> -->
   <!--   <exec_depend>roscpp</exec_depend> -->

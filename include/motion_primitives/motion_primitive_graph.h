@@ -107,6 +107,14 @@ class RuckigMotionPrimitive final : public MotionPrimitive {
   }
 };
 
+class ETHMotionPrimitive final : public MotionPrimitive {
+ public:
+  ETHMotionPrimitive() = default;
+  ETHMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
+                        const Eigen::VectorXd& end_state,
+                        const Eigen::VectorXd& max_state, bool compute = false);
+};
+
 class MotionPrimitiveGraph {
   friend class GraphSearch;
   friend void from_json(const nlohmann::json& json_data,

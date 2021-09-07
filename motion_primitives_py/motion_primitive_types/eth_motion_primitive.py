@@ -56,7 +56,7 @@ class ETHMotionPrimitive(MotionPrimitive):
         if segment_times[0] <= 0:
             return None, None
         parameters = NonlinearOptimizationParameters()
-        self.rho = parameters.time_penalty #TODO(laura) propogate back to graph
+        self.rho = parameters.time_penalty #TODO(laura) propagate back to graph
         opt = PolynomialOptimizationNonLinear(dimension, parameters)
         opt.setupFromVertices(vertices, segment_times, derivative_to_optimize)
 

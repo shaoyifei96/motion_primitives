@@ -2,6 +2,7 @@
 
 #include "motion_primitives/motion_primitive_graph.h"
 
+#include <mav_trajectory_generation/polynomial_optimization_nonlinear.h>
 #include <planning_ros_msgs/Polynomial.h>
 #include <ros/console.h>
 
@@ -115,9 +116,83 @@ RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
                                              const Eigen::VectorXd& end_state,
                                              const Eigen::VectorXd& max_state)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
-  if (max_state.size()  < 4)
+  if (max_state.size() < 4)
     ROS_ERROR("Ruckig MP not valid for control space < 3");
   calculate_ruckig_traj();
+}
+
+ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
+                                       const Eigen::VectorXd& start_state,
+                                       const Eigen::VectorXd& end_state,
+                                       const Eigen::VectorXd& max_state,
+                                       bool compute)
+    : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
+  if (compute) {
+    // 3 Dimensional trajectory => through carteisan space, no orientation
+    const int dimension = spatial_dim_;
+
+    // Array for all waypoints and their constrains
+    mav_trajectory_generation::Vertex::Vector vertices;
+
+    // // Optimze up to 4th order derivative (SNAP)
+    const int derivative_to_optimize =
+        mav_trajectory_generation::derivative_order::SNAP;
+
+    mav_trajectory_generation::Vertex start(dimension), end(dimension);
+    start.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
+                        start_state_.head(spatial_dim_));
+    start.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
+                        start_state_.segment(spatial_dim_, spatial_dim_));
+    end.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
+                      end_state_.head(spatial_dim_));
+    end.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
+                      end_state_.segment(spatial_dim_, spatial_dim_));
+    if (start_state_.size() / spatial_dim_ > 2) {
+      start.addConstraint(
+          mav_trajectory_generation::derivative_order::ACCELERATION,
+          start_state_.segment(spatial_dim_ * 2, spatial_dim_));
+      end.addConstraint(
+          mav_trajectory_generation::derivative_order::ACCELERATION,
+          end_state_.segment(spatial_dim_ * 2, spatial_dim_));
+    }
+
+    vertices.push_back(start);
+    vertices.push_back(end);
+
+    // estimate initial segment times
+    std::vector<double> segment_times;
+    segment_times =
+        estimateSegmentTimes(vertices, max_state_[1], max_state_[2]);
+
+    // Set up polynomial solver with default params
+    mav_trajectory_generation::NonlinearOptimizationParameters parameters;
+
+    // set up optimization problem
+    const int N = 10;
+    mav_trajectory_generation::PolynomialOptimizationNonLinear<N> opt(
+        dimension, parameters);
+    opt.setupFromVertices(vertices, segment_times, derivative_to_optimize);
+
+    // constrain velocity and acceleration
+    opt.addMaximumMagnitudeConstraint(
+        mav_trajectory_generation::derivative_order::VELOCITY, max_state_[1]);
+    opt.addMaximumMagnitudeConstraint(
+        mav_trajectory_generation::derivative_order::ACCELERATION,
+        max_state_[2]);
+
+    // solve trajectory
+    opt.optimize();
+
+    // get trajectory as polynomial parameters
+    mav_trajectory_generation::Trajectory trajectory;
+    opt.getTrajectory(&(trajectory));
+    traj_time_ = trajectory.getSegmentTimes()[0];
+    mav_trajectory_generation::Segment seg = trajectory.segments()[0];
+    for (int i = 0; i < spatial_dim_; i++) {
+      poly_coeffs_.row(i) = seg.getPolynomialsRef()[i].getCoefficients(0);
+    }
+    cost_ = opt.getTotalCostWithSoftConstraints();
+  }
 }
 
 void RuckigMotionPrimitive::calculate_ruckig_traj() {
@@ -196,7 +271,10 @@ MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
              type_name == "OptimizationMotionPrimitive") {
     return createMotionPrimitivePtr<PolynomialMotionPrimitive>(
         spatial_dim, start_state, end_state, max_state);
-  } else {
+  } else if (type_name == "ETHMotionPrimitive")
+    return createMotionPrimitivePtr<ETHMotionPrimitive>(
+        spatial_dim, start_state, end_state, max_state);
+  else {
     throw;
   }
 }
