@@ -56,7 +56,9 @@ class ETHMotionPrimitive(MotionPrimitive):
         if segment_times[0] <= 0:
             return None, None
         parameters = NonlinearOptimizationParameters()
-        self.rho = parameters.time_penalty #TODO(laura) propagate back to graph
+        rho = self.subclass_specific_data.get('rho', None)
+        if rho is not None:
+            parameters.time_penalty = rho
         opt = PolynomialOptimizationNonLinear(dimension, parameters)
         opt.setupFromVertices(vertices, segment_times, derivative_to_optimize)
 
@@ -159,8 +161,8 @@ if __name__ == "__main__":
     end_state = [-2, 0, 0, 0]
     # end_state = np.random.rand(num_dims * control_space_q,)*2
     max_state = [1, 2, 3, 5]
-
-    mp = ETHMotionPrimitive(start_state, end_state, num_dims, max_state)
+    subclass_data = {'rho':1}
+    mp = ETHMotionPrimitive(start_state, end_state, num_dims, max_state, subclass_specific_data=subclass_data)
 
     mp.plot(position_only=False)
     # plt.plot(start_state[0], start_state[1], 'og')
