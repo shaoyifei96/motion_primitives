@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import itertools
 import ujson as json
-import sys
+import os
 from multiprocessing import Pool, set_start_method
 from copy import deepcopy
 
@@ -65,6 +65,14 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         self.dispersion_list = [x for x in self.dispersion_list if x != np.inf]
         if self.dispersion == np.inf:
             self.dispersion = 0
+
+        if not os.path.exists(os.path.dirname(filename)):
+            try:
+                os.makedirs(os.path.dirname(filename))
+            except OSError as exc: # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
+
         with open(filename, "w") as output_file:
             print("Saving lattice to", filename, "...")
             saved_params = {"mp_type": self.motion_primitive_type.__name__,
@@ -630,7 +638,7 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     tic = time.time()
-    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth3/eth"
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth"
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
