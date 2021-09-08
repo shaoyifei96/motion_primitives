@@ -36,7 +36,8 @@ class ETHMotionPrimitive(MotionPrimitive):
         self.is_valid = False
         dimension = self.num_dims
 
-        derivative_to_optimize = derivative_order.SNAP
+        derivative_to_optimize = derivative_order.JERK
+        # derivative_to_optimize = derivative_order.SNAP
 
         start = Vertex(dimension)
         end = Vertex(dimension)
@@ -74,7 +75,7 @@ class ETHMotionPrimitive(MotionPrimitive):
         seg = trajectory.get_segments()[0]
         self.is_valid = True
         self.poly_coeffs = np.array([seg.getPolynomialsRef()[i].getCoefficients(0) for i in range(self.num_dims)])
-        self.poly_coeffs = np.flip(self.poly_coeffs,axis=1)
+        self.poly_coeffs = np.flip(self.poly_coeffs, axis=1)
         cost = opt.getTotalCostWithSoftConstraints()
         return seg, cost
 
@@ -161,7 +162,7 @@ if __name__ == "__main__":
     end_state = [-2, 0, 0, 0]
     # end_state = np.random.rand(num_dims * control_space_q,)*2
     max_state = [1, 2, 3, 5]
-    subclass_data = {'rho':1}
+    subclass_data = {'rho': 1}
     mp = ETHMotionPrimitive(start_state, end_state, num_dims, max_state, subclass_specific_data=subclass_data)
 
     mp.plot(position_only=False)

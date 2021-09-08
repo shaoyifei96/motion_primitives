@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <boost/timer/timer.hpp>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -25,6 +26,10 @@ namespace motion_primitives {
 struct VectorXdHash : std::unary_function<Eigen::VectorXd, std::size_t> {
   std::size_t operator()(const Eigen::VectorXd& vd) const noexcept;
 };
+
+double Elapsed(const boost::timer::cpu_timer& timer) noexcept;
+bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
+                    int spatial_dim, double d) noexcept;
 
 class GraphSearch {
  protected:

@@ -1,15 +1,21 @@
 <launch>
-  <node pkg="motion_primitives"
-    type="motion_primitives_graph_search"
-    name="graph_search_node"
-    output="screen" 
-    >
-    <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/50.json"/>
-    <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
-    <param name="map_topic" value="/voxel_map"/>
-    <rosparam param="start_state">[12.5,1.4,0,0]</rosparam>
-    <rosparam param="goal_state">[6.4,16.6,0,0]</rosparam>
-    <rosparam param="heuristic">"min_time"</rosparam>
-    <param name="access_graph" value="false"/>
-    </node>
+  <arg name="robot" default="quadrotor" />  
+  <group ns="$(arg robot)">
+
+    <node pkg="motion_primitives"
+      type="motion_primitives_graph_search"
+      name="local_plan_server"
+      output="screen" 
+      >
+      <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/eth3/eth80.json"/>
+      <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
+      <param name="map_topic" value="/voxel_map"/>
+      <rosparam param="start_state">[12.5,1.4,0,0,0,0]</rosparam>
+      <rosparam param="goal_state">[4.4,16.6,0,0,0,0]</rosparam>
+      <rosparam param="heuristic">"min_time"</rosparam>
+      <param name="access_graph" value="false"/>
+      </node>
+
+  </group>
+
 </launch>

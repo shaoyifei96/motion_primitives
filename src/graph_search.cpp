@@ -6,11 +6,9 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
 
-#include <boost/timer/timer.hpp>
 
 namespace motion_primitives {
 
-namespace {
 
 double Elapsed(const boost::timer::cpu_timer& timer) noexcept {
   return timer.elapsed().wall / 1e9;
@@ -21,7 +19,6 @@ bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
   return (p1.head(spatial_dim) - p2.head(spatial_dim)).squaredNorm() < (d * d);
 }
 
-}  // namespace
 
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
                          const planning_ros_msgs::VoxelMap& voxel_map,

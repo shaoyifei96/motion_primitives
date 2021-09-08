@@ -187,7 +187,6 @@ class PlanningServer {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
 
-
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
@@ -208,11 +207,15 @@ class PlanningServer {
     GraphSearch gs(graph_, voxel_map_, options);
 
     auto [path, nodes] = gs.Search();
-
+    bool planner_start_too_close_to_goal =
+        StatePosWithin(options.start_state, options.goal_state,
+                       graph_.spatial_dim(), options.distance_threshold);
     if (path.empty()) {
-      ROS_ERROR("Graph search failed, aborting action server.");
-      as_.setAborted();
-      return;
+      if (!planner_start_too_close_to_goal) {
+        ROS_ERROR("Graph search failed, aborting action server.");
+        as_.setAborted();
+        return;
+      }
     }
     if (compute_first_mp) {
       // To our planned trajectory, we add a cropped motion primitive that is in
@@ -250,7 +253,9 @@ class PlanningServer {
       ROS_INFO_STREAM("Cropped start " << cropped_start.transpose());
 
       auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
-          cropped_start, path[0]->start_state_);
+          cropped_start, start);
+      // auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
+      //     cropped_start, path[0]->start_state_);
 
       double new_seg_time = mp_time - shift_time;
       first_mp->populate(0, new_seg_time, cropped_poly_coeffs,
@@ -259,6 +264,7 @@ class PlanningServer {
       // Add the cropped motion primitive to the beginning of the planned
       // trajectory
       path.insert(path.begin(), first_mp);
+
     }
 
     ROS_INFO("Graph search succeeded.");

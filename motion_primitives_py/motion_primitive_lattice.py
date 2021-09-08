@@ -234,8 +234,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
                 copy.limit_connections(2*copy.dispersion)
                 disp_list = [i for i in self.dispersion_list if i != np.inf]
-                print(f"Saving at dispersion {self.dispersion:.2f}")
-                copy.save(f"{self.saving_file_prefix}{len(disp_list)}.json")
+                if self.dispersion < 10e5:
+                    print(f"Saving at dispersion {self.dispersion:.2f}")
+                    copy.save(f"{self.saving_file_prefix}{len(disp_list)}.json")
                 del copy
 
             elif dispersion_threshhold is not None and self.dispersion < dispersion_threshhold:
@@ -619,17 +620,17 @@ if __name__ == "__main__":
     # num_output_pts =20
 
     motion_primitive_type = ETHMotionPrimitive
-    control_space_q = 2
+    control_space_q = 3
     num_dims = 2
-    max_state = [2, 5, 5]
-    num_dense_samples = 100
-    num_output_pts = 100
+    max_state = [4, 5, 3]
+    num_dense_samples = 1000
+    num_output_pts = num_dense_samples
     mp_subclass_specific_data = {'rho': 10}
 
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     tic = time.time()
-    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth"
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth3/eth"
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
@@ -638,12 +639,12 @@ if __name__ == "__main__":
     # mpl.limit_connections(2*mpl.dispersion)
     mpl.save(f"{pkg_path}data/lattices/lattice_test.json")
 
-    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test.json", plot)
-    # mpl.limit_connections(np.inf)
-    mpl.plot_config(plot_mps=True)
-    # print(mpl.dispersion)
-    print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
-    print(max([len([j for j in i if j != None]) for i in mpl.edges]))
+    # mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test.json", plot)
+    # # mpl.limit_connections(np.inf)
+    # mpl.plot_config(plot_mps=True)
+    # # print(mpl.dispersion)
+    # print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
+    # print(max([len([j for j in i if j != None]) for i in mpl.edges]))
 
     # plot
     plt.show()

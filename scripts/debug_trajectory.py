@@ -14,10 +14,10 @@ class CheckTrajectory():
     def __init__(self):
         # self.fig, self.ax[0] = plt.subplots(3, 1)
         self.fig, self.ax = plt.subplots(1, 3)
-        self.ax[1].set_xlim(0, 6)
-        self.ax[1].set_ylim(-2, 2)
-        self.ax[2].set_xlim(0, 6)
-        self.ax[2].set_ylim(-2, 2)
+        self.ax[1].set_xlim(0, 10)
+        self.ax[1].set_ylim(-4, 4)
+        self.ax[2].set_xlim(0, 10)
+        self.ax[2].set_ylim(-4, 4)
 
         self.seg_number = -1
         self.time_elapsed = -1
@@ -219,5 +219,5 @@ if __name__ == "__main__":
     ct = CheckTrajectory()
     ani = FuncAnimation(ct.fig, ct.update_plot, interval=50)
     plt.show(block=True)
-
-    rospy.spin()
+    if not rospy.is_shutdown():
+        rospy.spin()

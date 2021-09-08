@@ -44,9 +44,9 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "motion_primitive_graph_search_cpp");
   ros::NodeHandle pnh("~");
   ros::Publisher traj_pub =
-      pnh.advertise<planning_ros_msgs::Trajectory>("trajectory", 1, true);
+      pnh.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
   ros::Publisher spline_traj_pub =
-      pnh.advertise<planning_ros_msgs::SplineTrajectory>("spline_trajectory", 1,
+      pnh.advertise<planning_ros_msgs::SplineTrajectory>("trajectory", 1,
                                                          true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
   {
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
-                                   .distance_threshold = 0.5,
+                                   .distance_threshold = 1.0,
                                    .parallel_expand = true,
                                    .heuristic = heuristic,
                                    .access_graph = access_graph};
