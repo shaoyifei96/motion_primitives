@@ -117,3 +117,13 @@ def fail_search_fixture(om_fixture, lattice_fixture):
     # build graph search
     yield GraphSearch(lattice_fixture, om_fixture, start_state, goal_state,
                       goal_tol, heuristic='min_time')
+
+
+@pytest.fixture(scope="module")
+def simple_search_fixture(om_fixture):
+    rospack = rospkg.RosPack()
+    pkg_path = rospack.get_path('motion_primitives')
+    mp_graph = MotionPrimitiveLattice.load(f"{pkg_path}/tests/simple_test.json")
+    start_state = [3, 3]
+    goal_state = [5, 5]
+    yield GraphSearch(mp_graph, om_fixture, start_state, goal_state, [1e-10])
