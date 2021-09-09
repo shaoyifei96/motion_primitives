@@ -6,7 +6,7 @@ import matplotlib.animation as animation
 import itertools
 import ujson as json
 import os
-from multiprocessing import Pool, set_start_method
+from multiprocessing import Pool
 from copy import deepcopy
 
 
@@ -631,7 +631,7 @@ if __name__ == "__main__":
     control_space_q = 3
     num_dims = 2
     max_state = [4, 5, 3]
-    num_dense_samples = 1000
+    num_dense_samples = 2000
     num_output_pts = num_dense_samples
     mp_subclass_specific_data = {'rho': 10}
 

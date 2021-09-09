@@ -51,7 +51,7 @@ Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
   for (int i = 0; i < p.size(); i++) {
     p[i] *= std::pow(poly.dt, i);
   }
-  std::vector<float> pc(p.data(), p.data() + p.rows() * p.cols());
+  std::vector<double> pc(p.data(), p.data() + p.size());
   poly.coeffs = pc;
   spline.segments += 1;
   spline.segs.push_back(poly);

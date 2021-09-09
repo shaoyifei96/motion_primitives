@@ -9,7 +9,6 @@
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 
-// TODO(laura) add clearFootprint
 namespace motion_primitives {
 class PlanningServer {
  protected:
@@ -20,11 +19,8 @@ class PlanningServer {
   ros::Publisher viz_traj_pub_;
   ros::Publisher sg_pub_;
   planning_ros_msgs::VoxelMap voxel_map_;
-  planning_ros_msgs::SplineTrajectory tracker_traj_;
   motion_primitives::MotionPrimitiveGraph graph_;
   ros::Subscriber map_sub_;
-  ros::Subscriber traj_feedback_sub_;
-  ros::Subscriber tracker_traj_sub_;
   int seg_num_{-1};
 
  public:
@@ -42,8 +38,6 @@ class PlanningServer {
         pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
-    tracker_traj_sub_ =
-        pnh_.subscribe("tracker_traj", 1, &PlanningServer::trajTrackerCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
                                                               1, true);
 
@@ -168,10 +162,8 @@ class PlanningServer {
       Eigen::VectorXd seg_end(graph_.spatial_dim());
       for (int i = 0; i < graph_.spatial_dim(); i++) {
         for (int j = 0; j < last_traj.data[i].segs[seg_num].degree + 1; j++) {
-          auto coeffs = last_traj.data[i].segs[seg_num].coeffs;
-          double time = last_traj.data[i].segs[seg_num].dt;
           // all traj's are scaled to be duration 1 in Mike's parameterization
-          seg_end(i) += coeffs[j];
+          seg_end(i) += last_traj.data[i].segs[seg_num].coeffs[j];
         }
       }
       // Translate the MP to the right place
@@ -186,7 +178,8 @@ class PlanningServer {
     } else {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
-
+    
+    // goal_->check_vel
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
@@ -195,6 +188,7 @@ class PlanningServer {
                                    .access_graph = access_graph,
                                    .start_index = planner_start_index};
     if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
+    
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
     Eigen::Vector3f map_start;
@@ -205,6 +199,7 @@ class PlanningServer {
     clear_footprint(map_start);
 
     GraphSearch gs(graph_, voxel_map_, options);
+    const auto start_time = ros::Time::now();
 
     auto [path, nodes] = gs.Search();
     bool planner_start_too_close_to_goal =
@@ -268,6 +263,7 @@ class PlanningServer {
     }
 
     ROS_INFO("Graph search succeeded.");
+    
     planning_ros_msgs::PlanTwoPointResult result;
     result.epoch = msg->epoch;
     result.execution_time = msg->execution_time;
@@ -284,14 +280,18 @@ class PlanningServer {
       viz_traj_pub_.publish(viz_traj_msg);
     }
     as_.setSucceeded(result);
+
+    const auto total_time = (ros::Time::now() - start_time).toSec();
+
+    ROS_INFO("Finished planning. Planning time %f s", total_time);
+    ROS_INFO_STREAM("path size: " << path.size());
+    for (const auto& [k, v] : gs.timings()) {
+      ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
+    }
   }
 
   void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {
     voxel_map_ = *msg;
-  }
-
-  void trajTrackerCB(const planning_ros_msgs::SplineTrajectory::ConstPtr& msg) {
-    tracker_traj_ = *msg;
   }
 
   std::array<double, 3> pointMsgToArray(const geometry_msgs::Point& point) {
