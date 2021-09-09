@@ -125,10 +125,9 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
                                        const Eigen::VectorXd& start_state,
                                        const Eigen::VectorXd& end_state,
                                        const Eigen::VectorXd& max_state,
-                                       bool heuristic)
+                                       bool heuristic, double rho)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
   if (heuristic) {
-    // 3 Dimensional trajectory => through carteisan space, no orientation
     const int dimension = spatial_dim_;
 
     // Array for all waypoints and their constrains
@@ -136,7 +135,7 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
 
     // // Optimze up to 4th order derivative (SNAP)
     const int derivative_to_optimize =
-        mav_trajectory_generation::derivative_order::SNAP;
+        mav_trajectory_generation::derivative_order::JERK;
 
     mav_trajectory_generation::Vertex start(dimension), end(dimension);
     start.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
@@ -166,6 +165,7 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
 
     // Set up polynomial solver with default params
     mav_trajectory_generation::NonlinearOptimizationParameters parameters;
+    parameters.time_penalty = rho;
 
     // set up optimization problem
     const int N = 10;
@@ -191,9 +191,9 @@ ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
     // for (int i = 0; i < spatial_dim_; i++) {
     //   poly_coeffs_.row(i) = seg.getPolynomialsRef()[i].getCoefficients(0);
     // }
-    // cost_ = opt.getTotalCostWithoutSoftConstraints();
+    cost_ = opt.getTotalCostWithoutSoftConstraints();
     // cost_ = opt.getTotalCostWithSoftConstraints();
-    cost_ = opt.getTotalTimeCost();
+    // cost_ = opt.getTotalTimeCost();
   }
 }
 

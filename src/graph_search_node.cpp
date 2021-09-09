@@ -46,8 +46,7 @@ int main(int argc, char** argv) {
   ros::Publisher traj_pub =
       pnh.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
   ros::Publisher spline_traj_pub =
-      pnh.advertise<planning_ros_msgs::SplineTrajectory>("trajectory", 1,
-                                                         true);
+      pnh.advertise<planning_ros_msgs::SplineTrajectory>("trajectory", 1, true);
   ros::Publisher map_pub =
       pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
@@ -69,10 +68,12 @@ int main(int argc, char** argv) {
   std::vector<double> s, g;
   std::string heuristic;
   bool access_graph;
+  double distance_threshold;
   pnh.param("start_state", s, std::vector<double>{0, 0, 0, 0});
   pnh.param("goal_state", g, std::vector<double>{0, 0, 0, 0});
   pnh.param<std::string>("heuristic", heuristic, "min_time");
   pnh.param("access_graph", access_graph, false);
+  pnh.param("distance_threshold", distance_threshold, 1.0);
   Eigen::Map<Eigen::VectorXd> start(s.data(), s.size());
   Eigen::Map<Eigen::VectorXd> goal(g.data(), g.size());
   const auto mp_graph = read_motion_primitive_graph(graph_file);
@@ -104,7 +105,7 @@ int main(int argc, char** argv) {
   {
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
-                                   .distance_threshold = 1.0,
+                                   .distance_threshold = distance_threshold,
                                    .parallel_expand = true,
                                    .heuristic = heuristic,
                                    .access_graph = access_graph};

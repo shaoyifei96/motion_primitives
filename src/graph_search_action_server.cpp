@@ -18,6 +18,7 @@ class PlanningServer {
   ros::Publisher spline_traj_pub_;
   ros::Publisher viz_traj_pub_;
   ros::Publisher sg_pub_;
+  ros::Publisher visited_pub_;
   planning_ros_msgs::VoxelMap voxel_map_;
   motion_primitives::MotionPrimitiveGraph graph_;
   ros::Subscriber map_sub_;
@@ -36,6 +37,8 @@ class PlanningServer {
         "trajectory", 1, true);
     viz_traj_pub_ =
         pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
+    visited_pub_ =
+        pnh_.advertise<visualization_msgs::MarkerArray>("visited", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
@@ -116,6 +119,8 @@ class PlanningServer {
     pnh_.param("access_graph", access_graph, false);
     double tol_pos;
     pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
+    std::string heuristic;
+    pnh_.param<std::string>("heuristic", heuristic, "min_time");
 
     int planner_start_index = 0;
     bool compute_first_mp = last_traj.data.size() > 0;
@@ -178,17 +183,17 @@ class PlanningServer {
     } else {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
-    
+
     // goal_->check_vel
+
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
                                    .parallel_expand = true,
-                                   .heuristic = "min_time",
+                                   .heuristic = heuristic,
                                    .access_graph = access_graph,
                                    .start_index = planner_start_index};
     if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
-    
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
     Eigen::Vector3f map_start;
@@ -247,8 +252,8 @@ class PlanningServer {
       }
       ROS_INFO_STREAM("Cropped start " << cropped_start.transpose());
 
-      auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
-          cropped_start, start);
+      auto first_mp =
+          graph_.createMotionPrimitivePtrFromGraph(cropped_start, start);
       // auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
       //     cropped_start, path[0]->start_state_);
 
@@ -259,11 +264,10 @@ class PlanningServer {
       // Add the cropped motion primitive to the beginning of the planned
       // trajectory
       path.insert(path.begin(), first_mp);
-
     }
 
     ROS_INFO("Graph search succeeded.");
-    
+
     planning_ros_msgs::PlanTwoPointResult result;
     result.epoch = msg->epoch;
     result.execution_time = msg->execution_time;
@@ -288,6 +292,10 @@ class PlanningServer {
     for (const auto& [k, v] : gs.timings()) {
       ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
     }
+
+    const auto visited_marray = StatesToMarkerArray(
+        gs.GetVisitedStates(), gs.spatial_dim(), voxel_map_.header);
+    visited_pub_.publish(visited_marray);
   }
 
   void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {

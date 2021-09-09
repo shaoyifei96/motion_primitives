@@ -10,6 +10,8 @@ Panels:
         - /VoxelMap1
         - /MarkerArray1
         - /SplineTrajectory1
+        - /MarkerArray2
+        - /Grid1
       Splitter Ratio: 0.4471403956413269
     Tree Height: 470
   - Class: rviz/Selection
@@ -51,6 +53,7 @@ Visualization Manager:
       NumYaw: 20
       PosColor: 204; 51; 204
       PosScale: 0.10000000149011612
+      Queue Size: 10
       Topic: /quadrotor/local_plan_server/traj
       Unreliable: false
       Value: true
@@ -78,14 +81,13 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 4096
       MeshAlpha: 0.20000000298023224
       MeshColor: 0; 170; 255
       MeshHeight: 0.5
       Min Color: 0; 0; 0
-      Min Intensity: 0
       Name: VoxelMap
       Position Transformer: XYZ
+      Queue Size: 10
       Selectable: true
       Size (Pixels): 3
       Size (m): 0.10000000149011612
@@ -114,6 +116,7 @@ Visualization Manager:
       Name: SplineTrajectory
       Plot Acceleration: false
       Plot Velocity: false
+      Queue Size: 10
       SplineTrajectory Samples: 50
       Tangent Samples: 25
       Topic: /quadrotor/local_plan_server/trajectory
@@ -127,6 +130,24 @@ Visualization Manager:
       Namespaces:
         "": true
       Queue Size: 100
+      Value: true
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 59
+      Reference Frame: <Fixed Frame>
       Value: true
   Enabled: true
   Global Options:
@@ -156,25 +177,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 41.04290771484375
+      Distance: 56.63364028930664
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
+      Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.4134409427642822
-        Y: 10.56704044342041
-        Z: -4.297675132751465
+        X: 7.787678241729736
+        Y: 11.697038650512695
+        Z: -2.976349353790283
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 1.2247967720031738
       Target Frame: <Fixed Frame>
-      Value: Orbit (rviz)
-      Yaw: 4.498565673828125
+      Yaw: 3.9785516262054443
     Saved: ~
 Window Geometry:
   Displays:
@@ -192,5 +213,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1389
-  X: 188
-  Y: 304
+  X: 482
+  Y: 73

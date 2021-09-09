@@ -6,9 +6,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
 
-
 namespace motion_primitives {
-
 
 double Elapsed(const boost::timer::cpu_timer& timer) noexcept {
   return timer.elapsed().wall / 1e9;
@@ -18,7 +16,6 @@ bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
                     int spatial_dim, double d) noexcept {
   return (p1.head(spatial_dim) - p2.head(spatial_dim)).squaredNorm() < (d * d);
 }
-
 
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
                          const planning_ros_msgs::VoxelMap& voxel_map,
@@ -231,9 +228,8 @@ double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
 }
 double GraphSearch::ComputeHeuristicETHBVP(const State& v,
                                            const State& goal_state) const {
-  // Not consistent, don't actually use
-  auto mp =
-      ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_, true);
+  auto mp = ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_,
+                               true, graph_.rho());
   return mp.cost_;
 }
 
@@ -266,7 +262,7 @@ auto GraphSearch::Search()
   }
   if (!is_free_and_valid_position(options_.goal_state.head(spatial_dim()))) {
     ROS_WARN_STREAM("Goal is not free");
-    return {};
+    // return {};
   }
 
   // > for min heap
