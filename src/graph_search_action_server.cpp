@@ -9,7 +9,18 @@
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <boost/circular_buffer.hpp>
+
 namespace motion_primitives {
+
+template <typename T>
+std::ostream& operator<<(std::ostream& output,
+                         boost::circular_buffer<T> const& values) {
+  for (auto const& value : values) {
+    output << value << "\n";
+  }
+  return output;
+}
 class PlanningServer {
  protected:
   ros::NodeHandle pnh_;
@@ -24,9 +35,8 @@ class PlanningServer {
   ros::Subscriber map_sub_;
   int seg_num_{-1};
   std::vector<motion_primitives::MotionPrimitiveGraph> graphs_;
-  std::vector<double> last_plan_times_;
-  int graph_search_failures_ = 0;
-  int graph_search_successes_ = 0;
+  boost::circular_buffer<double> last_plan_times_;
+  boost::circular_buffer<bool> last_plan_failures_;
   ros::Publisher local_map_cleared_pub_;
   double planner_timeout_;
   int graph_index_;
@@ -36,9 +46,9 @@ class PlanningServer {
   explicit PlanningServer(const ros::NodeHandle& nh)
       : pnh_(nh), as_(nh, "plan_local_trajectory", false) {
     std::string graph_file;
-    pnh_.param("graph_file", graph_file, std::string("dispersionopt101.json"));
-    ROS_INFO("Reading graph file %s", graph_file.c_str());
-    graph_ = read_motion_primitive_graph(graph_file);
+    // pnh_.param("graph_file", graph_file, std::string());
+    // ROS_INFO("Reading graph file %s", graph_file.c_str());
+    // graph_ = read_motion_primitive_graph(graph_file);
     spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
         "trajectory", 1, true);
     viz_traj_pub_ =
@@ -53,12 +63,13 @@ class PlanningServer {
         "local_voxel_map_cleared", 1, true);
 
     pnh_.param("planner_timeout", planner_timeout_, 1.0);
+    last_plan_times_ = boost::circular_buffer<double>(10);
+    last_plan_failures_ = boost::circular_buffer<bool>(10);
 
     std::string graph_files_dir;
     pnh_.param("graph_files", graph_files_, std::vector<std::string>());
     pnh_.param("graph_files_dir", graph_files_dir, std::string());
     if (graph_files_.size() > 0) {
-      ROS_WARN("adaptive planner");
       for (auto filename : graph_files_) {
         auto full_filename = graph_files_dir + filename + ".json";
         ROS_INFO_STREAM("Reading graph file " << full_filename);
@@ -88,7 +99,7 @@ class PlanningServer {
     // TODO(YUEZHAN): fix val_free;
     int8_t val_free = 0;
     ROS_WARN_ONCE("Value free is set as %d", val_free);
-    double robot_r = 0.3;
+    double robot_r = 0.6;
     int robot_r_n = std::ceil(robot_r / voxel_map.resolution);
 
     std::vector<Eigen::Vector3i> clear_ns;
@@ -122,27 +133,39 @@ class PlanningServer {
     }
   }
 
-  void adaptivePlanner(ros::Time start_time) {
-    const auto total_time = (ros::Time::now() - start_time).toSec();
-    ROS_INFO("Finished planning. Planning time %f s", total_time);
-    if (graphs_.size() == 0) return;
-    graph_search_successes_++;
-    last_plan_times_.push_back(total_time);
-    if (last_plan_times_.size() >= 10) {
-      last_plan_times_.erase(last_plan_times_.begin());
-    }
+  void adaptivePlanner() {
+    if (graphs_.size() <= 1) return;
+    ROS_WARN("adaptive planner");
+
     ROS_INFO_STREAM(last_plan_times_);
-    ROS_INFO_STREAM("Percentage of graph search failures: "
-                    << 100. * graph_search_failures_ / graph_search_successes_
-                    << "%");
     int num_planner_timeouts = 0;
     for (auto time : last_plan_times_) {
       if (time > planner_timeout_) num_planner_timeouts++;
     }
-    if (num_planner_timeouts > 2) {
+    bool too_many_timeouts = (num_planner_timeouts > 1);
+    if (too_many_timeouts) {
       ROS_WARN("Too many planner timeouts, increasing dispersion");
-      graph_index_ -= 1;
+      last_plan_failures_.clear();
+      last_plan_times_.clear();
+      graph_index_--;
     }
+
+    int number_of_failures = std::accumulate(last_plan_failures_.begin(),
+                                             last_plan_failures_.end(), 0);
+    ROS_INFO_STREAM("Number of plan failures: " << number_of_failures << "/"
+                                                << last_plan_failures_.size());
+    bool too_many_failures = (number_of_failures > 1);
+    if (too_many_failures) {
+      ROS_WARN("Too many planner failures, decreasing dispersion");
+      last_plan_failures_.clear();
+      last_plan_times_.clear();
+      graph_index_++;
+    }
+
+    if (too_many_timeouts && too_many_failures)
+      ROS_ERROR(
+          "Both failing and timing out, environment may be too difficult to "
+          "plan.");
 
     if (graph_index_ < 0) {
       graph_index_ = 0;
@@ -159,6 +182,7 @@ class PlanningServer {
   void executeCB() {
     const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();
+    adaptivePlanner();
     planning_ros_msgs::VoxelMap voxel_map = *voxel_map_ptr_;
     if (voxel_map.resolution == 0.0) {
       ROS_ERROR(
@@ -285,7 +309,7 @@ class PlanningServer {
     if (path.empty()) {
       if (!planner_start_too_close_to_goal) {
         ROS_ERROR("Graph search failed, aborting action server.");
-        graph_search_failures_++;
+        last_plan_failures_.push_back(true);
         as_.setAborted();
         return;
       }
@@ -340,6 +364,11 @@ class PlanningServer {
     }
 
     ROS_INFO("Graph search succeeded.");
+    last_plan_failures_.push_back(false);
+
+    const auto total_time = (ros::Time::now() - start_time).toSec();
+    ROS_INFO("Finished planning. Planning time %f s", total_time);
+    last_plan_times_.push_back(total_time);
 
     planning_ros_msgs::PlanTwoPointResult result;
     result.epoch = msg->epoch;
@@ -358,7 +387,6 @@ class PlanningServer {
     }
     as_.setSucceeded(result);
 
-    adaptivePlanner(start_time);
     ROS_INFO_STREAM("path size: " << path.size());
 
     const auto visited_marray = StatesToMarkerArray(

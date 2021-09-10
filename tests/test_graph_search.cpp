@@ -16,15 +16,17 @@ class GraphSearchTest : public ::testing::Test {
     voxel_map_.data.resize(voxel_map_.dim.x * voxel_map_.dim.y, 0);
     Eigen::Vector2d start(3, 3);
     Eigen::Vector2d goal(5, 5);
-    option_ = GraphSearch::Option{.start_state = start,
-                                  .goal_state = goal,
-                                  .distance_threshold = 0.001,
-                                  .parallel_expand = true,
-                                  .heuristic = "min_time",
-                                  .access_graph = false,
-                                  .start_index = 0,
-                                  .fixed_z = 0,
-                                  .using_ros = false};
+    option_ = GraphSearch::Option{
+        .start_state = start,
+        .goal_state = goal,
+        .distance_threshold = 0.001,
+        .parallel_expand = true,
+        .heuristic = "min_time",
+        .access_graph = false,
+        .start_index = 0,
+        .fixed_z = 0,
+    };
+    option_.using_ros = false;
   }
   planning_ros_msgs::VoxelMap voxel_map_;
   GraphSearch::Option option_;

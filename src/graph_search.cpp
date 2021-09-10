@@ -68,9 +68,9 @@ bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
 
 bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
-  return (is_valid_indices(indices) &&
-          voxel_map_.data[get_linear_indices(indices)] <= 0) ||
-         !is_valid_indices(indices);
+  return ((is_valid_indices(indices) &&
+           voxel_map_.data[get_linear_indices(indices)] <= 0) ||
+          !is_valid_indices(indices));
   // 0 is free, -1 is unknown. TODO(laura): add back unknown_is_free option
 }
 
