@@ -14,10 +14,11 @@ class CheckTrajectory():
     def __init__(self):
         # self.fig, self.ax[0] = plt.subplots(3, 1)
         self.fig, self.ax = plt.subplots(1, 3)
-        self.ax[1].set_xlim(0, 10)
-        self.ax[1].set_ylim(-4, 4)
-        self.ax[2].set_xlim(0, 10)
-        self.ax[2].set_ylim(-4, 4)
+        self.ax[1].set_xlim(0, 15)
+        self.ax[1].set_ylim(-6, 6)
+        self.ax[2].set_xlim(0, 15)
+        self.ax[2].set_ylim(-6, 6)
+
 
         self.seg_number = -1
         self.time_elapsed = -1

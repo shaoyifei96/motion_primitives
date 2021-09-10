@@ -3,6 +3,7 @@
 
 #include <planning_ros_msgs/VoxelMap.h>
 
+#include <boost/timer/timer.hpp>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -12,7 +13,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <boost/timer/timer.hpp>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -49,6 +49,7 @@ class GraphSearch {
     bool access_graph{false};
     int start_index{0};
     double fixed_z{0};
+    double velocity_threshold = -1;
     bool using_ros{true};
   };
   struct Node {

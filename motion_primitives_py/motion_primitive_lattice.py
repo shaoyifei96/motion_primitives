@@ -69,7 +69,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         if not os.path.exists(os.path.dirname(filename)):
             try:
                 os.makedirs(os.path.dirname(filename))
-            except OSError as exc: # Guard against race condition
+            except OSError as exc:  # Guard against race condition
                 if exc.errno != errno.EEXIST:
                     raise
 
@@ -630,7 +630,7 @@ if __name__ == "__main__":
     motion_primitive_type = ETHMotionPrimitive
     control_space_q = 3
     num_dims = 2
-    max_state = [4, 5, 3]
+    max_state = [10, 5, 3]
     num_dense_samples = 2000
     num_output_pts = num_dense_samples
     mp_subclass_specific_data = {'rho': 10}
@@ -638,7 +638,7 @@ if __name__ == "__main__":
     # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     tic = time.time()
-    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth"
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth2/eth"
     # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)

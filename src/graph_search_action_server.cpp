@@ -19,10 +19,15 @@ class PlanningServer {
   ros::Publisher viz_traj_pub_;
   ros::Publisher sg_pub_;
   ros::Publisher visited_pub_;
-  planning_ros_msgs::VoxelMap voxel_map_;
+  planning_ros_msgs::VoxelMapConstPtr voxel_map_ptr_ = nullptr;
   motion_primitives::MotionPrimitiveGraph graph_;
   ros::Subscriber map_sub_;
   int seg_num_{-1};
+  std::vector<motion_primitives::MotionPrimitiveGraph> graphs_;
+  std::vector<double> last_plan_times_;
+  int graph_search_failures_ = 0;
+  int graph_search_successes_ = 0;
+  ros::Publisher local_map_cleared_pub_;
 
  public:
   explicit PlanningServer(const ros::NodeHandle& nh)
@@ -31,8 +36,6 @@ class PlanningServer {
     pnh_.param("graph_file", graph_file, std::string("dispersionopt101.json"));
     ROS_INFO("Reading graph file %s", graph_file.c_str());
     graph_ = read_motion_primitive_graph(graph_file);
-    // traj_vis_pub_ =
-    //     pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
     spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
         "trajectory", 1, true);
     viz_traj_pub_ =
@@ -43,7 +46,19 @@ class PlanningServer {
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
                                                               1, true);
+    local_map_cleared_pub_ = pnh_.advertise<planning_ros_msgs::VoxelMap>(
+        "local_voxel_map_cleared", 1, true);
 
+    std::vector<std::string> graph_files;
+    std::string graph_files_dir;
+    pnh_.param("graph_files", graph_files, std::vector<std::string>());
+    pnh_.param("graph_files_dir", graph_files_dir, std::string());
+    for (auto filename : graph_files) {
+      auto full_filename = graph_files_dir + filename + ".json";
+      ROS_INFO_STREAM("Reading graph file " << full_filename);
+      graphs_.push_back(read_motion_primitive_graph(full_filename));
+    }
+    ROS_INFO("Finished reading graphs");
     as_.registerGoalCallback(boost::bind(&PlanningServer::executeCB, this));
     as_.start();
   }
@@ -55,15 +70,16 @@ class PlanningServer {
            pn(2) < 0 || pn(2) >= dim(2);
   }
 
-  void clear_footprint(const Eigen::Vector3f& start) {
+  void clear_footprint(planning_ros_msgs::VoxelMap& voxel_map,
+                       const Eigen::Vector3d& point) {
     // TODO(laura) copy-pasted from local_plan_server
     // Clear robot footprint
     // TODO(YUEZHAN): pass robot radius as param
     // TODO(YUEZHAN): fix val_free;
     int8_t val_free = 0;
     ROS_WARN_ONCE("Value free is set as %d", val_free);
-    double robot_r = 0.5;
-    int robot_r_n = std::ceil(robot_r / voxel_map_.resolution);
+    double robot_r = 0.6;
+    int robot_r_n = std::ceil(robot_r / voxel_map.resolution);
 
     std::vector<Eigen::Vector3i> clear_ns;
     for (int nx = -robot_r_n; nx <= robot_r_n; nx++) {
@@ -74,25 +90,24 @@ class PlanningServer {
       }
     }
 
-    auto origin_x = voxel_map_.origin.x;
-    auto origin_y = voxel_map_.origin.y;
-    auto origin_z = voxel_map_.origin.z;
+    auto origin_x = voxel_map.origin.x;
+    auto origin_y = voxel_map.origin.y;
+    auto origin_z = voxel_map.origin.z;
     Eigen::Vector3i dim = Eigen::Vector3i::Zero();
-    dim(0) = voxel_map_.dim.x;
-    dim(1) = voxel_map_.dim.y;
-    dim(2) = voxel_map_.dim.z;
-    auto res = voxel_map_.resolution;
+    dim(0) = voxel_map.dim.x;
+    dim(1) = voxel_map.dim.y;
+    dim(2) = voxel_map.dim.z;
+    auto res = voxel_map.resolution;
     const Eigen::Vector3i pn =
-        Eigen::Vector3i(std::round((start(0) - origin_x) / res),
-                        std::round((start(1) - origin_y) / res),
-                        std::round((start(2) - origin_z) / res));
+        Eigen::Vector3i(std::round((point(0) - origin_x) / res),
+                        std::round((point(1) - origin_y) / res),
+                        std::round((point(2) - origin_z) / res));
 
     for (const auto& n : clear_ns) {
       Eigen::Vector3i pnn = pn + n;
       int idx_tmp = pnn(0) + pnn(1) * dim(0) + pnn(2) * dim(0) * dim(1);
-      if (!is_outside_map(pnn, dim) && voxel_map_.data[idx_tmp] != val_free) {
-        voxel_map_.data[idx_tmp] = val_free;
-        // ROS_ERROR("clearing!!! idx %d", idx_tmp);
+      if (!is_outside_map(pnn, dim) && voxel_map.data[idx_tmp] != val_free) {
+        voxel_map.data[idx_tmp] = val_free;
       }
     }
   }
@@ -100,7 +115,8 @@ class PlanningServer {
   void executeCB() {
     const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();
-    if (voxel_map_.resolution == 0.0) {
+    planning_ros_msgs::VoxelMap voxel_map = *voxel_map_ptr_;
+    if (voxel_map.resolution == 0.0) {
       ROS_ERROR(
           "Missing voxel map for motion primitive planner, aborting action "
           "server.");
@@ -108,7 +124,9 @@ class PlanningServer {
       return;
     }
     std::array<Eigen::VectorXd, 2> start_and_goal = populateStartGoal(msg);
-    auto [start, goal] = start_and_goal;
+    Eigen::VectorXd start, goal;
+    start = start_and_goal[0];
+    goal = start_and_goal[1];
 
     ROS_INFO_STREAM("Planner start: " << start.transpose());
     ROS_INFO_STREAM("Planner goal: " << goal.transpose());
@@ -117,8 +135,9 @@ class PlanningServer {
     double eval_time = msg->eval_time;
     bool access_graph;
     pnh_.param("access_graph", access_graph, false);
-    double tol_pos;
+    double tol_pos, tol_vel;
     pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
+    pnh_.param("trajectory_planner/global_goal_tol_vel", tol_vel, 1.5);
     std::string heuristic;
     pnh_.param<std::string>("heuristic", heuristic, "min_time");
 
@@ -184,8 +203,6 @@ class PlanningServer {
       ROS_WARN("Unable to compute first MP, starting planner from rest.");
     }
 
-    // goal_->check_vel
-
     GraphSearch::Option options = {.start_state = start,
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
@@ -194,16 +211,27 @@ class PlanningServer {
                                    .access_graph = access_graph,
                                    .start_index = planner_start_index};
     if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
+    if (msg->check_vel) options.velocity_threshold = tol_vel;
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
-    Eigen::Vector3f map_start;
+    Eigen::Vector3d map_start;
     map_start(0) = start(0);
     map_start(1) = start(1);
     map_start(2) = msg->p_init.position.z;
     // Sets the voxel_map_ start to be collision free
-    clear_footprint(map_start);
+    clear_footprint(voxel_map, map_start);
 
-    GraphSearch gs(graph_, voxel_map_, options);
+    // If we are not at the end, we can also clear the local goal
+    if (!msg->check_vel) {
+      Eigen::Vector3d map_goal;
+      map_goal(0) = goal(0);
+      map_goal(1) = goal(1);
+      map_goal(2) = msg->p_init.position.z;
+      clear_footprint(voxel_map, map_goal);
+      local_map_cleared_pub_.publish(voxel_map);
+    }
+
+    GraphSearch gs(graph_, voxel_map, options);
     const auto start_time = ros::Time::now();
 
     auto [path, nodes] = gs.Search();
@@ -213,6 +241,7 @@ class PlanningServer {
     if (path.empty()) {
       if (!planner_start_too_close_to_goal) {
         ROS_ERROR("Graph search failed, aborting action server.");
+        graph_search_failures_++;
         as_.setAborted();
         return;
       }
@@ -273,7 +302,7 @@ class PlanningServer {
     result.execution_time = msg->execution_time;
     result.traj = planning_ros_msgs::SplineTrajectory();
     result.traj.header.stamp = ros::Time::now();
-    result.traj.header.frame_id = voxel_map_.header.frame_id;
+    result.traj.header.frame_id = voxel_map.header.frame_id;
     result.success = true;
     result.traj = path_to_spline_traj_msg(path, result.traj.header,
                                           msg->p_init.position.z);
@@ -284,9 +313,16 @@ class PlanningServer {
       viz_traj_pub_.publish(viz_traj_msg);
     }
     as_.setSucceeded(result);
-
+    graph_search_successes_++;
     const auto total_time = (ros::Time::now() - start_time).toSec();
-
+    last_plan_times_.push_back(total_time);
+    if (last_plan_times_.size() >= 10) {
+      last_plan_times_.erase(last_plan_times_.begin());
+    }
+    ROS_INFO_STREAM(last_plan_times_);
+    ROS_INFO_STREAM("Percentage of graph search failures: "
+                    << 100. * graph_search_failures_ / graph_search_successes_
+                    << "%");
     ROS_INFO("Finished planning. Planning time %f s", total_time);
     ROS_INFO_STREAM("path size: " << path.size());
     for (const auto& [k, v] : gs.timings()) {
@@ -294,12 +330,12 @@ class PlanningServer {
     }
 
     const auto visited_marray = StatesToMarkerArray(
-        gs.GetVisitedStates(), gs.spatial_dim(), voxel_map_.header);
+        gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
     visited_pub_.publish(visited_marray);
   }
 
   void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {
-    voxel_map_ = *msg;
+    voxel_map_ptr_ = msg;
   }
 
   std::array<double, 3> pointMsgToArray(const geometry_msgs::Point& point) {
@@ -341,7 +377,7 @@ class PlanningServer {
                            double fixed_z) {
     visualization_msgs::MarkerArray sg_markers;
     visualization_msgs::Marker start_marker, goal_marker;
-    start_marker.header = voxel_map_.header;
+    start_marker.header = voxel_map_ptr_->header;
     start_marker.pose.position.x = start_and_goal[0][0],
     start_marker.pose.position.y = start_and_goal[0][1];
     start_marker.pose.orientation.w = 1;
@@ -361,8 +397,8 @@ class PlanningServer {
       start_marker.pose.position.z = start_and_goal[0][2];
       goal_marker.pose.position.z = start_and_goal[1][2];
     }
-    goal_marker.color.g = 0;
-    goal_marker.color.r = 1;
+    goal_marker.color.b = 1;
+    start_marker.color.a = 1;
     sg_markers.markers.push_back(start_marker);
     sg_markers.markers.push_back(goal_marker);
     sg_pub_.publish(sg_markers);

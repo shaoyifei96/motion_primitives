@@ -17,6 +17,13 @@ bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
   return (p1.head(spatial_dim) - p2.head(spatial_dim)).squaredNorm() < (d * d);
 }
 
+bool StateVelWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
+                    int spatial_dim, double d) noexcept {
+  return (p1.segment(spatial_dim, spatial_dim) -
+          p2.segment(spatial_dim, spatial_dim))
+             .squaredNorm() < (d * d);
+}
+
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
                          const planning_ros_msgs::VoxelMap& voxel_map,
                          const Option& options)
@@ -262,7 +269,7 @@ auto GraphSearch::Search()
   }
   if (!is_free_and_valid_position(options_.goal_state.head(spatial_dim()))) {
     ROS_WARN_STREAM("Goal is not free");
-    // return {};
+    return {};
   }
 
   // > for min heap
@@ -290,7 +297,10 @@ auto GraphSearch::Search()
     // Check if we are close enough to the end
     if (StatePosWithin(curr_node.state, options_.goal_state,
                        graph_.spatial_dim(), options_.distance_threshold)) {
-      ROS_WARN_STREAM("Motion primitive planning successful");
+      if (options_.velocity_threshold >= 0 &&
+          StateVelWithin(curr_node.state, options_.goal_state,
+                         graph_.spatial_dim(), options_.velocity_threshold))
+        ROS_WARN_STREAM("Motion primitive planning successful");
       ROS_INFO_STREAM("== pq: " << pq.size());
       ROS_INFO_STREAM("== hist: " << history.size());
       ROS_INFO_STREAM("== nodes: " << visited_states_.size());
