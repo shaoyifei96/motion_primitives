@@ -28,6 +28,9 @@ class PlanningServer {
   int graph_search_failures_ = 0;
   int graph_search_successes_ = 0;
   ros::Publisher local_map_cleared_pub_;
+  double planner_timeout_;
+  int graph_index_;
+  std::vector<std::string> graph_files_;
 
  public:
   explicit PlanningServer(const ros::NodeHandle& nh)
@@ -49,14 +52,21 @@ class PlanningServer {
     local_map_cleared_pub_ = pnh_.advertise<planning_ros_msgs::VoxelMap>(
         "local_voxel_map_cleared", 1, true);
 
-    std::vector<std::string> graph_files;
+    pnh_.param("planner_timeout", planner_timeout_, 1.0);
+
     std::string graph_files_dir;
-    pnh_.param("graph_files", graph_files, std::vector<std::string>());
+    pnh_.param("graph_files", graph_files_, std::vector<std::string>());
     pnh_.param("graph_files_dir", graph_files_dir, std::string());
-    for (auto filename : graph_files) {
-      auto full_filename = graph_files_dir + filename + ".json";
-      ROS_INFO_STREAM("Reading graph file " << full_filename);
-      graphs_.push_back(read_motion_primitive_graph(full_filename));
+    if (graph_files_.size() > 0) {
+      ROS_WARN("adaptive planner");
+      for (auto filename : graph_files_) {
+        auto full_filename = graph_files_dir + filename + ".json";
+        ROS_INFO_STREAM("Reading graph file " << full_filename);
+        graphs_.push_back(read_motion_primitive_graph(full_filename));
+      }
+      graph_index_ = (int)(graph_files_.size() / 2);
+      graph_ = graphs_[graph_index_];
+      ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);
     }
     ROS_INFO("Finished reading graphs");
     as_.registerGoalCallback(boost::bind(&PlanningServer::executeCB, this));
@@ -78,7 +88,7 @@ class PlanningServer {
     // TODO(YUEZHAN): fix val_free;
     int8_t val_free = 0;
     ROS_WARN_ONCE("Value free is set as %d", val_free);
-    double robot_r = 0.6;
+    double robot_r = 0.3;
     int robot_r_n = std::ceil(robot_r / voxel_map.resolution);
 
     std::vector<Eigen::Vector3i> clear_ns;
@@ -110,6 +120,40 @@ class PlanningServer {
         voxel_map.data[idx_tmp] = val_free;
       }
     }
+  }
+
+  void adaptivePlanner(ros::Time start_time) {
+    const auto total_time = (ros::Time::now() - start_time).toSec();
+    ROS_INFO("Finished planning. Planning time %f s", total_time);
+    if (graphs_.size() == 0) return;
+    graph_search_successes_++;
+    last_plan_times_.push_back(total_time);
+    if (last_plan_times_.size() >= 10) {
+      last_plan_times_.erase(last_plan_times_.begin());
+    }
+    ROS_INFO_STREAM(last_plan_times_);
+    ROS_INFO_STREAM("Percentage of graph search failures: "
+                    << 100. * graph_search_failures_ / graph_search_successes_
+                    << "%");
+    int num_planner_timeouts = 0;
+    for (auto time : last_plan_times_) {
+      if (time > planner_timeout_) num_planner_timeouts++;
+    }
+    if (num_planner_timeouts > 2) {
+      ROS_WARN("Too many planner timeouts, increasing dispersion");
+      graph_index_ -= 1;
+    }
+
+    if (graph_index_ < 0) {
+      graph_index_ = 0;
+      ROS_ERROR("Out of higher dispersion graphs");
+    }
+    if (graph_index_ >= graphs_.size()) {
+      graph_index_ = graphs_.size() - 1;
+      ROS_ERROR("Out of lower dispersion graphs");
+    }
+    graph_ = graphs_[graph_index_];
+    ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);
   }
 
   void executeCB() {
@@ -313,21 +357,9 @@ class PlanningServer {
       viz_traj_pub_.publish(viz_traj_msg);
     }
     as_.setSucceeded(result);
-    graph_search_successes_++;
-    const auto total_time = (ros::Time::now() - start_time).toSec();
-    last_plan_times_.push_back(total_time);
-    if (last_plan_times_.size() >= 10) {
-      last_plan_times_.erase(last_plan_times_.begin());
-    }
-    ROS_INFO_STREAM(last_plan_times_);
-    ROS_INFO_STREAM("Percentage of graph search failures: "
-                    << 100. * graph_search_failures_ / graph_search_successes_
-                    << "%");
-    ROS_INFO("Finished planning. Planning time %f s", total_time);
+
+    adaptivePlanner(start_time);
     ROS_INFO_STREAM("path size: " << path.size());
-    for (const auto& [k, v] : gs.timings()) {
-      ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
-    }
 
     const auto visited_marray = StatesToMarkerArray(
         gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);

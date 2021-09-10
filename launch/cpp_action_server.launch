@@ -12,12 +12,13 @@
         name="local_plan_server"
         output="screen">
         <rosparam file="$(arg param_file)"/>
-        <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth415.json"/>
+        <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth615.json"/>
         <remap from="~voxel_map" to="$(arg map_topic)"/>
         <remap from="~feedback" to="$(arg feedback_topic)"/>
         <rosparam param="heuristic">"min_time"</rosparam>
-        <rosparam param="graph_files_dir" subst_value="True">"$(find motion_primitives)/motion_primitives_py/data/lattices/eth"</rosparam>
-        <!-- <rosparam param="graph_files">['675','775','875','975']</rosparam> -->
+        <rosparam param="graph_files_dir" subst_value="True">"$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth"</rosparam>
+        <rosparam param="graph_files">['525','540','555','570','585','600','615','630','645','660']</rosparam>
+        <remap from="~planner_timeout" to="trackers_manager/local_global_server/local_plan_timeout_duration"/>
       </node>
   </group>
 
