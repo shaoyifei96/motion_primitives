@@ -384,6 +384,8 @@ auto GraphSearch::AccessGraph(const State& start_state) const
       auto mp =
           graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
       mp->compute(graph_.rho());
+      mp->start_index_ = -1;
+      mp->end_index_ = i;
       Node next_node;
       next_node.state_index = i;
       next_node.state = mp->end_state_;

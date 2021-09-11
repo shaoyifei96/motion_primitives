@@ -203,11 +203,11 @@ void ETHMotionPrimitive::compute(double rho) {
   // cost_ = opt.getTotalCostWithoutSoftConstraints();
   cost_ = opt.getTotalCostWithSoftConstraints();
   // cost_ = opt.getTotalTimeCost();
-  if (cost_ > 1E6) {
-    cost_ = -1;
-    traj_time_ = -1;
-    poly_coeffs_ = Eigen::MatrixXd();
-  }
+  // if (cost_ > 1E6) {
+  //   cost_ = -1;
+  //   traj_time_ = -1;
+  //   poly_coeffs_ = Eigen::MatrixXd();
+  // }
 }
 
 void RuckigMotionPrimitive::compute() {

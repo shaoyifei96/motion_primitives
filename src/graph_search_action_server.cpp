@@ -10,7 +10,7 @@
 #include <visualization_msgs/MarkerArray.h>
 
 #include <boost/circular_buffer.hpp>
-
+#include <boost/math/tools/polynomial.hpp>
 namespace motion_primitives {
 
 template <typename T>
@@ -198,6 +198,62 @@ class PlanningServer {
     ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);
   }
 
+  typedef boost::math::tools::polynomial<double> Poly;
+  Poly differentiate(const Poly& p) {
+    // differentiates polynomial
+    Poly::size_type rows = p.size();
+    if (rows <= 1) return Poly(0.0);
+    std::vector<double> v;
+    for (Poly::size_type i = 1; i < rows; i++) {
+      double val = static_cast<double>(i);
+      v.push_back(p[i] * val);
+    }
+    Poly result(v.data(), rows - 2);
+    return result;
+  }
+
+  std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
+      const planning_ros_msgs::SplineTrajectory& traj,
+      std::shared_ptr<MotionPrimitiveGraph> graph, int seg_num) {
+    Eigen::VectorXd start(graph->state_dim());
+    Eigen::VectorXd end = start;
+    for (int i = 0; i < graph->spatial_dim(); i++) {
+      Poly const poly(traj.data[i].segs[seg_num].coeffs.begin(),
+                      traj.data[i].segs[seg_num].coeffs.end());
+      end[i] = poly.evaluate(1);
+      auto first_deriv = differentiate(poly);
+      end[i + graph->spatial_dim()] =
+          first_deriv.evaluate(1) * 1. / (traj.data[i].segs[seg_num].dt);
+      start[i] = traj.data[i].segs[seg_num].coeffs[0];
+      start[i + graph->spatial_dim()] = traj.data[i].segs[seg_num].coeffs[1] *
+                                        1. / (traj.data[i].segs[seg_num].dt);
+      if (graph->control_space_dim() > 2) {
+        start[i + 2 * graph->spatial_dim()] =
+            traj.data[i].segs[seg_num].coeffs[2] *
+            std::pow(1. / (traj.data[i].segs[seg_num].dt), 2);
+        end[i + 2 * graph->spatial_dim()] =
+            differentiate(first_deriv).evaluate(1) *
+            std::pow(1. / (traj.data[i].segs[seg_num].dt), 2);
+      }
+    }
+    auto mp = graph_->createMotionPrimitivePtrFromGraph(start, end);
+    // mp->compute(graph_->rho());  // could copy poly_coeffs or do this
+
+    // copy poly_coeffs
+    int degree = traj.data[0].segs[seg_num].coeffs.size();
+    mp->poly_coeffs_.resize(graph->spatial_dim(), degree);
+    for (int i = 0; i < graph->spatial_dim(); i++) {
+      for (int j = 0; j < degree; j++) {
+        mp->poly_coeffs_(i, degree - j - 1) =
+            traj.data[i].segs[seg_num].coeffs[j] /
+            (std::pow(traj.data[0].segs[seg_num].dt, j));
+      }
+    }
+    mp->start_index_ = traj.data[0].segs[seg_num].start_index;
+    mp->end_index_ = traj.data[0].segs[seg_num].end_index;
+    mp->traj_time_ = traj.data[0].segs[seg_num].dt;
+    return mp;
+  }
   void executeCB() {
     const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();
@@ -225,10 +281,11 @@ class PlanningServer {
     std::string heuristic;
     pnh_.param<std::string>("heuristic", heuristic, "min_time");
 
-    int planner_start_index = 0;
+    int planner_start_index = -1;
     bool compute_first_mp = last_traj.data.size() > 0;
+    if (!compute_first_mp)
+      ROS_WARN("Missing last trajectory (stopping policy may have run)");
     int seg_num = -1;
-    double mp_time;
     double finished_segs_time = 0;
     std::shared_ptr<MotionPrimitive> mp;
 
@@ -262,49 +319,12 @@ class PlanningServer {
       // its end index.
       planner_start_index = last_traj.data[0].segs[seg_num].end_index;
 
-      // if (planner_start_index >= 0 &&
-      //     planner_start_index < graph_->vertices().size() &&
-      //     last_graph_->HasEdge(last_traj.data[0].segs[seg_num].end_index,
-      //                          last_traj.data[0].segs[seg_num].start_index))
-      //                          {
-      // Recover the current segment's motion primitive from the planning
-      // graph
-      mp = last_graph_->get_mp_between_indices(
-          last_traj.data[0].segs[seg_num].end_index,
-          last_traj.data[0].segs[seg_num].start_index);
-
-      // The raw MP from the graph is not in correct translation. We want the
-      // absolute position of the planner to start from the end of the current
-      // segment.
-
-      // We calculate the MP from the last traj's coefficients, being careful
-      // to use Mike's parameterization, not the one inside motion_primitives
-      Eigen::VectorXd seg_end(last_graph_->spatial_dim());
-      for (int i = 0; i < last_graph_->spatial_dim(); i++) {
-        for (int j = 0; j < last_traj.data[i].segs[seg_num].degree + 1; j++) {
-          // all traj's are scaled to be duration 1 in Mike's parameterization
-          seg_end(i) += last_traj.data[i].segs[seg_num].coeffs[j];
-        }
-      }
-
-      // Translate the MP to the right place
-      mp->translate_using_end(seg_end);
-      mp_time = mp->traj_time_;
-      // Set the planner to start from the MP's end state (should be the same
-      // as seg_end)
+      mp = recover_mp_from_SplineTrajectory(last_traj, last_graph_, seg_num);
 
       start_and_goal[0] = mp->end_state_;
-      ROS_INFO_STREAM("Planner adjusted start: " << start.transpose());
-      // } else {
-      //   compute_first_mp = false;
-      // }
+      ROS_INFO_STREAM("Planner adjusted start: " << mp->end_state_.transpose());
     }
-    // else {
-    //   ROS_WARN("Unable to compute first MP, starting planner from rest.");
-    // }
 
-    // TODO(laura) check that planner start index actually exists in current
-    // graph, since it came from last graph
     GraphSearch::Option options = {.start_state = start_and_goal[0],
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
@@ -314,15 +334,10 @@ class PlanningServer {
                                    .start_index = planner_start_index};
     if (graph_->spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
     if (msg->check_vel) options.velocity_threshold = tol_vel;
-
-    // if (!compute_first_mp) {
-    //   ROS_WARN("start vertex is not in new graph, must access");
-    //   // options.access_graph = true;
-    //   // options.start_state = start;
-    //   // start_and_goal[0] = start;
-    //   // compute_first_mp = false;
-    //   // options.start_index = 0;
-    // }
+    if (planner_start_index == -1 ||
+        graph_->NormIndex(planner_start_index) >=
+            graph_->vertices().size())  // TODO should this be normalized
+      options.access_graph = true;
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
     Eigen::Vector3d map_start;
@@ -373,7 +388,7 @@ class PlanningServer {
       // finished_segs_time is the total time of all the segments before the
       // current segment.
       if (seg_num == 0)
-        shift_time = (mp_time - last_traj.data[0].segs[0].dt) + eval_time;
+        shift_time = eval_time;
       else
         shift_time = eval_time - finished_segs_time;
 
@@ -399,7 +414,7 @@ class PlanningServer {
       // auto first_mp = graph_->createMotionPrimitivePtrFromGraph(
       //     cropped_start, path[0]->start_state_);
 
-      double new_seg_time = mp_time - shift_time;
+      double new_seg_time = mp->traj_time_ - shift_time;
       first_mp->populate(0, new_seg_time, cropped_poly_coeffs,
                          last_traj.data[0].segs[seg_num].start_index,
                          last_traj.data[0].segs[seg_num].end_index);
