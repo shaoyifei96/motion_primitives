@@ -203,11 +203,15 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
   }
   path_nodes.push_back(*prev_node);
   if (options_.access_graph) {
-    path_mps.push_back(std::make_shared<RuckigMotionPrimitive>(
-        graph_.spatial_dim_, prev_node->state, curr_node->state,
-        graph_.max_state_));
-    // path_mps.push_back(graph_.createMotionPrimitivePtrFromGraph(
-    //     prev_node->state, curr_node->state));
+    // path_mps.push_back(std::make_shared<RuckigMotionPrimitive>(
+    //     graph_.spatial_dim_, prev_node->state, curr_node->state,
+    //     graph_.max_state_));
+    auto mp = graph_.createMotionPrimitivePtrFromGraph(prev_node->state,
+                                                       curr_node->state);
+    mp->compute(graph_.rho());
+    mp->start_index_ = prev_node->state_index;
+    mp->end_index_ = curr_node->state_index;
+    path_mps.push_back(mp);
   } else {
     path_mps.push_back(GetPrimitiveBetween(*prev_node, *curr_node));
   }
@@ -220,8 +224,7 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
 double GraphSearch::ComputeHeuristicMinTime(const State& v,
                                             const State& goal_state) const {
   const Eigen::VectorXd x = (v - goal_state).head(spatial_dim());
-  // TODO(laura) [theoretical] needs a lot of improvement. Not admissible, but
-  // too slow otherwise with higher velocities.
+  // TODO(laura) [theoretical] needs a lot of improvement.
   return graph_.rho() * x.lpNorm<Eigen::Infinity>() / graph_.max_state()(1);
 }
 
@@ -236,7 +239,8 @@ double GraphSearch::ComputeHeuristicRuckigBVP(const State& v,
 double GraphSearch::ComputeHeuristicETHBVP(const State& v,
                                            const State& goal_state) const {
   auto mp = ETHMotionPrimitive(spatial_dim(), v, goal_state, graph_.max_state_,
-                               true, graph_.rho());
+                               false);
+  mp.compute(graph_.rho());
   return mp.cost_;
 }
 
@@ -371,27 +375,27 @@ auto GraphSearch::AccessGraph(const State& start_state) const
   if (options_.access_graph) {
     int counter = 0;
     for (int i = 0; i < graph_.vertices_.rows(); i += graph_.num_tiles_) {
-      // TODO(laura) maybe only consider center tile vertices
+      // TODO(laura) could parallelize
       State end_state = graph_.vertices_.row(i);
       // TODO(laura) decide if this is better than end_state(...) =
       // start_state(...)
       // end_state.head(spatial_dim()) = start_state.head(spatial_dim());
       end_state.head(spatial_dim()) += start_state.head(spatial_dim());
-      auto mp = std::make_shared<RuckigMotionPrimitive>(
-          graph_.spatial_dim_, start_state, end_state, graph_.max_state_);
-      // auto mp =
-      // graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
+      auto mp =
+          graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
+      mp->compute(graph_.rho());
       Node next_node;
       next_node.state_index = i;
       next_node.state = mp->end_state_;
       next_node.motion_cost = mp->cost_;
       next_node.heuristic_cost =
           ComputeHeuristic(mp->end_state_, options_.goal_state);
-      if (mp->cost_ >= 0 && is_mp_collision_free(mp)) {
+      if (next_node.motion_cost >= 0 && is_mp_collision_free(mp)) {
         counter++;
         nodes.push_back(next_node);
         history[next_node.state] = {start_node, next_node.motion_cost};
       }
+      if (start_state == end_state) nodes.push_back(start_node);
     }
   } else {
     nodes.push_back(start_node);

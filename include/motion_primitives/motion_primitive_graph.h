@@ -20,7 +20,7 @@ class MotionPrimitive {
   MotionPrimitive() = default;
   MotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
                   const Eigen::VectorXd& end_state,
-                  const Eigen::VectorXd& max_state)
+                  const Eigen::VectorXd& max_state, bool compute = false)
       : spatial_dim_(spatial_dim),
         start_state_(start_state),
         end_state_(end_state),
@@ -52,6 +52,8 @@ class MotionPrimitive {
   // step_size apart.
   // Each row is a position
   virtual Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
+
+  virtual void compute(double rho = 1){};
 
   virtual void populate(double cost, double traj_time,
                         const Eigen::MatrixXd& poly_coeffs, int start_index,
@@ -93,13 +95,13 @@ class RuckigMotionPrimitive final : public MotionPrimitive {
   RuckigMotionPrimitive() = default;
   RuckigMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
                         const Eigen::VectorXd& end_state,
-                        const Eigen::VectorXd& max_state);
+                        const Eigen::VectorXd& max_state, bool compute = false);
 
   ruckig::Trajectory<3> ruckig_traj_;
 
   Eigen::VectorXd evaluate_primitive(float t) const;
   void translate(const Eigen::VectorXd& new_start);
-  void calculate_ruckig_traj();
+  void compute();
   planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline,
                                           int dim);
   std::shared_ptr<MotionPrimitive> clone() {
@@ -112,8 +114,8 @@ class ETHMotionPrimitive final : public MotionPrimitive {
   ETHMotionPrimitive() = default;
   ETHMotionPrimitive(int spatial_dim, const Eigen::VectorXd& start_state,
                      const Eigen::VectorXd& end_state,
-                     const Eigen::VectorXd& max_state, bool heuristic = false,
-                     double rho = 10.);
+                     const Eigen::VectorXd& max_state, bool compute = false);
+  void compute(double rho = 1);
 };
 
 class MotionPrimitiveGraph {
@@ -143,6 +145,7 @@ class MotionPrimitiveGraph {
   int num_tiled_states() const noexcept { return edges_.rows(); }
   const auto& max_state() const noexcept { return max_state_; }
   Eigen::MatrixXd vertices() const noexcept { return vertices_; }
+  Eigen::ArrayXXi edges() const noexcept { return edges_; }
 
   bool HasEdge(int i, int j) const noexcept { return edges_(i, j) >= 0; }
   int NormIndex(int i) const noexcept { return std::floor(i / num_tiles_); }

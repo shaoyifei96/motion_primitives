@@ -33,7 +33,7 @@ void MotionPrimitive::translate_using_end(const Eigen::VectorXd& new_end) {
 
 void RuckigMotionPrimitive::translate(const Eigen::VectorXd& new_start) {
   MotionPrimitive::translate(new_start);
-  calculate_ruckig_traj();
+  compute();
 }
 
 Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
@@ -105,6 +105,7 @@ Eigen::MatrixXd MotionPrimitive::sample_positions(double step_size) const {
 
 Eigen::VectorXd MotionPrimitive::evaluate_primitive(float t) const {
   Eigen::VectorXd time_multiplier(poly_coeffs_.cols());
+  // TODO(laura) could replace with boost::polynomial
   for (int i = 0; i < poly_coeffs_.cols(); ++i) {
     time_multiplier[poly_coeffs_.cols() - i - 1] = std::pow(t, i);
   }
@@ -114,90 +115,102 @@ Eigen::VectorXd MotionPrimitive::evaluate_primitive(float t) const {
 RuckigMotionPrimitive::RuckigMotionPrimitive(int spatial_dim,
                                              const Eigen::VectorXd& start_state,
                                              const Eigen::VectorXd& end_state,
-                                             const Eigen::VectorXd& max_state)
+                                             const Eigen::VectorXd& max_state,
+                                             bool recompute)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
   if (max_state.size() < 4)
     ROS_ERROR("Ruckig MP not valid for control space < 3");
-  calculate_ruckig_traj();
+  if (recompute) compute();
 }
 
 ETHMotionPrimitive::ETHMotionPrimitive(int spatial_dim,
                                        const Eigen::VectorXd& start_state,
                                        const Eigen::VectorXd& end_state,
                                        const Eigen::VectorXd& max_state,
-                                       bool heuristic, double rho)
+                                       bool recompute)
     : MotionPrimitive(spatial_dim, start_state, end_state, max_state) {
-  if (heuristic) {
-    const int dimension = spatial_dim_;
+  if (recompute) compute();
+}
 
-    // Array for all waypoints and their constrains
-    mav_trajectory_generation::Vertex::Vector vertices;
+void ETHMotionPrimitive::compute(double rho) {
+  const int dimension = spatial_dim_;
 
-    // // Optimze up to 4th order derivative (SNAP)
-    const int derivative_to_optimize =
-        mav_trajectory_generation::derivative_order::JERK;
+  // Array for all waypoints and their constrains
+  mav_trajectory_generation::Vertex::Vector vertices;
 
-    mav_trajectory_generation::Vertex start(dimension), end(dimension);
-    start.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
-                        start_state_.head(spatial_dim_));
-    start.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
-                        start_state_.segment(spatial_dim_, spatial_dim_));
-    end.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
-                      end_state_.head(spatial_dim_));
-    // end.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
-    //                   end_state_.segment(spatial_dim_, spatial_dim_));
-    if (start_state_.size() / spatial_dim_ > 2) {
-      start.addConstraint(
-          mav_trajectory_generation::derivative_order::ACCELERATION,
-          start_state_.segment(spatial_dim_ * 2, spatial_dim_));
-      // end.addConstraint(
-      //     mav_trajectory_generation::derivative_order::ACCELERATION,
-      //     end_state_.segment(spatial_dim_ * 2, spatial_dim_));
-    }
+  // // Optimze up to 4th order derivative (SNAP)
+  const int derivative_to_optimize =
+      mav_trajectory_generation::derivative_order::JERK;
 
-    vertices.push_back(start);
-    vertices.push_back(end);
-
-    // estimate initial segment times
-    std::vector<double> segment_times;
-    segment_times =
-        estimateSegmentTimes(vertices, max_state_[1], max_state_[2]);
-
-    // Set up polynomial solver with default params
-    mav_trajectory_generation::NonlinearOptimizationParameters parameters;
-    parameters.time_penalty = rho;
-
-    // set up optimization problem
-    const int N = 10;
-    mav_trajectory_generation::PolynomialOptimizationNonLinear<N> opt(
-        dimension, parameters);
-    opt.setupFromVertices(vertices, segment_times, derivative_to_optimize);
-
-    // constrain velocity and acceleration
-    opt.addMaximumMagnitudeConstraint(
-        mav_trajectory_generation::derivative_order::VELOCITY, max_state_[1]);
-    opt.addMaximumMagnitudeConstraint(
+  mav_trajectory_generation::Vertex start(dimension), end(dimension);
+  start.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
+                      start_state_.head(spatial_dim_));
+  start.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
+                      start_state_.segment(spatial_dim_, spatial_dim_));
+  end.addConstraint(mav_trajectory_generation::derivative_order::POSITION,
+                    end_state_.head(spatial_dim_));
+  end.addConstraint(mav_trajectory_generation::derivative_order::VELOCITY,
+                    end_state_.segment(spatial_dim_, spatial_dim_));
+  if (start_state_.size() / spatial_dim_ > 2) {
+    start.addConstraint(
         mav_trajectory_generation::derivative_order::ACCELERATION,
-        max_state_[2]);
+        start_state_.segment(spatial_dim_ * 2, spatial_dim_));
+    end.addConstraint(mav_trajectory_generation::derivative_order::ACCELERATION,
+                      end_state_.segment(spatial_dim_ * 2, spatial_dim_));
+  }
 
-    // solve trajectory
-    opt.optimize();
+  vertices.push_back(start);
+  vertices.push_back(end);
 
-    // get trajectory as polynomial parameters
-    // mav_trajectory_generation::Trajectory trajectory;
-    // opt.getTrajectory(&(trajectory));
-    // traj_time_ = trajectory.getSegmentTimes()[0];
-    // mav_trajectory_generation::Segment seg = trajectory.segments()[0];
-    // for (int i = 0; i < spatial_dim_; i++) {
-    //   poly_coeffs_.row(i) = seg.getPolynomialsRef()[i].getCoefficients(0);
-    // }
-    cost_ = opt.getTotalCostWithoutSoftConstraints();
-    // cost_ = opt.getTotalCostWithSoftConstraints();
-    // cost_ = opt.getTotalTimeCost();
+  // estimate initial segment times
+  std::vector<double> segment_times;
+  segment_times = estimateSegmentTimes(vertices, max_state_[1], max_state_[2]);
+  if (segment_times[0] == 0) {
+    segment_times[0] = 1;
+  }
+
+  // Set up polynomial solver with default params
+  mav_trajectory_generation::NonlinearOptimizationParameters parameters;
+  parameters.time_penalty = rho;
+
+  // set up optimization problem
+  const int N = 10;
+  mav_trajectory_generation::PolynomialOptimizationNonLinear<N> opt(dimension,
+                                                                    parameters);
+  opt.setupFromVertices(vertices, segment_times, derivative_to_optimize);
+
+  // constrain velocity and acceleration
+  opt.addMaximumMagnitudeConstraint(
+      mav_trajectory_generation::derivative_order::VELOCITY,
+      max_state_[1] + .5);
+  opt.addMaximumMagnitudeConstraint(
+      mav_trajectory_generation::derivative_order::ACCELERATION,
+      max_state_[2] + .5);
+
+  // solve trajectory
+  opt.optimize();
+
+  // get trajectory as polynomial parameters
+  mav_trajectory_generation::Trajectory trajectory;
+  opt.getTrajectory(&(trajectory));
+  traj_time_ = trajectory.getSegmentTimes()[0];
+  mav_trajectory_generation::Segment seg = trajectory.segments()[0];
+  poly_coeffs_.resize(spatial_dim_, N);
+  for (int i = 0; i < spatial_dim_; i++) {
+    poly_coeffs_.row(i) =
+        seg.getPolynomialsRef()[i].getCoefficients(0).reverse();
+  }
+  // cost_ = opt.getTotalCostWithoutSoftConstraints();
+  cost_ = opt.getTotalCostWithSoftConstraints();
+  // cost_ = opt.getTotalTimeCost();
+  if (cost_ > 1E6) {
+    cost_ = -1;
+    traj_time_ = -1;
+    poly_coeffs_ = Eigen::MatrixXd();
   }
 }
 
-void RuckigMotionPrimitive::calculate_ruckig_traj() {
+void RuckigMotionPrimitive::compute() {
   ruckig::Ruckig<3> otg{0.001};
   ruckig::InputParameter<3> input;
   ruckig::OutputParameter<3> output;

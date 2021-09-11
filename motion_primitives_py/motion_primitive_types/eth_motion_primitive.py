@@ -55,7 +55,7 @@ class ETHMotionPrimitive(MotionPrimitive):
         max_a = self.max_state[2] + .5
         segment_times = estimateSegmentTimes(vertices, max_v, max_a)
         if segment_times[0] <= 0:
-            return None, None
+            segment_times[0] = 1
         parameters = NonlinearOptimizationParameters()
         rho = self.subclass_specific_data.get('rho', None)
         if rho is not None:
@@ -156,15 +156,15 @@ if __name__ == "__main__":
     from copy import deepcopy
 
     num_dims = 2
-    control_space_q = 2
+    control_space_q = 3
 
-    start_state = [1, 1, 1, 1]
-    end_state = [-2, 0, 0, 0]
+    start_state = [12.5,0.4,0.03,0,0,0]
+    end_state = [12.5,0.4,0,0,0,0]
     # end_state = np.random.rand(num_dims * control_space_q,)*2
-    max_state = [1, 2, 3, 5]
-    subclass_data = {'rho': 1}
+    max_state = [10, 5, 3, 5]
+    subclass_data = {'rho': 10}
     mp = ETHMotionPrimitive(start_state, end_state, num_dims, max_state, subclass_specific_data=subclass_data)
-
+    print(mp.poly_coeffs)
     mp.plot(position_only=False)
     # plt.plot(start_state[0], start_state[1], 'og')
     # plt.plot(end_state[0], end_state[1], 'or')
