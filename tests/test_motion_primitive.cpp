@@ -5,6 +5,7 @@
 
 using motion_primitives::PolynomialMotionPrimitive;
 using motion_primitives::RuckigMotionPrimitive;
+using motion_primitives::ETHMotionPrimitive;
 
 namespace {
 template <typename T>
@@ -16,13 +17,15 @@ class MotionPrimitiveTest : public ::testing::Test {
     end_state << 1, 1, 1, 1, 0, 0;
     max_state << 3, 3, 3, 3;
     mp_ = T(2, start_state, end_state, max_state);
+    mp_.compute();
   }
   T mp_;
 
   Eigen::VectorXd start_state, end_state, max_state;
 };
 
-typedef ::testing::Types<PolynomialMotionPrimitive, RuckigMotionPrimitive>
+typedef ::testing::Types<PolynomialMotionPrimitive, RuckigMotionPrimitive,
+                         ETHMotionPrimitive>
     MotionPrimitiveTypes;
 TYPED_TEST_CASE(MotionPrimitiveTest, MotionPrimitiveTypes);
 
@@ -51,7 +54,7 @@ class RuckigMotionPrimitiveTest : public ::testing::Test {
   RuckigMotionPrimitive mp_;
 };
 TEST_F(RuckigMotionPrimitiveTest, RuckigJerksAndTimesTest) {
-  mp_.calculate_ruckig_traj();
+  mp_.compute();
   auto jerk_time_array = mp_.ruckig_traj_.get_jerks_and_times();
   for (int dim = 0; dim < 3; dim++) {
     double total_time = 0;
