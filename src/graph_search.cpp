@@ -209,7 +209,7 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
     auto mp = graph_.createMotionPrimitivePtrFromGraph(prev_node->state,
                                                        curr_node->state);
     mp->compute(graph_.rho());
-    mp->start_index_ = prev_node->state_index;
+    mp->start_index_ = -1;
     mp->end_index_ = curr_node->state_index;
     path_mps.push_back(mp);
   } else {
@@ -296,6 +296,10 @@ auto GraphSearch::Search()
   boost::timer::cpu_timer timer;
   bool ros_ok = ros::ok() || !options_.using_ros;
   while (!pq.empty() && ros_ok) {
+    if (Elapsed(timer) > 5.0) {
+      ROS_ERROR("planner timing out");
+      return {};
+    }
     Node curr_node = pq.top();
 
     // Check if we are close enough to the end
@@ -384,10 +388,8 @@ auto GraphSearch::AccessGraph(const State& start_state) const
       auto mp =
           graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);
       mp->compute(graph_.rho());
-      mp->start_index_ = -1;
-      mp->end_index_ = i;
       Node next_node;
-      next_node.state_index = i;
+      next_node.state_index = i * graph_.num_tiles_;
       next_node.state = mp->end_state_;
       next_node.motion_cost = mp->cost_;
       next_node.heuristic_cost =

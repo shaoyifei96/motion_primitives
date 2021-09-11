@@ -7,13 +7,13 @@
       name="local_plan_server"
       output="screen" 
       >
-      <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth145.json"/>
+      <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth945.json"/>
       <param name="map_file" value="$(find motion_primitives)/motion_primitives_py/data/maps/simple.bag"/>
       <param name="map_topic" value="/voxel_map"/>
-      <rosparam param="start_state">[12.5,1.4,0,0,0,0]</rosparam>
+      <rosparam param="start_state">[12.5,1.4,.1,.1,0,0]</rosparam>
       <rosparam param="goal_state">[5.4,16.6,0,0,0,0]</rosparam>
       <rosparam param="heuristic">"min_time"</rosparam>
-      <param name="access_graph" value="false"/>
+      <param name="access_graph" value="true"/>
       </node>
 
   </group>

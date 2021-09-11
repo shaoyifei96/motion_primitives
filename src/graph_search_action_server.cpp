@@ -334,9 +334,7 @@ class PlanningServer {
                                    .start_index = planner_start_index};
     if (graph_->spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
     if (msg->check_vel) options.velocity_threshold = tol_vel;
-    if (planner_start_index == -1 ||
-        graph_->NormIndex(planner_start_index) >=
-            graph_->vertices().size())  // TODO should this be normalized
+    if (planner_start_index == -1 || last_traj.graph_index != graph_index_)
       options.access_graph = true;
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
