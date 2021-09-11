@@ -31,10 +31,11 @@ class PlanningServer {
   ros::Publisher sg_pub_;
   ros::Publisher visited_pub_;
   planning_ros_msgs::VoxelMapConstPtr voxel_map_ptr_ = nullptr;
-  motion_primitives::MotionPrimitiveGraph graph_;
+  std::shared_ptr<motion_primitives::MotionPrimitiveGraph> graph_;
+  std::shared_ptr<motion_primitives::MotionPrimitiveGraph> last_graph_;
   ros::Subscriber map_sub_;
   int seg_num_{-1};
-  std::vector<motion_primitives::MotionPrimitiveGraph> graphs_;
+  std::vector<std::shared_ptr<motion_primitives::MotionPrimitiveGraph>> graphs_;
   boost::circular_buffer<double> last_plan_times_;
   boost::circular_buffer<bool> last_plan_failures_;
   ros::Publisher local_map_cleared_pub_;
@@ -73,10 +74,13 @@ class PlanningServer {
       for (auto filename : graph_files_) {
         auto full_filename = graph_files_dir + filename + ".json";
         ROS_INFO_STREAM("Reading graph file " << full_filename);
-        graphs_.push_back(read_motion_primitive_graph(full_filename));
+        graphs_.push_back(
+            std::make_shared<motion_primitives::MotionPrimitiveGraph>(
+                read_motion_primitive_graph(full_filename)));
       }
       graph_index_ = (int)(graph_files_.size() / 2);
       graph_ = graphs_[graph_index_];
+      last_graph_ = graph_;
       ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);
     }
     ROS_INFO("Finished reading graphs");
@@ -99,7 +103,7 @@ class PlanningServer {
     // TODO(YUEZHAN): fix val_free;
     int8_t val_free = 0;
     ROS_WARN_ONCE("Value free is set as %d", val_free);
-    double robot_r = 0.6;
+    double robot_r = 0.5;
     int robot_r_n = std::ceil(robot_r / voxel_map.resolution);
 
     std::vector<Eigen::Vector3i> clear_ns;
@@ -142,7 +146,7 @@ class PlanningServer {
     for (auto time : last_plan_times_) {
       if (time > planner_timeout_) num_planner_timeouts++;
     }
-    bool too_many_timeouts = (num_planner_timeouts > 1);
+    bool too_many_timeouts = (num_planner_timeouts > 0);
     if (too_many_timeouts) {
       ROS_WARN("Too many planner timeouts, increasing dispersion");
       last_plan_failures_.clear();
@@ -162,18 +166,33 @@ class PlanningServer {
       graph_index_++;
     }
 
-    if (too_many_timeouts && too_many_failures)
-      ROS_ERROR(
-          "Both failing and timing out, environment may be too difficult to "
-          "plan.");
+    if (!too_many_failures && !too_many_failures &&
+        last_plan_failures_.size() > 9) {
+      if (number_of_failures == 0) {
+        bool well_below_planner_timeout = true;
+        for (auto time : last_plan_times_) {
+          if (time > planner_timeout_ * .3) {
+            well_below_planner_timeout = false;
+            break;
+          }
+        }
+        if (well_below_planner_timeout) {
+          ROS_WARN(
+              "Planner performing well within margin, reducing dispersion.");
+          last_plan_failures_.clear();
+          last_plan_times_.clear();
+          graph_index_++;
+        }
+      }
+    }
 
     if (graph_index_ < 0) {
       graph_index_ = 0;
-      ROS_ERROR("Out of higher dispersion graphs");
+      ROS_WARN("Out of higher dispersion graphs");
     }
     if (graph_index_ >= graphs_.size()) {
       graph_index_ = graphs_.size() - 1;
-      ROS_ERROR("Out of lower dispersion graphs");
+      ROS_WARN("Out of lower dispersion graphs");
     }
     graph_ = graphs_[graph_index_];
     ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);
@@ -182,7 +201,6 @@ class PlanningServer {
   void executeCB() {
     const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();
-    adaptivePlanner();
     planning_ros_msgs::VoxelMap voxel_map = *voxel_map_ptr_;
     if (voxel_map.resolution == 0.0) {
       ROS_ERROR(
@@ -201,8 +219,6 @@ class PlanningServer {
 
     const planning_ros_msgs::SplineTrajectory last_traj = msg->last_traj;
     double eval_time = msg->eval_time;
-    bool access_graph;
-    pnh_.param("access_graph", access_graph, false);
     double tol_pos, tol_vel;
     pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
     pnh_.param("trajectory_planner/global_goal_tol_vel", tol_vel, 1.5);
@@ -216,13 +232,19 @@ class PlanningServer {
     double finished_segs_time = 0;
     std::shared_ptr<MotionPrimitive> mp;
 
+    // TODO(laura) check first_mp for collision and if not, should access
+    // graph with BVP
+
     // If we received a last trajectory, we want to use it to create a new
-    // trajectory that starts on with the segment of the old trajectory that we
-    // are flying on, at the requested eval time (which is a little bit in the
-    // future of where its currently flying). With a slight abuse of notation, I
-    // will refer to this as the "current segment"
+    // trajectory that starts on with the segment of the old trajectory that
+    // we are flying on, at the requested eval time (which is a little bit in
+    // the future of where its currently flying). With a slight abuse of
+    // notation, I will refer to this as the "current segment"
     if (compute_first_mp) {
-      // Figure out which segment of the last trajectory is the current segment
+      last_graph_ = graphs_[last_traj.graph_index];
+
+      // Figure out which segment of the last trajectory is the current
+      // segment
       for (int i = 0; i < last_traj.data[0].segments; i++) {
         auto seg = last_traj.data[0].segs[i];
         finished_segs_time += seg.dt;
@@ -236,12 +258,18 @@ class PlanningServer {
       if (seg_num == -1) seg_num = last_traj.data[0].segments - 1;
       ROS_INFO_STREAM("Seg num " << seg_num);
 
-      // The planner will start at the end of the current segment, so we get its
-      // end index.
+      // The planner will start at the end of the current segment, so we get
+      // its end index.
       planner_start_index = last_traj.data[0].segs[seg_num].end_index;
 
-      // Recover the current segment's motion primitive from the planning graph
-      mp = graph_.get_mp_between_indices(
+      // if (planner_start_index >= 0 &&
+      //     planner_start_index < graph_->vertices().size() &&
+      //     last_graph_->HasEdge(last_traj.data[0].segs[seg_num].end_index,
+      //                          last_traj.data[0].segs[seg_num].start_index))
+      //                          {
+      // Recover the current segment's motion primitive from the planning
+      // graph
+      mp = last_graph_->get_mp_between_indices(
           last_traj.data[0].segs[seg_num].end_index,
           last_traj.data[0].segs[seg_num].start_index);
 
@@ -249,37 +277,52 @@ class PlanningServer {
       // absolute position of the planner to start from the end of the current
       // segment.
 
-      // We calculate the MP from the last traj's coefficients, being careful to
-      // use Mike's parameterization, not the one inside motion_primitives
-      Eigen::VectorXd seg_end(graph_.spatial_dim());
-      for (int i = 0; i < graph_.spatial_dim(); i++) {
+      // We calculate the MP from the last traj's coefficients, being careful
+      // to use Mike's parameterization, not the one inside motion_primitives
+      Eigen::VectorXd seg_end(last_graph_->spatial_dim());
+      for (int i = 0; i < last_graph_->spatial_dim(); i++) {
         for (int j = 0; j < last_traj.data[i].segs[seg_num].degree + 1; j++) {
           // all traj's are scaled to be duration 1 in Mike's parameterization
           seg_end(i) += last_traj.data[i].segs[seg_num].coeffs[j];
         }
       }
+
       // Translate the MP to the right place
       mp->translate_using_end(seg_end);
       mp_time = mp->traj_time_;
-      // Set the planner to start from the MP's end state (should be the same as
-      // seg_end)
-      start = mp->end_state_;
-      start_and_goal[0] = start;
+      // Set the planner to start from the MP's end state (should be the same
+      // as seg_end)
+
+      start_and_goal[0] = mp->end_state_;
       ROS_INFO_STREAM("Planner adjusted start: " << start.transpose());
-
-    } else {
-      ROS_WARN("Unable to compute first MP, starting planner from rest.");
+      // } else {
+      //   compute_first_mp = false;
+      // }
     }
+    // else {
+    //   ROS_WARN("Unable to compute first MP, starting planner from rest.");
+    // }
 
-    GraphSearch::Option options = {.start_state = start,
+    // TODO(laura) check that planner start index actually exists in current
+    // graph, since it came from last graph
+    GraphSearch::Option options = {.start_state = start_and_goal[0],
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
                                    .parallel_expand = true,
                                    .heuristic = heuristic,
-                                   .access_graph = access_graph,
+                                   .access_graph = false,
                                    .start_index = planner_start_index};
-    if (graph_.spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
+    if (graph_->spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
     if (msg->check_vel) options.velocity_threshold = tol_vel;
+
+    // if (!compute_first_mp) {
+    //   ROS_WARN("start vertex is not in new graph, must access");
+    //   // options.access_graph = true;
+    //   // options.start_state = start;
+    //   // start_and_goal[0] = start;
+    //   // compute_first_mp = false;
+    //   // options.start_index = 0;
+    // }
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
     Eigen::Vector3d map_start;
@@ -299,13 +342,15 @@ class PlanningServer {
       local_map_cleared_pub_.publish(voxel_map);
     }
 
-    GraphSearch gs(graph_, voxel_map, options);
+    GraphSearch gs(*graph_, voxel_map, options);
     const auto start_time = ros::Time::now();
 
     auto [path, nodes] = gs.Search();
+    int last_graph_index = graph_index_;
+    adaptivePlanner();
     bool planner_start_too_close_to_goal =
         StatePosWithin(options.start_state, options.goal_state,
-                       graph_.spatial_dim(), options.distance_threshold);
+                       graph_->spatial_dim(), options.distance_threshold);
     if (path.empty()) {
       if (!planner_start_too_close_to_goal) {
         ROS_ERROR("Graph search failed, aborting action server.");
@@ -315,15 +360,15 @@ class PlanningServer {
       }
     }
     if (compute_first_mp) {
-      // To our planned trajectory, we add a cropped motion primitive that is in
-      // the middle of the last_traj segment that we are evaluating at
+      // To our planned trajectory, we add a cropped motion primitive that is
+      // in the middle of the last_traj segment that we are evaluating at
 
-      Eigen::VectorXd cropped_start(graph_.state_dim());
+      Eigen::VectorXd cropped_start(graph_->state_dim());
       Eigen::MatrixXd cropped_poly_coeffs;
 
       double shift_time = 0;
-      // We need to shift the motion primitive to start at the eval_time. If we
-      // are the first segment, it might have been itself a cropped motion
+      // We need to shift the motion primitive to start at the eval_time. If
+      // we are the first segment, it might have been itself a cropped motion
       // primitive, so the shift_time is a little more complicated.
       // finished_segs_time is the total time of all the segments before the
       // current segment.
@@ -337,21 +382,21 @@ class PlanningServer {
 
       // Use the polynomial coefficients to get the new start, which is
       // hopefully the same as the planning query requested start.
-      for (int i = 0; i < graph_.spatial_dim(); i++) {
+      for (int i = 0; i < graph_->spatial_dim(); i++) {
         cropped_start(i) =
             cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 1);
-        cropped_start(graph_.spatial_dim() + i) =
+        cropped_start(graph_->spatial_dim() + i) =
             cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 2);
-        if (graph_.control_space_dim() > 2) {
-          cropped_start(2 * graph_.spatial_dim() + i) =
+        if (graph_->control_space_dim() > 2) {
+          cropped_start(2 * graph_->spatial_dim() + i) =
               cropped_poly_coeffs(i, cropped_poly_coeffs.cols() - 3);
         }
       }
       ROS_INFO_STREAM("Cropped start " << cropped_start.transpose());
 
       auto first_mp =
-          graph_.createMotionPrimitivePtrFromGraph(cropped_start, start);
-      // auto first_mp = graph_.createMotionPrimitivePtrFromGraph(
+          graph_->createMotionPrimitivePtrFromGraph(cropped_start, start);
+      // auto first_mp = graph_->createMotionPrimitivePtrFromGraph(
       //     cropped_start, path[0]->start_state_);
 
       double new_seg_time = mp_time - shift_time;
@@ -379,6 +424,7 @@ class PlanningServer {
     result.success = true;
     result.traj = path_to_spline_traj_msg(path, result.traj.header,
                                           msg->p_init.position.z);
+    result.traj.graph_index = last_graph_index;
     spline_traj_pub_.publish(result.traj);
     if (path[0]->poly_coeffs_.size() <= 6) {
       auto viz_traj_msg =
@@ -408,8 +454,8 @@ class PlanningServer {
   std::array<Eigen::VectorXd, 2> populateStartGoal(
       const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg) {
     Eigen::VectorXd start, goal;
-    start.resize(graph_.state_dim());
-    goal.resize(graph_.state_dim());
+    start.resize(graph_->state_dim());
+    goal.resize(graph_->state_dim());
     auto p_init = pointMsgToArray(msg->p_init.position);
     auto v_init = pointMsgToArray(msg->v_init.linear);
     auto a_init = pointMsgToArray(msg->a_init.linear);
@@ -417,13 +463,13 @@ class PlanningServer {
     auto v_final = pointMsgToArray(msg->v_final.linear);
     auto a_final = pointMsgToArray(msg->a_final.linear);
 
-    int spatial_dim = graph_.spatial_dim();
+    int spatial_dim = graph_->spatial_dim();
     for (int dim = 0; dim < spatial_dim; dim++) {
       start[dim] = p_init[dim];
       goal[dim] = p_final[dim];
       start[spatial_dim + dim] = v_init[dim];
       goal[spatial_dim + dim] = v_final[dim];
-      if (graph_.control_space_dim() > 2) {
+      if (graph_->control_space_dim() > 2) {
         start[2 * spatial_dim + dim] = a_init[dim];
         goal[2 * spatial_dim + dim] = a_final[dim];
       }
@@ -450,7 +496,7 @@ class PlanningServer {
     goal_marker.pose.position.x = start_and_goal[1][0],
     goal_marker.pose.position.y = start_and_goal[1][1];
 
-    if (graph_.spatial_dim() == 2) {
+    if (graph_->spatial_dim() == 2) {
       start_marker.pose.position.z = fixed_z;
       goal_marker.pose.position.z = fixed_z;
     } else {
