@@ -1,24 +1,19 @@
 <launch>
 <arg name="robot" default="quadrotor" />  
 <arg name="map_topic" default="mapper/local_voxel_map" />  
-<arg name="feedback_topic" default="trackers_manager/execute_trajectory/feedback" />  
-<arg name="tracker_traj_topic" default="quadrotor_manager_control/trajectory" />  
-<arg name="param_file" default="$(find motion_primitives)/config/quad_control_tracker_params.yaml" />  
-<arg name="bagging" default="true"/>
+<arg name="bagging" default="false"/>
 
 <group ns="$(arg robot)">
       <node pkg="motion_primitives"
         type="motion_primitives_action_server"
         name="local_plan_server"
         output="screen">
-        <rosparam file="$(arg param_file)"/>
         <!-- <param name="graph_file" value="$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth615.json"/> -->
         <remap from="~voxel_map" to="$(arg map_topic)"/>
-        <remap from="~feedback" to="$(arg feedback_topic)"/>
         <rosparam param="heuristic">"min_time"</rosparam>
-        <rosparam param="graph_files_dir" subst_value="True">"$(find motion_primitives)/motion_primitives_py/data/lattices/eth2/eth"</rosparam>
+        <rosparam param="graph_files_dir" subst_value="true">"$(find motion_primitives)/motion_primitives_py/data/lattices/eth3/eth"</rosparam>
         <!-- <rosparam param="graph_files">['625']</rosparam> -->
-        <rosparam param="graph_files">['325','425','525','625','725','825','925']</rosparam>
+        <rosparam param="graph_files">['350','375','400','450','500','550','650']</rosparam>
         <remap from="~planner_timeout" to="trackers_manager/local_global_server/local_plan_timeout_duration"/>
       </node>
   </group>

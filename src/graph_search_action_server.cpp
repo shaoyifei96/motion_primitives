@@ -141,7 +141,6 @@ class PlanningServer {
     if (graphs_.size() <= 1) return;
     ROS_WARN("adaptive planner");
 
-    ROS_INFO_STREAM(last_plan_times_);
     int num_planner_timeouts = 0;
     for (auto time : last_plan_times_) {
       if (time > planner_timeout_) num_planner_timeouts++;
@@ -334,8 +333,12 @@ class PlanningServer {
                                    .start_index = planner_start_index};
     if (graph_->spatial_dim() == 2) options.fixed_z = msg->p_init.position.z;
     if (msg->check_vel) options.velocity_threshold = tol_vel;
-    if (planner_start_index == -1 || last_traj.graph_index != graph_index_)
+    if (planner_start_index == -1 ||
+        planner_start_index >= graph_->num_tiled_states())
       options.access_graph = true;
+    // TODO(laura) why should planner_start_index >= graph_->num_tiled_states()
+    // ever happen except when switching graphs, but checking if
+    // graph_index_!=last_graph.graph_index didn't work
 
     publishStartAndGoal(start_and_goal, options.fixed_z);
     Eigen::Vector3d map_start;

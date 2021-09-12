@@ -296,10 +296,6 @@ auto GraphSearch::Search()
   boost::timer::cpu_timer timer;
   bool ros_ok = ros::ok() || !options_.using_ros;
   while (!pq.empty() && ros_ok) {
-    if (Elapsed(timer) > 5.0) {
-      ROS_ERROR("planner timing out");
-      return {};
-    }
     Node curr_node = pq.top();
 
     // Check if we are close enough to the end
@@ -378,6 +374,7 @@ auto GraphSearch::AccessGraph(const State& start_state) const
 
   if (options_.access_graph) {
     int counter = 0;
+    start_node.state_index = -1;
     for (int i = 0; i < graph_.vertices_.rows(); i += graph_.num_tiles_) {
       // TODO(laura) could parallelize
       State end_state = graph_.vertices_.row(i);
