@@ -170,7 +170,7 @@ class PlanningServer {
       if (number_of_failures == 0) {
         bool well_below_planner_timeout = true;
         for (auto time : last_plan_times_) {
-          if (time > planner_timeout_ * .3) {
+          if (time > planner_timeout_ * .5) {
             well_below_planner_timeout = false;
             break;
           }
