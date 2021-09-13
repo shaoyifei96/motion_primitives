@@ -7,6 +7,7 @@
 #include <planning_ros_msgs/Trajectory.h>
 #include <planning_ros_msgs/VoxelMap.h>
 #include <ros/ros.h>
+#include <std_msgs/Float64.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <boost/circular_buffer.hpp>
@@ -30,6 +31,8 @@ class PlanningServer {
   ros::Publisher viz_traj_pub_;
   ros::Publisher sg_pub_;
   ros::Publisher visited_pub_;
+  ros::Publisher time_pub_;
+  ros::Publisher local_map_cleared_pub_;
   planning_ros_msgs::VoxelMapConstPtr voxel_map_ptr_ = nullptr;
   std::shared_ptr<motion_primitives::MotionPrimitiveGraph> graph_;
   std::shared_ptr<motion_primitives::MotionPrimitiveGraph> last_graph_;
@@ -38,10 +41,10 @@ class PlanningServer {
   std::vector<std::shared_ptr<motion_primitives::MotionPrimitiveGraph>> graphs_;
   boost::circular_buffer<double> last_plan_times_;
   boost::circular_buffer<bool> last_plan_failures_;
-  ros::Publisher local_map_cleared_pub_;
   double planner_timeout_;
   int graph_index_;
   std::vector<std::string> graph_files_;
+  bool parallel_expand_;
 
  public:
   explicit PlanningServer(const ros::NodeHandle& nh)
@@ -62,8 +65,11 @@ class PlanningServer {
                                                               1, true);
     local_map_cleared_pub_ = pnh_.advertise<planning_ros_msgs::VoxelMap>(
         "local_voxel_map_cleared", 1, true);
+    time_pub_ = pnh_.advertise<std_msgs::Float64>("planner_time", 1, true);
 
     pnh_.param("planner_timeout", planner_timeout_, 1.0);
+    pnh_.param<bool>("parallel_expand", parallel_expand_, true);
+    ROS_INFO_STREAM("Parallel expand: " << parallel_expand_);
     last_plan_times_ = boost::circular_buffer<double>(10);
     last_plan_failures_ = boost::circular_buffer<bool>(10);
 
@@ -327,7 +333,7 @@ class PlanningServer {
     GraphSearch::Option options = {.start_state = start_and_goal[0],
                                    .goal_state = goal,
                                    .distance_threshold = tol_pos,
-                                   .parallel_expand = true,
+                                   .parallel_expand = parallel_expand_,
                                    .heuristic = heuristic,
                                    .access_graph = false,
                                    .start_index = planner_start_index};
@@ -355,7 +361,7 @@ class PlanningServer {
       map_goal(1) = goal(1);
       map_goal(2) = msg->p_init.position.z;
       clear_footprint(voxel_map, map_goal);
-      local_map_cleared_pub_.publish(voxel_map);
+      // local_map_cleared_pub_.publish(voxel_map);
     }
 
     GraphSearch gs(*graph_, voxel_map, options);
@@ -430,6 +436,9 @@ class PlanningServer {
     const auto total_time = (ros::Time::now() - start_time).toSec();
     ROS_INFO("Finished planning. Planning time %f s", total_time);
     last_plan_times_.push_back(total_time);
+    std_msgs::Float64 time;
+    time.data = total_time;
+    time_pub_.publish(time);
 
     planning_ros_msgs::PlanTwoPointResult result;
     result.epoch = msg->epoch;

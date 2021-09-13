@@ -15,7 +15,7 @@ add_subdirectory(external/ruckig)
 
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation)
+find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation std_msgs)
 find_package(Eigen3 REQUIRED NO_MODULE)
 # find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
