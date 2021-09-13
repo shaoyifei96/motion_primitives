@@ -282,7 +282,9 @@ class PlanningServer {
     double eval_time = msg->eval_time;
     double tol_pos, tol_vel;
     pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
+    ROS_INFO_STREAM("Position tolerance: " << tol_pos);
     pnh_.param("trajectory_planner/global_goal_tol_vel", tol_vel, 1.5);
+    if (msg->check_vel) ROS_INFO_STREAM("Velocity tolerance: " << tol_vel);
     std::string heuristic;
     pnh_.param<std::string>("heuristic", heuristic, "min_time");
 
