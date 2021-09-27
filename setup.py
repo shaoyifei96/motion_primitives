@@ -10,7 +10,7 @@ setup(name='motion_primitives_py', version='0.0.1', packages=['motion_primitives
                         'scipy',
                         'cvxpy',
                         # 'py_opt_control @ git+ssh://git@github.com/jpaulos/opt_control#egg=py_opt_control&subdirectory=python',
-                        'ruckig',
+                        # 'ruckig',
                         'reeds_shepp @ git+https://git@github.com/ghliu/pyReedsShepp#egg=reeds_shepp',
                         'sobol_seq @ git+https://git@github.com/naught101/sobol_seq@v0.2.0#egg=sobol_seq'
                         ]

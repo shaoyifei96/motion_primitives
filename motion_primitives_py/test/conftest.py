@@ -9,7 +9,7 @@ import pytest
     params=[PolynomialMotionPrimitive,
             ReedsSheppMotionPrimitive,
             InputsMotionPrimitive,
-            RuckigMotionPrimitive,
+            # RuckigMotionPrimitive,
             # OptimizationMotionPrimitive,
             # JerksMotionPrimitive
             ])
@@ -42,7 +42,7 @@ def mp_fixture(request):
 @pytest.fixture(
     scope="module",
     params=[PolynomialMotionPrimitive,
-            RuckigMotionPrimitive,
+            # RuckigMotionPrimitive,
             # OptimizationMotionPrimitive,
             # JerksMotionPrimitive
             ])
