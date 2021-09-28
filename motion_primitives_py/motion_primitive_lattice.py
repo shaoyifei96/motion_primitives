@@ -37,6 +37,10 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mpl.num_dense_samples = np.array(data["num_dense_samples"])
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
+        if "poly_order" in data:
+            mpl.poly_order = np.array(data["poly_order"])
+            mpl.mp_subclass_specific_data['dynamics'] = mpl.motion_primitive_type.get_dynamics_polynomials(mpl.poly_order)
+
         for i in range(len(mpl.edges)):
             for j in range(len(mpl.vertices)):
                 mpl.edges[i, j] = mpl.motion_primitive_type.from_dict(
@@ -194,6 +198,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             min_score_fwd, mp_list_fwd = self.multiprocessing_dispersion_distance_fn_trajectory(pool, potential_sample_pts, end_pts)
             if check_backwards_dispersion:
                 min_score_bwd, _ = self.multiprocessing_dispersion_distance_fn_trajectory(pool, end_pts, potential_sample_pts)
+                # min_score[:, 1] = np.nanmin(np.maximum(min_score_fwd, min_score_bwd.T),axis=1)
                 min_score[:, 1] = np.maximum(np.nanmin(min_score_fwd, axis=1), np.nanmin(min_score_bwd.T, axis=1))
             else:
                 min_score[:, 1] = np.nanmin(min_score_fwd, axis=1)
@@ -604,7 +609,7 @@ if __name__ == "__main__":
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
 
-    tiling = True
+    tiling = False
     plot = False
     animate = False
     check_backwards_dispersion = True
@@ -630,8 +635,8 @@ if __name__ == "__main__":
     motion_primitive_type = ETHMotionPrimitive
     control_space_q = 3
     num_dims = 2
-    max_state = [10, 5, 3]
-    num_dense_samples = 2000
+    max_state = [15, 2, 2]
+    num_dense_samples = 1000
     num_output_pts = num_dense_samples
     mp_subclass_specific_data = {'rho': 10}
 

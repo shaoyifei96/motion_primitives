@@ -1,9 +1,10 @@
 {
-    "mp_type": "ETHMotionPrimitive",
+    "mp_type": "PolynomialMotionPrimitive",
     "control_space_q": 3,
     "num_dims": 2,
     "tiling": false,
     "rho": 10,
+    "poly_order": 9,
     "dispersion": 629.3917244379938,
     "dispersion_list": [
         1000007146.5784829,

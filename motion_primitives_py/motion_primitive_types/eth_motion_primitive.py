@@ -3,7 +3,6 @@
 from motion_primitives_py import MotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
-from planning_ros_msgs.msg import SplineTrajectory, Spline, Polynomial
 from copy import copy
 from mav_traj_gen import *
 import time
