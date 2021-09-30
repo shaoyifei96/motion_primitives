@@ -11,3 +11,5 @@ __pycache__/
 scratch_pad.py
 *.zip
 external/
+*.so
+build/

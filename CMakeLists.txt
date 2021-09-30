@@ -15,7 +15,7 @@ add_subdirectory(external/ruckig)
 
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation std_msgs)
+find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation std_msgs pybind11_catkin)
 find_package(Eigen3 REQUIRED NO_MODULE)
 # find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
@@ -73,3 +73,7 @@ install(
   PATTERN ".svn" EXCLUDE)
 
 add_subdirectory(tests)
+
+pybind11_add_module(motion_primitives_cpp src/python.cpp)
+target_compile_features(motion_primitives_cpp PUBLIC cxx_std_17)
+target_link_libraries(motion_primitives_cpp PUBLIC ${PROJECT_NAME})
