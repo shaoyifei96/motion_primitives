@@ -2,7 +2,6 @@
 #include "motion_primitives/utils.h"
 
 #include <geometry_msgs/Point.h>
-#include <ros/console.h>
 
 namespace motion_primitives {
 

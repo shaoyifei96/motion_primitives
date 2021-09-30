@@ -14,31 +14,7 @@ using motion_primitives::path_to_spline_traj_msg;
 using motion_primitives::path_to_traj_msg;
 using motion_primitives::read_motion_primitive_graph;
 using motion_primitives::StatesToMarkerArray;
-// num indicates the max number of elements to read, -1 means read till the end
-template <class T>
-std::vector<T> read_bag(std::string file_name, std::string topic,
-                        unsigned int num) {
-  rosbag::Bag bag;
-  bag.open(file_name, rosbag::bagmode::Read);
-  std::vector<std::string> topics;
-  topics.push_back(topic);
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
-
-  std::vector<T> msgs;
-  BOOST_FOREACH (rosbag::MessageInstance const m, view) {
-    if (m.instantiate<T>() != NULL) {
-      msgs.push_back(*m.instantiate<T>());
-      if (msgs.size() > num) break;
-    }
-  }
-  bag.close();
-  if (msgs.empty())
-    ROS_WARN("Fail to find '%s' in '%s', make sure md5sum are equivalent.",
-             topic.c_str(), file_name.c_str());
-  else
-    ROS_INFO("Get voxel map data!");
-  return msgs;
-}
+using motion_primitives::read_bag;
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "motion_primitive_graph_search_cpp");
@@ -61,6 +37,7 @@ int main(int argc, char** argv) {
   auto voxel_map =
       read_bag<planning_ros_msgs::VoxelMap>(map_file, map_topic, 0).back();
   voxel_map.header.stamp = ros::Time::now();
+  voxel_map.resolution = 1;
   map_pub.publish(voxel_map);
   ROS_INFO("Publish map");
 
@@ -121,7 +98,7 @@ int main(int argc, char** argv) {
       ROS_INFO_STREAM(k << ": " << v << "s, " << (v / total_time * 100) << "%");
     }
     const auto visited_marray = StatesToMarkerArray(
-        gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header);
+        gs.GetVisitedStates(), gs.spatial_dim(), voxel_map.header,.4);
     visited_pub.publish(visited_marray);
     if (!path.empty()) {
       if (path[0]->poly_coeffs_.size() <= 6) {
