@@ -73,8 +73,7 @@ class GraphSearch {
   // Search for a path from start_state to end_state, stops if no path found
   // (returns empty vector) or reach within distance_threshold of start_state
   // parallel == true will expand nodes in parallel (~x2 speedup)
-  std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, std::vector<Node>>
-  Search();
+  std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, double> Search();
 
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
   const auto& timings() const noexcept { return timings_; }
@@ -85,9 +84,6 @@ class GraphSearch {
   // State is the real node
   // Node is a wrapper around state that also carries the cost info
 
-  std::vector<std::shared_ptr<MotionPrimitive>> last_path_mps_;
-  std::vector<Node> last_path_nodes_;
-
  private:
   // The state is the key of PathHistory and will not be stored here
   struct StateInfo {
@@ -97,8 +93,8 @@ class GraphSearch {
 
   // Path history stores the parent node of this state and the best cost so far
   using PathHistory = std::unordered_map<State, StateInfo, VectorXdHash>;
-  std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, std::vector<Node>>
-  RecoverPath(const PathHistory& history, const Node& end_node) const;
+  std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, double> RecoverPath(
+      const PathHistory& history, const Node& end_node) const;
 
   typedef double (motion_primitives::GraphSearch::*FUNCPTR)(
       const State& v, const State& goal_state) const;
@@ -140,7 +136,7 @@ class GraphSearch {
   // Samples motion primitive along step_size time steps and checks for
   // collisions
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
-                            double step_size = 0.05) const;
+                            double step_size = 0.2) const;
 };
 
 }  // namespace motion_primitives

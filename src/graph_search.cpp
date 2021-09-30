@@ -188,8 +188,7 @@ std::shared_ptr<MotionPrimitive> GraphSearch::GetPrimitiveBetween(
 
 auto GraphSearch::RecoverPath(const PathHistory& history,
                               const Node& end_node) const
-    -> std::pair<std::vector<std::shared_ptr<MotionPrimitive>>,
-                 std::vector<Node>> {
+    -> std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, double> {
   std::vector<std::shared_ptr<MotionPrimitive>> path_mps;
   Node const* curr_node = &end_node;
   Node const* prev_node = &(history.at(curr_node->state).parent_node);
@@ -218,7 +217,7 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
   std::reverse(path_mps.begin(), path_mps.end());
   std::reverse(path_nodes.begin(), path_nodes.end());
   ROS_INFO_STREAM("Path cost: " << end_node.motion_cost);
-  return std::make_pair(path_mps, path_nodes);
+  return std::make_pair(path_mps, end_node.motion_cost);
 }
 
 double GraphSearch::ComputeHeuristicMinTime(const State& v,
@@ -256,11 +255,9 @@ double GraphSearch::ComputeHeuristic(const State& v,
 }
 
 auto GraphSearch::Search()
-    -> std::pair<std::vector<std::shared_ptr<MotionPrimitive>>,
-                 std::vector<Node>> {
+    -> std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, double> {
   timings_.clear();
   visited_states_.clear();
-
   // Early exit if start and end positions are close
   if (StatePosWithin(options_.start_state, options_.goal_state,
                      graph_.spatial_dim(), options_.distance_threshold)) {
