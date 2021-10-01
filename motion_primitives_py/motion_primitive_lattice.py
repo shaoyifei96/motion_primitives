@@ -84,6 +84,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
                             "rho": self.mp_subclass_specific_data.get('rho', 1),
+                            "poly_order": self.mp_subclass_specific_data.get('poly_order', 0),
                             "dispersion": self.dispersion,
                             "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,

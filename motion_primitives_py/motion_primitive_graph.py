@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive, OptimizationMotionPrimitive
+from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitive, ReedsSheppMotionPrimitive, OptimizationMotionPrimitive, ETHMotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -50,7 +50,9 @@ class MotionPrimitiveGraph():
         self.saving_file_prefix = saving_file_prefix
 
         # Setup specific to motion primitive being used TODO move elsewhere
-        if self.motion_primitive_type == InputsMotionPrimitive:
+        if self.motion_primitive_type == ETHMotionPrimitive:
+            self.mp_subclass_specific_data["poly_order"] = 9
+        elif self.motion_primitive_type == InputsMotionPrimitive:
             self.mp_subclass_specific_data['dynamics'] = self.motion_primitive_type.get_dynamics_polynomials(
                 self.control_space_q, self.num_dims)
         elif self.motion_primitive_type == ReedsSheppMotionPrimitive:
@@ -114,7 +116,7 @@ class MotionPrimitiveGraph():
         return pts, independent
 
     def sobol_state_sampling(self, bounds, num_samples):
-        sobol = sobol_seq.i4_sobol_generate(self.n, num_samples, skip=np.random.randint(0, 100)) # TODO handle random seed better
+        sobol = sobol_seq.i4_sobol_generate(self.n, num_samples, skip=np.random.randint(0, 100))  # TODO handle random seed better
         repeated_bounds = np.repeat(bounds, self.num_dims)[:self.n]
         scaled_sobol = sobol*2*repeated_bounds-repeated_bounds
         return scaled_sobol

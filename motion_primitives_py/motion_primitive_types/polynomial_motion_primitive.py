@@ -60,7 +60,6 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         dict = super().to_dict()
         if dict:
             dict["polys"] = self.poly_coeffs.tolist()
-            dict["poly_order"] = self.poly_order
         return dict
 
     def get_state(self, t):
