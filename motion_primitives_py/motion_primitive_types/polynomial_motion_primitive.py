@@ -133,7 +133,8 @@ class PolynomialMotionPrimitive(MotionPrimitive):
         Output:
             sampled, array of polynomial derivative evaluated at sample times
         """
-        # print(poly_multiplier.shape)
+        if (deriv_num+1)*polys.shape[0] > poly_multiplier.shape[0]:
+            return None
         p = np.roll(polys, deriv_num) * poly_multiplier[deriv_num*polys.shape[0]: (deriv_num+1)*polys.shape[0], :]
         sampled = np.array([np.dot(dynamics[0](t), p.T) for t in st]).T
         return sampled
