@@ -3,9 +3,10 @@
 from motion_primitives_py import MotionPrimitive, PolynomialMotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
-from copy import copy
-from mav_traj_gen import *
-import time
+try:
+    from mav_traj_gen import *
+except:
+    print("Cannot import mav_traj_gen, computing new ETHMotionPrimitive will not work, continuing")
 
 # TODO(laura) fix so not recomputing the trajectory at graph search time (see polynomial MP setup)
 
