@@ -12,6 +12,7 @@
 
 #include <boost/circular_buffer.hpp>
 #include <boost/math/tools/polynomial.hpp>
+#include <numeric>
 namespace motion_primitives {
 
 template <typename T>

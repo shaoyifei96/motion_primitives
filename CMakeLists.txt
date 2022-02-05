@@ -22,7 +22,7 @@ find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
 
 catkin_package(
-  INCLUDE_DIRS include LIBRARIES ${PROJECT_NAME} # CATKIN_DEPENDS
+  INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS} external/json/include external/ruckig/include LIBRARIES ${PROJECT_NAME} CATKIN_DEPENDS rosbag
                                                  # other_catkin_pkg DEPENDS xcc
 )
 
@@ -42,8 +42,9 @@ target_link_libraries(
   nlohmann_json::nlohmann_json
   Eigen3::Eigen
   Boost::timer
-  TBB::tbb
-  ruckig)
+  TBB::tbb 
+  ruckig
+  )
 
 add_executable(${PROJECT_NAME}_graph_search src/graph_search_node.cpp)
 target_link_libraries(${PROJECT_NAME}_graph_search PRIVATE ${PROJECT_NAME})
@@ -73,7 +74,3 @@ install(
   PATTERN ".svn" EXCLUDE)
 
 add_subdirectory(tests)
-
-pybind11_add_module(motion_primitives_cpp src/python.cpp)
-target_compile_features(motion_primitives_cpp PUBLIC cxx_std_17)
-target_link_libraries(motion_primitives_cpp PUBLIC ${PROJECT_NAME})

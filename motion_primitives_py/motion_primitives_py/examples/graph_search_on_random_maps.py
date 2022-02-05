@@ -9,18 +9,19 @@ from pylab import rcParams
 
 rospack = rospkg.RosPack()
 pkg_path = rospack.get_path('motion_primitives')
-pkg_path = f'{pkg_path}/motion_primitives_py/'
+pkg_path = f'{pkg_path}/motion_primitives_py/motion_primitives_py/'
 
-dispersion_threshholds = [300, 400,500,600,700]  # list(np.arange(1, 201))
+dispersion_threshholds = [300, 400, 500, 600, 700]  # list(np.arange(1, 201))
 file_prefix = f'{pkg_path}data/lattices/eth2/eth'
 params = {
-        'font.size': 12,
-        'legend.fontsize': 9,
-        'text.usetex': False,
-        'figure.figsize': [7, 6]
-    }
+    'font.size': 12,
+    'legend.fontsize': 9,
+    'text.usetex': False,
+    'figure.figsize': [7, 6]
+}
 
 rcParams.update(params)
+
 
 def generate_data():
     # get all lattices in directory
@@ -46,7 +47,7 @@ def generate_data():
         start_state = np.zeros((6))
         goal_state = np.zeros_like(start_state)
         start_state[0:2] = [5, 10]
-        goal_state[0:2] = [55,50]
+        goal_state[0:2] = [55, 50]
 
         voxel_map = motion_primitives_cpp.read_bag(bag_name, "/voxel_map", 0)[-1]
 
@@ -86,13 +87,13 @@ def process_data():
     fig, ax = plt.subplots(2, 1, sharex=True)
     path_cost = data[0, :, :]
     average_path_cost = np.nanmean(path_cost, axis=0)
-    dispersions =  [213.037, 185.24585,168.5891, 154.450681, 142.816]
+    dispersions = [213.037, 185.24585, 168.5891, 154.450681, 142.816]
 
-    ax[0].plot(dispersions, average_path_cost,'o')
+    ax[0].plot(dispersions, average_path_cost, 'o')
     ax[0].set_ylabel("Cost")
     error = np.nanstd(path_cost, axis=0)
     ax[0].fill_between(dispersions, average_path_cost-error, average_path_cost+error,
-                       alpha=0.5,label="1 Std. Deviation")
+                       alpha=0.5, label="1 Std. Deviation")
     ax[0].legend()
     nodes_expanded = data[1, :, :]
     # average_nodes_expanded = np.average(nodes_expanded, axis=0)
@@ -103,7 +104,7 @@ def process_data():
     nodes_considered = data[2, :, :]
     # nodes_considered[nodes_expanded > 999] = np.nan
     average_nodes_considered = np.nanmean(nodes_considered, axis=0)
-    ax[1].plot(dispersions, average_nodes_considered,'o')
+    ax[1].plot(dispersions, average_nodes_considered, 'o')
     # ax[2].xlabel("Dispersion")
 
     error = np.nanstd(nodes_considered, axis=0)
@@ -183,7 +184,7 @@ def process_data_clutteredness():
 
 
 if __name__ == '__main__':
-    # generate_data()
+    generate_data()
     process_data()
     # generate_data_clutteredness()
     # process_data_clutteredness()
