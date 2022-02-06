@@ -14,7 +14,7 @@ repositories:
   motion_primitives/external/googletest:
     type: git
     url: git@github.com:google/googletest.git
-    version: master  
+    version: main  
   planning_ros_msgs:
     type: git
     url: git@github.com:ljarin/planning_ros_msgs.git

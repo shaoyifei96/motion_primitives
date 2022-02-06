@@ -17,13 +17,11 @@ add_subdirectory(external/ruckig)
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation std_msgs pybind11_catkin)
 find_package(Eigen3 REQUIRED NO_MODULE)
-# find_package(nlohmann_json REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS} external/json/include external/ruckig/include LIBRARIES ${PROJECT_NAME} CATKIN_DEPENDS rosbag
-                                                 # other_catkin_pkg DEPENDS xcc
 )
 
 # ##############################################################################
@@ -74,3 +72,10 @@ install(
   PATTERN ".svn" EXCLUDE)
 
 add_subdirectory(tests)
+
+pybind_add_module(motion_primitives_cpp MODULE src/python.cpp)
+target_link_libraries(motion_primitives_cpp PUBLIC ${PROJECT_NAME})
+
+install(TARGETS motion_primitives_cpp
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
