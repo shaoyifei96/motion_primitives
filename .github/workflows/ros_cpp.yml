@@ -7,14 +7,14 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
-    container: ros:melodic
+    runs-on: ubuntu-20.04
+    container: ros:noetic
 
     steps:
       - name: install apt deps
         run: |
           apt-get update
-          apt-get install -y libeigen3-dev libtbb-dev libgtest-dev python3-vcstool libgoogle-glog-dev autoconf libtool
+          apt-get install -y libeigen3-dev libtbb-dev libgtest-dev python3-vcstool libgoogle-glog-dev autoconf libtool git python3-dev
 
       - name: checkout motion_primitives
         uses: actions/checkout@v2
@@ -61,14 +61,14 @@ jobs:
           catkin_make run_tests
           catkin_test_results
 
-      - name: Set up Python 3.6.9
+      - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6.9
+          python-version: 3.8
 
-      - name: boost
-        run: |
-          sudo apt install -y libboost1.65-dev
+      # - name: boost
+      #   run: |
+      #     sudo apt install -y libboost1.65-dev
 
       - name: Install dependencies
         run: |
@@ -80,14 +80,6 @@ jobs:
       - name: Install ruckig python
         run: |
           cd src/motion_primitives/external/ruckig
-          pip install .
-
-      - name: Install mav_traj_gen python
-        shell: bash
-        run: |
-          source /opt/ros/$ROS_DISTRO/setup.bash
-          source devel/setup.bash
-          cd src/mav_trajectory_generation
           pip install .
 
       - name: Install package

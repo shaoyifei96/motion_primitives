@@ -23,6 +23,10 @@ repositories:
     type: git
     url: git@github.com:ljarin/mav_trajectory_generation.git
     version: master
+  mav_comm:
+    type: git
+    url: git@github.com:ethz-asl/mav_comm.git
+    version: master
   mav_trajectory_generation/nlopt:
     type: git
     url: git@github.com:stevengj/nlopt.git
