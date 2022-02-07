@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-from motion_primitives_py import MotionPrimitive
+from motion_primitives_py import MotionPrimitive, PolynomialMotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
-from copy import copy
-from mav_traj_gen import *
-import time
+try:
+    from mav_traj_gen import *
+except:
+    print("Cannot import mav_traj_gen, computing new ETHMotionPrimitive will not work, continuing")
 
 # TODO(laura) fix so not recomputing the trajectory at graph search time (see polynomial MP setup)
 
@@ -149,6 +150,9 @@ class ETHMotionPrimitive(MotionPrimitive):
             dict["polys"] = self.poly_coeffs.tolist()
         return dict
 
+    def get_dynamics_polynomials(self):
+        return PolynomialMotionPrimitive.get_dynamics_polynomials
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -157,8 +161,8 @@ if __name__ == "__main__":
     num_dims = 2
     control_space_q = 3
 
-    start_state = [12.5,0.4,0.03,0,0,0]
-    end_state = [12.5,0.4,0,0,0,0]
+    start_state = [12.5, 0.4, 0.03, 0, 0, 0]
+    end_state = [12.5, 0.4, 0, 0, 0, 0]
     # end_state = np.random.rand(num_dims * control_space_q,)*2
     max_state = [10, 5, 3, 5]
     subclass_data = {'rho': 10}

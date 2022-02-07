@@ -84,6 +84,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                             "num_dims": self.num_dims,
                             "tiling": True if self.num_tiles > 1 else False,
                             "rho": self.mp_subclass_specific_data.get('rho', 1),
+                            "poly_order": self.mp_subclass_specific_data.get('poly_order', 0),
                             "dispersion": self.dispersion,
                             "dispersion_list": self.dispersion_list,
                             "check_backwards_dispersion": self.check_backwards_dispersion,
@@ -244,7 +245,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                 asi_copy = deepcopy(actual_sample_indices)
                 asi_copy = asi_copy[:i+1]
                 copy.vertices = potential_sample_pts[asi_copy]
-                copy.edges = mp_adjacency_matrix_fwd[:, asi_copy]
+                copy.edges = mp_adjacency_matrix_fwd[:len(asi_copy)*self.num_tiles, asi_copy]
                 copy.limit_connections(2*copy.dispersion)
                 disp_list = [i for i in self.dispersion_list if i != np.inf]
                 if self.dispersion < 10e5:

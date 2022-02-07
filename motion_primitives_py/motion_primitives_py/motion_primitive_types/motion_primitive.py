@@ -131,8 +131,10 @@ class MotionPrimitive():
         """
         state_sampling = self.get_sampled_states(step_size=step_size)
         _, input_sampling = self.get_sampled_input(step_size=step_size)
-        if state_sampling is not None and input_sampling is not None:
-            sampling_array = np.vstack((state_sampling, input_sampling))
+        if state_sampling is not None:
+            sampling_array = state_sampling
+            if input_sampling is not None:
+                sampling_array = np.vstack((state_sampling, input_sampling))
             self.plot_from_sampled_states(sampling_array, position_only, ax, color, zorder)
         else:
             print("Trajectory was not found")

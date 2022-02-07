@@ -6,10 +6,7 @@ try:
     from motion_primitives_py.motion_primitive_types.ruckig_motion_primitive import RuckigMotionPrimitive
 except ImportError as e:
     print("Cannot import Ruckig or use RuckigMotionPrimitive, continuing")
-try:
-    from motion_primitives_py.motion_primitive_types.eth_motion_primitive import ETHMotionPrimitive
-except ImportError as e:
-    print("Cannot import mav_traj_gen or use ETHMotionPrimitive, continuing")
+from motion_primitives_py.motion_primitive_types.eth_motion_primitive import ETHMotionPrimitive
 # from motion_primitives_py.jerks_motion_primitive import JerksMotionPrimitive
 from motion_primitives_py.motion_primitive_types.reeds_shepp_motion_primitive import ReedsSheppMotionPrimitive
 from motion_primitives_py.motion_primitive_types.inputs_motion_primitive import InputsMotionPrimitive
