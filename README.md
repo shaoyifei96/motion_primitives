@@ -1,6 +1,6 @@
 
 ## C++/ROS Installation, also some python bindings
-You must have ROS and catkin tools already installed and sourced. The ROS package is independent from/does not also install standalone python package (see below). Currently, graph generation is only included in python standalone version, but graph search exists in both (but focus is on C++ version). There are limited python bindings (mostly t call GraphSearch) for the C++ version that ROS will install for the default python.
+You must have ROS and catkin tools already installed and sourced. The ROS package is independent from/does not also install standalone python package (see below). Currently, graph generation is only included in python standalone version, but graph search exists in both (but focus is on C++ version). There are limited python bindings (mostly t call GraphSearch) for the C++ version that ROS will install for the default python. This means they will only work for Python2 on 18.04 and Python3 for 20.04.
 
 ```
 sudo apt-get install -y libeigen3-dev libtbb-dev libgtest-dev python3-vcstool
