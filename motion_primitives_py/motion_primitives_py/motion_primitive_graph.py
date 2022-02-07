@@ -3,8 +3,7 @@ from motion_primitives_py import PolynomialMotionPrimitive, InputsMotionPrimitiv
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
-import sobol_seq
-# from scipy.stats.qmc import Sobol
+from scipy.stats.qmc import Sobol
 
 
 class MotionPrimitiveGraph():
@@ -116,9 +115,11 @@ class MotionPrimitiveGraph():
         return pts, independent
 
     def sobol_state_sampling(self, bounds, num_samples):
-        sobol = sobol_seq.i4_sobol_generate(self.n, num_samples, skip=np.random.randint(0, 100))  # TODO handle random seed better
+        sampler = Sobol(self.n)
+        samples = sampler.random(num_samples)
+
         repeated_bounds = np.repeat(bounds, self.num_dims)[:self.n]
-        scaled_sobol = sobol*2*repeated_bounds-repeated_bounds
+        scaled_sobol = samples*2*repeated_bounds-repeated_bounds
         return scaled_sobol
 
     def dispersion_distance_fn_simple_norm(self, start_pts, end_pts):
