@@ -15,32 +15,36 @@ add_subdirectory(external/ruckig)
 
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation std_msgs pybind11_catkin)
-find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation pybind11_catkin cmake_modules)
+find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
 
 catkin_package(
-  INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS} external/json/include external/ruckig/include LIBRARIES ${PROJECT_NAME} CATKIN_DEPENDS rosbag
+  INCLUDE_DIRS include 
+  LIBRARIES ${PROJECT_NAME} 
+  DEPENDS TBB
+  CATKIN_DEPENDS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation
 )
 
+include_directories(
+  include  
+  ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
+)
 # ##############################################################################
 # Build ##
 # ##############################################################################
 
 # Specify libraries to link a library or executable target against
-add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp
-                            src/utils.cpp)
+add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp src/utils.cpp)
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
-target_include_directories(${PROJECT_NAME} PUBLIC include
-                                                  ${catkin_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
   nlohmann_json::nlohmann_json
-  Eigen3::Eigen
-  Boost::timer
-  TBB::tbb 
+  ${Boost_LIBRARIES}
+  ${TBB_LIBRARIES} 
   ruckig
   )
 
