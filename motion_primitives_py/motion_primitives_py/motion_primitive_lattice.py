@@ -37,7 +37,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         mpl.num_dense_samples = np.array(data["num_dense_samples"])
         mpl.vertices = np.array(data["vertices"])
         mpl.edges = np.empty((len(mpl.vertices)*mpl.num_tiles, len(mpl.vertices)), dtype=object)
-        if "poly_order" in data:
+        if data.get("poly_order", 0) > 0:
             mpl.poly_order = np.array(data["poly_order"])
             mpl.mp_subclass_specific_data['dynamics'] = mpl.motion_primitive_type.get_dynamics_polynomials(mpl.poly_order)
 
