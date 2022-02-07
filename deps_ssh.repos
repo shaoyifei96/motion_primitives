@@ -31,10 +31,6 @@ repositories:
     type: git
     url: git@github.com:stevengj/nlopt.git
     version: master
-  mav_trajectory_generation/pybind11:
-    type: git
-    url: git@github.com:pybind/pybind11.git
-    version: master
   glog_catkin:
     type: git
     url: git@github.com:ljarin/glog_catkin.git
