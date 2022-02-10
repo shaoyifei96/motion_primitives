@@ -390,25 +390,27 @@ class GraphSearch:
 if __name__ == "__main__":
     from motion_primitives_py import *
     import time
-    from pycallgraph import PyCallGraph, Config
-    from pycallgraph.output import GraphvizOutput
+    # from pycallgraph import PyCallGraph, Config
+    # from pycallgraph.output import GraphvizOutput
     import rospkg
 
     rospack = rospkg.RosPack()
     pkg_path = rospack.get_path('motion_primitives')
-    pkg_path = f'{pkg_path}/motion_primitives_py/'
+    pkg_path = f'{pkg_path}/motion_primitives_py/motion_primitives_py/'
     mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/lattice_test2.json")
+        f"{pkg_path}data/lattices/testing/5.json")
 
     start_state = np.zeros((mpl.n))
     goal_state = np.zeros_like(start_state)
+
+    print([len([j for j in i if j != None]) for i in mpl.edges.T])
 
     # occ_map = OccupancyMap.fromVoxelMapBag('data/maps/test2d.bag')
     # start_state[0:2] = [0, -18]
     # goal_state[0:2] = [7, -7]
     # goal_state[0:2] = [5, 4]
     # bag_name = f'{pkg_path}data/maps/random/trees_dispersion_1.1_54.png.bag'
-    bag_name = f'{pkg_path}data/maps/random/trees_long0.4_1.png.bag'
+    bag_name = f'{pkg_path}data/maps/trees_dispersion_0.6.bag'
     # bag_name = f'data/maps/random/trees_long0.4_13.png.bag'
     occ_map = OccupancyMap.fromVoxelMapBag(bag_name, force_2d=True)
     start_state = np.zeros((mpl.n))
@@ -423,7 +425,7 @@ if __name__ == "__main__":
     # mpt.mp_subclass_specific_data['num_u_per_dimension'] = 4
     # mpt.mp_subclass_specific_data['rho'] = mpl.mp_subclass_specific_data['rho']
 
-    fig, ax = plt.subplots(2, 1, sharex=True)
+    fig, ax = plt.subplots(1, 1, sharex=True)
 
     # gs = GraphSearch.from_yaml("data/maps/corridor.yaml", mpt, heuristic='min_time')
     # path, sampled_path, path_cost, nodes_expanded = gs.run_graph_search()
@@ -435,13 +437,13 @@ if __name__ == "__main__":
 
     gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='bvp', goal_tolerance=goal_tolerance)
     gs.run_graph_search()
-    gs.plot(ax[0])
+    gs.plot(ax)
 
-    mpl = MotionPrimitiveLattice.load(
-        f"{pkg_path}data/lattices/lattice_test.json")
-    gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='bvp', goal_tolerance=goal_tolerance)
-    gs.run_graph_search()
-    gs.plot(ax[1])
+    # mpl = MotionPrimitiveLattice.load(
+    #     f"{pkg_path}data/lattices/lattice_test.json")
+    # gs = GraphSearch(mpl, occ_map, start_state, goal_state, heuristic='bvp', goal_tolerance=goal_tolerance)
+    # gs.run_graph_search()
+    # gs.plot(ax[1])
 
     # plt.savefig(f"plots/corridor.png", dpi=1200, bbox_inches='tight')
 

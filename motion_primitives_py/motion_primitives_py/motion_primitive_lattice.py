@@ -308,15 +308,24 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             if self.num_tiles > 1:
                 self.ax.plot(tiled_verts[:, 0], tiled_verts[:, 1], 'ob', zorder=4)
 
+        # remove any edges with cost > 2d
         for i in range(len(self.edges)):
             for j in range(len(self.vertices)):
                 mp = self.edges[i, j]
                 if mp is not None and mp.is_valid and mp.cost < cost_threshold + 1e-5:
-                    if self.plot:
-                        mp.subclass_specific_data = self.mp_subclass_specific_data
-                        mp.plot(position_only=True, ax=self.ax)
+                    pass
+                    # if self.plot:
+                    #     mp.subclass_specific_data = self.mp_subclass_specific_data
+                    #     mp.plot(position_only=True, ax=self.ax)
                 else:
                     self.edges[i, j] = None
+
+        # remove any edges that end in vertices that dont have any outgoing edges
+        for j in range(len(self.vertices)):
+            outgoing_edges = self.edges[:, j]
+            if not any(outgoing_edges):  # remove any ingoing edges if all outgoing are bad
+                for i in range(1, self.num_tiles+1):
+                    self.edges[j*self.num_tiles, :] = None
 
     def plot_config(self, ax=None, plot_mps=False):
         """
@@ -608,9 +617,9 @@ if __name__ == "__main__":
 
     rospack = rospkg.RosPack()
     pkg_path = rospack.get_path('motion_primitives')
-    pkg_path = f'{pkg_path}/motion_primitives_py/'
+    pkg_path = f'{pkg_path}/motion_primitives_py/motion_primitives_py/'
 
-    tiling = False
+    tiling = True
     plot = False
     animate = False
     check_backwards_dispersion = True
@@ -636,29 +645,19 @@ if __name__ == "__main__":
     motion_primitive_type = ETHMotionPrimitive
     control_space_q = 3
     num_dims = 2
-    max_state = [15, 2, 2]
+    max_state = [.75, .5, .5]
     num_dense_samples = 1000
-    num_output_pts = num_dense_samples
-    mp_subclass_specific_data = {'rho': 10}
+    num_output_pts = 10
+    mp_subclass_specific_data = {'rho': .1}
 
-    # build lattice
+    # # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
-    tic = time.time()
-    mpl.saving_file_prefix = f"{pkg_path}data/lattices/eth2/eth"
-    # with PyCallGraph(output=GraphvizOutput(), config=Config(max_depth=8)):
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/testing/"
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
-    # toc = time.time()
-    # print(toc-tic)
-    # mpl.limit_connections(2*mpl.dispersion)
-    mpl.save(f"{pkg_path}data/lattices/lattice_test.json")
 
-    # mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/lattice_test.json", plot)
-    # # mpl.limit_connections(np.inf)
-    # mpl.plot_config(plot_mps=True)
-    # # print(mpl.dispersion)
-    # print(sum([1 for i in np.nditer(mpl.edges, ['refs_ok']) if i != None])/len(mpl.vertices))
-    # print(max([len([j for j in i if j != None]) for i in mpl.edges]))
+    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/testing/10.json", plot)
+    mpl.plot_config(plot_mps=True)
 
     # plot
     plt.show()
