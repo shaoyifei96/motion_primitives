@@ -70,17 +70,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           cd src/motion_primitives/motion_primitives_py
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
 
       - name: Install ruckig python
         run: |
           cd src/motion_primitives/external/ruckig
-          pip install .
+          python -m pip install .
 
       - name: Install package
         run: |
           cd src/motion_primitives/motion_primitives_py
-          pip install -e .
+          python -m pip install -e .
 
       - name: Test with pytest
         shell: bash
