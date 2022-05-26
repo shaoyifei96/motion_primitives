@@ -22,7 +22,7 @@ pip3 install -e .
 
 If you don't have ROS and above workspace installed and sourced:
 - `pip3 install --extra-index-url https://rospypi.github.io/simple/ rosbag`
-- ETHMotionPrimitive will not work, but you should still be able to run everything else
+- ETHMotionPrimitive will not work, but you should still be able to run everything else. To install ETHMotionPrimitive see https://github.com/ljarin/mav_trajectory_generation
 
 System packages (for animation video mp4s to be generated):
 - `sudo apt-get install ffmpeg`
