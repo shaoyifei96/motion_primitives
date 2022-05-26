@@ -6,11 +6,11 @@
 namespace motion_primitives {
 
 using geometry_msgs::Point;
-using planning_ros_msgs::Polynomial;
-using planning_ros_msgs::Primitive;
-using planning_ros_msgs::Spline;
-using planning_ros_msgs::SplineTrajectory;
-using planning_ros_msgs::Trajectory;
+using kr_planning_msgs::Polynomial;
+using kr_planning_msgs::Primitive;
+using kr_planning_msgs::Spline;
+using kr_planning_msgs::SplineTrajectory;
+using kr_planning_msgs::Trajectory;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
@@ -31,7 +31,7 @@ Trajectory path_to_traj_msg(
 
   for (int i = 0; i < pc_resized.rows(); ++i) {
     // These hardcoded coefficients come from how
-    // planning_ros_msgs::Primitive/MPL defines polynomial trajectories
+    // kr_planning_msgs::Primitive/MPL defines polynomial trajectories
     coeff_multiplier.row(i) << 120, 24, 6, 2, 1, 1;
   }
 

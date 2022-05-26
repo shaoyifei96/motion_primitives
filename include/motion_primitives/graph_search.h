@@ -1,7 +1,7 @@
 // Copyright 2021 Laura Jarin-Lipschitz
 #pragma once
 
-#include <planning_ros_msgs/VoxelMap.h>
+#include <kr_planning_msgs/VoxelMap.h>
 
 #include <boost/timer/timer.hpp>
 #include <functional>
@@ -36,7 +36,7 @@ class GraphSearch {
   MotionPrimitiveGraph graph_;
   Eigen::Vector3i map_dims_;
   Eigen::Vector3d map_origin_;
-  planning_ros_msgs::VoxelMap voxel_map_;
+  kr_planning_msgs::VoxelMap voxel_map_;
 
  public:
   using State = Eigen::VectorXd;
@@ -64,7 +64,7 @@ class GraphSearch {
   };
 
   GraphSearch(const MotionPrimitiveGraph& graph,
-              const planning_ros_msgs::VoxelMap& voxel_map,
+              const kr_planning_msgs::VoxelMap& voxel_map,
               const Option& options);
 
   ~GraphSearch() = default;
@@ -128,7 +128,7 @@ class GraphSearch {
   Eigen::Vector3i get_indices_from_position(
       const Eigen::Vector3d& position) const;
   // Converts from vector of indices to single index into
-  // planning_ros_msgs::VoxelMap.data
+  // kr_planning_msgs::VoxelMap.data
   int get_linear_indices(const Eigen::Vector3i& indices) const;
   bool is_valid_indices(const Eigen::Vector3i& indices) const;
   bool is_free_and_valid_indices(const Eigen::Vector3i& indices) const;

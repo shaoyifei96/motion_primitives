@@ -15,7 +15,7 @@ add_subdirectory(external/ruckig)
 
 # Find catkin macros and libraries if COMPONENTS list like find_package(catkin
 # REQUIRED COMPONENTS xyz) is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation pybind11_catkin cmake_modules)
+find_package(catkin REQUIRED COMPONENTS roscpp kr_planning_msgs rosbag actionlib mav_trajectory_generation pybind11_catkin cmake_modules)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
@@ -24,7 +24,7 @@ catkin_package(
   INCLUDE_DIRS include 
   LIBRARIES ${PROJECT_NAME} 
   DEPENDS TBB
-  CATKIN_DEPENDS roscpp planning_ros_msgs rosbag actionlib mav_trajectory_generation
+  CATKIN_DEPENDS roscpp kr_planning_msgs rosbag actionlib mav_trajectory_generation
 )
 
 include_directories(

@@ -25,7 +25,7 @@ bool StateVelWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
 }
 
 GraphSearch::GraphSearch(const MotionPrimitiveGraph& graph,
-                         const planning_ros_msgs::VoxelMap& voxel_map,
+                         const kr_planning_msgs::VoxelMap& voxel_map,
                          const Option& options)
     : graph_(graph), voxel_map_(voxel_map), options_(options) {
   map_dims_[0] = voxel_map_.dim.x;

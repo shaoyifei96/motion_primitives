@@ -3,7 +3,7 @@
 #ifndef INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
 #define INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
 
-#include <planning_ros_msgs/Spline.h>
+#include <kr_planning_msgs/Spline.h>
 
 #include <Eigen/Core>
 #include <iosfwd>
@@ -70,8 +70,8 @@ class MotionPrimitive {
   // to a polynomial may be different between subclasses (RuckigMotionPrimitive
   // does not store poly_coeffs_ at the moment, just computes them when
   // requested in this function)
-  virtual planning_ros_msgs::Spline add_to_spline(
-      planning_ros_msgs::Spline spline, int dim);
+  virtual kr_planning_msgs::Spline add_to_spline(
+      kr_planning_msgs::Spline spline, int dim);
 
   // Makes a copy of a shared_ptr to a MotionPrimitive. Smart pointers are
   // needed in e.g. the graph search for the polymorphism of the class to work.
@@ -102,7 +102,7 @@ class RuckigMotionPrimitive final : public MotionPrimitive {
   Eigen::VectorXd evaluate_primitive(float t) const;
   void translate(const Eigen::VectorXd& new_start);
   void compute();
-  planning_ros_msgs::Spline add_to_spline(planning_ros_msgs::Spline spline,
+  kr_planning_msgs::Spline add_to_spline(kr_planning_msgs::Spline spline,
                                           int dim);
   std::shared_ptr<MotionPrimitive> clone() {
     return std::make_shared<RuckigMotionPrimitive>(*this);

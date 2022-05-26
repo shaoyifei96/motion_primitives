@@ -3,15 +3,15 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
 #include <mav_trajectory_generation/polynomial_optimization_nonlinear.h>
-#include <planning_ros_msgs/Polynomial.h>
+#include <kr_planning_msgs/Polynomial.h>
 #include <ros/console.h>
 
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <ostream>
 
-using planning_ros_msgs::Polynomial;
-using planning_ros_msgs::Spline;
+using kr_planning_msgs::Polynomial;
+using kr_planning_msgs::Spline;
 namespace motion_primitives {
 
 void MotionPrimitive::translate(const Eigen::VectorXd& new_start) {

@@ -2,10 +2,10 @@
 #include <actionlib/server/simple_action_server.h>
 #include <motion_primitives/graph_search.h>
 #include <motion_primitives/utils.h>
-#include <planning_ros_msgs/PlanTwoPointAction.h>
-#include <planning_ros_msgs/SplineTrajectory.h>
-#include <planning_ros_msgs/Trajectory.h>
-#include <planning_ros_msgs/VoxelMap.h>
+#include <kr_planning_msgs/PlanTwoPointAction.h>
+#include <kr_planning_msgs/SplineTrajectory.h>
+#include <kr_planning_msgs/Trajectory.h>
+#include <kr_planning_msgs/VoxelMap.h>
 #include <ros/ros.h>
 #include <std_msgs/Float64.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -26,7 +26,7 @@ std::ostream& operator<<(std::ostream& output,
 class PlanningServer {
  protected:
   ros::NodeHandle pnh_;
-  actionlib::SimpleActionServer<planning_ros_msgs::PlanTwoPointAction> as_;
+  actionlib::SimpleActionServer<kr_planning_msgs::PlanTwoPointAction> as_;
   ros::Publisher traj_vis_pub_;
   ros::Publisher spline_traj_pub_;
   ros::Publisher viz_traj_pub_;
@@ -34,7 +34,7 @@ class PlanningServer {
   ros::Publisher visited_pub_;
   ros::Publisher time_pub_;
   ros::Publisher local_map_cleared_pub_;
-  planning_ros_msgs::VoxelMapConstPtr voxel_map_ptr_ = nullptr;
+  kr_planning_msgs::VoxelMapConstPtr voxel_map_ptr_ = nullptr;
   std::shared_ptr<motion_primitives::MotionPrimitiveGraph> graph_;
   std::shared_ptr<motion_primitives::MotionPrimitiveGraph> last_graph_;
   ros::Subscriber map_sub_;
@@ -54,17 +54,17 @@ class PlanningServer {
     // pnh_.param("graph_file", graph_file, std::string());
     // ROS_INFO("Reading graph file %s", graph_file.c_str());
     // graph_ = read_motion_primitive_graph(graph_file);
-    spline_traj_pub_ = pnh_.advertise<planning_ros_msgs::SplineTrajectory>(
+    spline_traj_pub_ = pnh_.advertise<kr_planning_msgs::SplineTrajectory>(
         "trajectory", 1, true);
     viz_traj_pub_ =
-        pnh_.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
+        pnh_.advertise<kr_planning_msgs::Trajectory>("traj", 1, true);
     visited_pub_ =
         pnh_.advertise<visualization_msgs::MarkerArray>("visited", 1, true);
     map_sub_ =
         pnh_.subscribe("voxel_map", 1, &PlanningServer::voxelMapCB, this);
     sg_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("start_and_goal",
                                                               1, true);
-    local_map_cleared_pub_ = pnh_.advertise<planning_ros_msgs::VoxelMap>(
+    local_map_cleared_pub_ = pnh_.advertise<kr_planning_msgs::VoxelMap>(
         "local_voxel_map_cleared", 1, true);
     time_pub_ = pnh_.advertise<std_msgs::Float64>("planner_time", 1, true);
 
@@ -102,7 +102,7 @@ class PlanningServer {
            pn(2) < 0 || pn(2) >= dim(2);
   }
 
-  void clear_footprint(planning_ros_msgs::VoxelMap& voxel_map,
+  void clear_footprint(kr_planning_msgs::VoxelMap& voxel_map,
                        const Eigen::Vector3d& point) {
     // TODO(laura) copy-pasted from local_plan_server
     // Clear robot footprint
@@ -219,7 +219,7 @@ class PlanningServer {
   }
 
   std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
-      const planning_ros_msgs::SplineTrajectory& traj,
+      const kr_planning_msgs::SplineTrajectory& traj,
       std::shared_ptr<MotionPrimitiveGraph> graph, int seg_num) {
     Eigen::VectorXd start(graph->state_dim());
     Eigen::VectorXd end = start;
@@ -261,9 +261,9 @@ class PlanningServer {
     return mp;
   }
   void executeCB() {
-    const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg =
+    const kr_planning_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();
-    planning_ros_msgs::VoxelMap voxel_map = *voxel_map_ptr_;
+    kr_planning_msgs::VoxelMap voxel_map = *voxel_map_ptr_;
     if (voxel_map.resolution == 0.0) {
       ROS_ERROR(
           "Missing voxel map for motion primitive planner, aborting action "
@@ -279,7 +279,7 @@ class PlanningServer {
     ROS_INFO_STREAM("Planner start: " << start.transpose());
     ROS_INFO_STREAM("Planner goal: " << goal.transpose());
 
-    const planning_ros_msgs::SplineTrajectory last_traj = msg->last_traj;
+    const kr_planning_msgs::SplineTrajectory last_traj = msg->last_traj;
     double eval_time = msg->eval_time;
     double tol_pos, tol_vel;
     pnh_.param("trajectory_planner/tol_pos", tol_pos, 0.5);
@@ -443,10 +443,10 @@ class PlanningServer {
     time.data = total_time;
     time_pub_.publish(time);
 
-    planning_ros_msgs::PlanTwoPointResult result;
+    kr_planning_msgs::PlanTwoPointResult result;
     result.epoch = msg->epoch;
     result.execution_time = msg->execution_time;
-    result.traj = planning_ros_msgs::SplineTrajectory();
+    result.traj = kr_planning_msgs::SplineTrajectory();
     result.traj.header.stamp = ros::Time::now();
     result.traj.header.frame_id = voxel_map.header.frame_id;
     result.success = true;
@@ -468,7 +468,7 @@ class PlanningServer {
     visited_pub_.publish(visited_marray);
   }
 
-  void voxelMapCB(const planning_ros_msgs::VoxelMap::ConstPtr& msg) {
+  void voxelMapCB(const kr_planning_msgs::VoxelMap::ConstPtr& msg) {
     voxel_map_ptr_ = msg;
   }
 
@@ -480,7 +480,7 @@ class PlanningServer {
     return {point.x, point.y, point.z};
   }
   std::array<Eigen::VectorXd, 2> populateStartGoal(
-      const planning_ros_msgs::PlanTwoPointGoal::ConstPtr& msg) {
+      const kr_planning_msgs::PlanTwoPointGoal::ConstPtr& msg) {
     Eigen::VectorXd start, goal;
     start.resize(graph_->state_dim());
     goal.resize(graph_->state_dim());

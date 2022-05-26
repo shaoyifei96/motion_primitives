@@ -1,10 +1,10 @@
-from planning_ros_msgs.msg import SplineTrajectory
+from kr_planning_msgs.msg import SplineTrajectory
 import rospy
 import matplotlib.pyplot as plt
 import numpy as np
 from nav_msgs.msg import Odometry
 from matplotlib.animation import FuncAnimation
-from planning_ros_msgs.msg import PlanTwoPointActionGoal
+from kr_planning_msgs.msg import PlanTwoPointActionGoal
 from matplotlib.collections import LineCollection
 import matplotlib as mpl
 from visualization_msgs.msg import MarkerArray

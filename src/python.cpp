@@ -1,7 +1,7 @@
 #include <motion_primitives/graph_search.h>
 #include <motion_primitives/motion_primitive_graph.h>
 #include <motion_primitives/utils.h>
-#include <planning_ros_msgs/VoxelMap.h>
+#include <kr_planning_msgs/VoxelMap.h>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -24,13 +24,13 @@ PYBIND11_MODULE(motion_primitives_cpp, m) {
       .def_readwrite("using_ros", &GraphSearch::Option::using_ros);
 
   py::class_<MotionPrimitiveGraph>(m, "MotionPrimitiveGraph").def(py::init<>());
-  py::class_<::planning_ros_msgs::VoxelMap>(m, "VoxelMap")
+  py::class_<::kr_planning_msgs::VoxelMap>(m, "VoxelMap")
       .def(py::init<>())
-      .def_readwrite("resolution", &::planning_ros_msgs::VoxelMap::resolution);
+      .def_readwrite("resolution", &::kr_planning_msgs::VoxelMap::resolution);
 
   py::class_<GraphSearch>(m, "GraphSearch")
       .def(py::init<const MotionPrimitiveGraph&,
-                    const planning_ros_msgs::VoxelMap&,
+                    const kr_planning_msgs::VoxelMap&,
                     const GraphSearch::Option&>())
       .def("Search",
            [](GraphSearch& gs) {
@@ -49,5 +49,5 @@ PYBIND11_MODULE(motion_primitives_cpp, m) {
 
   m.def("read_motion_primitive_graph", &read_motion_primitive_graph);
 
-  m.def("read_bag", &read_bag<planning_ros_msgs::VoxelMap>);
+  m.def("read_bag", &read_bag<kr_planning_msgs::VoxelMap>);
 }

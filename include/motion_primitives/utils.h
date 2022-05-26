@@ -1,8 +1,8 @@
 // Copyright 2021 Laura Jarin-Lipschitz
 #pragma once
 
-#include <planning_ros_msgs/SplineTrajectory.h>
-#include <planning_ros_msgs/Trajectory.h>
+#include <kr_planning_msgs/SplineTrajectory.h>
+#include <kr_planning_msgs/Trajectory.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <ros/console.h>
 #include <rosbag/bag.h>
@@ -14,11 +14,11 @@
 
 namespace motion_primitives {
 
-planning_ros_msgs::Trajectory path_to_traj_msg(
+kr_planning_msgs::Trajectory path_to_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height = 0.0);
 
-planning_ros_msgs::SplineTrajectory path_to_spline_traj_msg(
+kr_planning_msgs::SplineTrajectory path_to_spline_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height = 0.0);
 

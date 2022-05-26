@@ -20,11 +20,11 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "motion_primitive_graph_search_cpp");
   ros::NodeHandle pnh("~");
   ros::Publisher traj_pub =
-      pnh.advertise<planning_ros_msgs::Trajectory>("traj", 1, true);
+      pnh.advertise<kr_planning_msgs::Trajectory>("traj", 1, true);
   ros::Publisher spline_traj_pub =
-      pnh.advertise<planning_ros_msgs::SplineTrajectory>("trajectory", 1, true);
+      pnh.advertise<kr_planning_msgs::SplineTrajectory>("trajectory", 1, true);
   ros::Publisher map_pub =
-      pnh.advertise<planning_ros_msgs::VoxelMap>("voxel_map", 1, true);
+      pnh.advertise<kr_planning_msgs::VoxelMap>("voxel_map", 1, true);
   ros::Publisher sg_pub =
       pnh.advertise<visualization_msgs::MarkerArray>("start_and_goal", 1, true);
   ros::Publisher visited_pub =
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
   pnh.param("map_file", map_file, std::string("voxel_map"));
   pnh.param("map_topic", map_topic, std::string("voxel_map"));
   auto voxel_map =
-      read_bag<planning_ros_msgs::VoxelMap>(map_file, map_topic, 0).back();
+      read_bag<kr_planning_msgs::VoxelMap>(map_file, map_topic, 0).back();
   voxel_map.header.stamp = ros::Time::now();
   voxel_map.resolution = 1;
   map_pub.publish(voxel_map);

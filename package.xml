@@ -34,7 +34,7 @@
   <!-- Use depend as a shortcut for packages that are both build and exec dependencies -->
     <depend>roscpp</depend>
     <exec_depend>rospy</exec_depend>
-    <depend>planning_ros_msgs</depend>
+    <depend>kr_planning_msgs</depend>
     <depend>rosbag</depend>
     <depend>actionlib</depend>
     <depend>mav_trajectory_generation</depend>

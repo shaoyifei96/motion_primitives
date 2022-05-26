@@ -4,7 +4,7 @@ from motion_primitives_py import MotionPrimitive
 import numpy as np
 import matplotlib.pyplot as plt
 from ruckig import InputParameter, OutputParameter, Ruckig, Profile
-from planning_ros_msgs.msg import SplineTrajectory, Spline, Polynomial
+from kr_planning_msgs.msg import SplineTrajectory, Spline, Polynomial
 # from rospy_message_converter import message_converter
 from copy import copy
 

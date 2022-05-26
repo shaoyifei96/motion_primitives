@@ -28,7 +28,7 @@ class GraphSearchTest : public ::testing::Test {
     };
     option_.using_ros = false;
   }
-  planning_ros_msgs::VoxelMap voxel_map_;
+  kr_planning_msgs::VoxelMap voxel_map_;
   GraphSearch::Option option_;
 };
 
