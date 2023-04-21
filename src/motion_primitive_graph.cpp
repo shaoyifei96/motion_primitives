@@ -52,7 +52,7 @@ Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
     p[i] *= std::pow(poly.dt, i);
   }
   std::vector<double> pc(p.data(), p.data() + p.size());
-  poly.coeffs = pc;
+  poly.coeffs = std::vector<float>(pc.begin(), pc.end());
   spline.segments += 1;
   spline.segs.push_back(poly);
   return spline;
@@ -200,8 +200,8 @@ void ETHMotionPrimitive::compute(double rho) {
     poly_coeffs_.row(i) =
         seg.getPolynomialsRef()[i].getCoefficients(0).reverse();
   }
-  // cost_ = opt.getTotalCostWithoutSoftConstraints();
-  cost_ = opt.getTotalCostWithSoftConstraints();
+  cost_ = opt.getTotalCostWithoutSoftConstraints();
+  // cost_ = opt.getTotalCostWithSoftConstraints();
   // cost_ = opt.getTotalTimeCost();
   // if (cost_ > 1E6) {
   //   cost_ = -1;
