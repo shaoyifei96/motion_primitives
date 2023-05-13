@@ -76,7 +76,8 @@ class ETHMotionPrimitive(MotionPrimitive):
         self.is_valid = True
         self.poly_coeffs = np.array([seg.getPolynomialsRef()[i].getCoefficients(0) for i in range(self.num_dims)])
         self.poly_coeffs = np.flip(self.poly_coeffs, axis=1)
-        cost = opt.getTotalCostWithSoftConstraints()
+        # cost = opt.getTotalCostWithSoftConstraints()
+        cost = opt.getTotalCostWithoutSoftConstraints()
         return seg, cost
 
     def get_state(self, t, seg=None):

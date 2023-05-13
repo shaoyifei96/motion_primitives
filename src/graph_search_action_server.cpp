@@ -85,7 +85,7 @@ class PlanningServer {
             std::make_shared<motion_primitives::MotionPrimitiveGraph>(
                 read_motion_primitive_graph(full_filename)));
       }
-      graph_index_ = (int)(graph_files_.size() / 2);
+      graph_index_ = static_cast<int>(graph_files_.size() / 2);
       graph_ = graphs_[graph_index_];
       last_graph_ = graph_;
       ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);

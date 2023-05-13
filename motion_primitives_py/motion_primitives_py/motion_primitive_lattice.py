@@ -151,7 +151,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     score[i, j] = mp.cost
         return score, mp_list
 
-    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, dispersion_threshhold=None, animate=False):
+    def compute_min_dispersion_points(self, num_output_pts, potential_sample_pts, check_backwards_dispersion=False, dispersion_threshold=None, animate=False):
         """
         Computes the minimum dispersion set of points iteratively
         Inputs:
@@ -240,7 +240,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
             #     f"Average edges per vertex: {sum([1 for mp in np.nditer(mp_adjacency_matrix_fwd[:, actual_sample_indices], ['refs_ok']) if mp != None and mp.item().cost < 2*self.dispersion]) / len(potential_sample_pts[actual_sample_indices])}")
 
             print(f"MP {i + 1}/{num_output_pts}, Dispersion = {self.dispersion}")
-            if dispersion_threshhold == -1 and self.dispersion != np.inf:
+            if dispersion_threshold == -1 and self.dispersion != np.inf:
                 copy = deepcopy(self)
                 asi_copy = deepcopy(actual_sample_indices)
                 asi_copy = asi_copy[:i+1]
@@ -253,8 +253,8 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                     copy.save(f"{self.saving_file_prefix}{len(disp_list)}.json")
                 del copy
 
-            elif dispersion_threshhold is not None and self.dispersion < dispersion_threshhold:
-                print(f"Reached Dispersion Threshhold {dispersion_threshhold}")
+            elif dispersion_threshold is not None and self.dispersion < dispersion_threshold:
+                print(f"Reached Dispersion threshold {dispersion_threshold}")
                 # Remove extra unused actual sample indices at the back
                 actual_sample_indices = actual_sample_indices[:i+1]
                 break
@@ -273,7 +273,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
                                                       potential_sample_pts)
         return vertices, edges
 
-    def compute_min_dispersion_space(self, num_output_pts, num_dense_samples, check_backwards_dispersion=False, animate=False, dispersion_threshhold=None):
+    def compute_min_dispersion_space(self, num_output_pts, num_dense_samples, check_backwards_dispersion=False, animate=False, dispersion_threshold=None):
         """
         Using the bounds on the state space, compute a set of minimum dispersion
         points (similar to original Dispertio paper) and save the resulting
@@ -287,7 +287,7 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
 
         potential_sample_pts = self.sobol_state_sampling(self.max_state[:self.control_space_q], num_dense_samples)
         self.vertices, self.edges = self.compute_min_dispersion_points(
-            num_output_pts, potential_sample_pts, check_backwards_dispersion, dispersion_threshhold, animate)
+            num_output_pts, potential_sample_pts, check_backwards_dispersion, dispersion_threshold, animate)
         if self.plot:
             if self.num_dims == 2:
                 self.ax.plot(self.vertices[:, 0], self.vertices[:, 1], 'og')
@@ -654,7 +654,7 @@ if __name__ == "__main__":
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
     mpl.saving_file_prefix = f"{pkg_path}data/lattices/testing/"
     mpl.compute_min_dispersion_space(
-        num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshhold=-1)
+        num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshold=-1)
 
     mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/testing/10.json", plot)
     mpl.plot_config(plot_mps=True)

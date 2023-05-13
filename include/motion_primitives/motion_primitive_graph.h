@@ -1,7 +1,7 @@
 // Copyright 2021 Laura Jarin-Lipschitz
 
-#ifndef INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
-#define INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
+#ifndef MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
+#define MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
 
 #include <kr_planning_msgs/Spline.h>
 
@@ -53,7 +53,7 @@ class MotionPrimitive {
   // Each row is a position
   virtual Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
-  virtual void compute(double rho = 1){};
+  virtual void compute(double rho = 1) {}
 
   virtual void populate(double cost, double traj_time,
                         const Eigen::MatrixXd& poly_coeffs, int start_index,

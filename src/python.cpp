@@ -1,7 +1,7 @@
+#include <kr_planning_msgs/VoxelMap.h>
 #include <motion_primitives/graph_search.h>
 #include <motion_primitives/motion_primitive_graph.h>
 #include <motion_primitives/utils.h>
-#include <kr_planning_msgs/VoxelMap.h>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -38,7 +38,7 @@ PYBIND11_MODULE(motion_primitives_cpp, m) {
              return x.second;
            })
       .def("num_visited", [](const GraphSearch& gs) {
-        return (int)gs.GetVisitedStates().size();
+        return static_cast<int>(gs.GetVisitedStates().size());
       });
 
   py::class_<GraphSearch::Node>(m, "GraphSearch::Node")

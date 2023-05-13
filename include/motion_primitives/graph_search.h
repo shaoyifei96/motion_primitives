@@ -1,5 +1,6 @@
 // Copyright 2021 Laura Jarin-Lipschitz
-#pragma once
+#ifndef MOTION_PRIMITIVES_GRAPH_SEARCH_H_
+#define MOTION_PRIMITIVES_GRAPH_SEARCH_H_
 
 #include <kr_planning_msgs/VoxelMap.h>
 
@@ -7,6 +8,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <unordered_map>
@@ -137,6 +139,6 @@ class GraphSearch {
   // collisions
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                             double step_size = 0.2) const;
-};
-
+}; // class GraphSearch
 }  // namespace motion_primitives
+#endif  // MOTION_PRIMITIVES_GRAPH_SEARCH_H_

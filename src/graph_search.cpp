@@ -5,7 +5,6 @@
 #include <ros/init.h>  // ok()
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
-
 namespace motion_primitives {
 
 double Elapsed(const boost::timer::cpu_timer& timer) noexcept {

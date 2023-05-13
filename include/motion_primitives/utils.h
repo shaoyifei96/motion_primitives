@@ -1,5 +1,6 @@
 // Copyright 2021 Laura Jarin-Lipschitz
-#pragma once
+#ifndef MOTION_PRIMITIVES_UTILS_H_
+#define MOTION_PRIMITIVES_UTILS_H_
 
 #include <kr_planning_msgs/SplineTrajectory.h>
 #include <kr_planning_msgs/Trajectory.h>
@@ -9,6 +10,7 @@
 #include <rosbag/view.h>
 #include <memory>
 #include <vector>
+#include <string>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
@@ -38,7 +40,7 @@ std::vector<T> read_bag(std::string file_name, std::string topic,
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
   std::vector<T> msgs;
-  BOOST_FOREACH (rosbag::MessageInstance const m, view) {
+  BOOST_FOREACH(rosbag::MessageInstance const m, view) {
     if (m.instantiate<T>() != NULL) {
       msgs.push_back(*m.instantiate<T>());
       if (msgs.size() > num) break;
@@ -54,3 +56,4 @@ std::vector<T> read_bag(std::string file_name, std::string topic,
 }
 
 }  // namespace motion_primitives
+#endif // MOTION_PRIMITIVES_UTILS_H_
