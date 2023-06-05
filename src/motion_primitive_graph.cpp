@@ -2,8 +2,8 @@
 
 #include "motion_primitives/motion_primitive_graph.h"
 
-#include <mav_trajectory_generation/polynomial_optimization_nonlinear.h>
 #include <kr_planning_msgs/Polynomial.h>
+#include <mav_trajectory_generation/polynomial_optimization_nonlinear.h>
 #include <ros/console.h>
 
 #include <fstream>
@@ -47,7 +47,8 @@ Spline MotionPrimitive::add_to_spline(Spline spline, int dim) {
   poly.end_index = end_index_;
   spline.t_total += traj_time_;
   Eigen::VectorXd p = poly_coeffs_.row(dim).reverse();
-  // convert between Mike's paramterization and mine
+  // Convert between Mike's parameterization and mine (basis at x where x is
+  // normalized to 0 to 1)
   for (int i = 0; i < p.size(); i++) {
     p[i] *= std::pow(poly.dt, i);
   }
@@ -75,7 +76,7 @@ Spline RuckigMotionPrimitive::add_to_spline(Spline spline, int dim) {
     float j = jerk_time_array[dim * 2 + 1][seg];
     auto [p, v, a] = state;
     poly.coeffs = {p, v, a / 2, j / 6};
-    // convert between Mike's paramterization and mine
+    // convert between Mike's parameterization and mine
 
     for (int i = 0; i < poly.coeffs.size(); i++) {
       poly.coeffs[i] *= std::pow(poly.dt, i);
@@ -138,7 +139,7 @@ void ETHMotionPrimitive::compute(double rho) {
   // Array for all waypoints and their constrains
   mav_trajectory_generation::Vertex::Vector vertices;
 
-  // // Optimze up to 4th order derivative (SNAP)
+  // Optimize up to 4th order derivative (SNAP)
   const int derivative_to_optimize =
       mav_trajectory_generation::derivative_order::JERK;
 
@@ -286,10 +287,10 @@ MotionPrimitiveGraph::createMotionPrimitivePtrFromTypeName(
              type_name == "OptimizationMotionPrimitive") {
     return createMotionPrimitivePtr<PolynomialMotionPrimitive>(
         spatial_dim, start_state, end_state, max_state);
-  } else if (type_name == "ETHMotionPrimitive")
+  } else if (type_name == "ETHMotionPrimitive") {
     return createMotionPrimitivePtr<ETHMotionPrimitive>(
         spatial_dim, start_state, end_state, max_state);
-  else {
+  } else {
     throw;
   }
 }

@@ -30,9 +30,12 @@ struct VectorXdHash : std::unary_function<Eigen::VectorXd, std::size_t> {
 };
 
 double Elapsed(const boost::timer::cpu_timer& timer) noexcept;
+// Check if two positions are within the L2 distance d of each other.
 bool StatePosWithin(const Eigen::VectorXd& p1, const Eigen::VectorXd& p2,
                     int spatial_dim, double d) noexcept;
 
+// Holds the graph and map information, and provides a search interface for
+// motion planning.
 class GraphSearch {
  protected:
   MotionPrimitiveGraph graph_;
@@ -80,8 +83,9 @@ class GraphSearch {
   std::vector<Eigen::VectorXd> GetVisitedStates() const noexcept;
   const auto& timings() const noexcept { return timings_; }
   int spatial_dim() const noexcept { return graph_.spatial_dim_; }
+  // Shift a polynomial (defined by its coefficients) by a given time.
   static Eigen::MatrixXd shift_polynomial(const Eigen::MatrixXd poly_coeffs,
-                                          float shift);
+                                          float shift_time);
 
   // State is the real node
   // Node is a wrapper around state that also carries the cost info
@@ -109,7 +113,6 @@ class GraphSearch {
   double ComputeHeuristicMinTime(const State& v, const State& goal_state) const;
   double ComputeHeuristicETHBVP(const State& v, const State& goal_state) const;
 
-  // Stores all visited states
   std::vector<Node> Expand(const Node& node, const State& goal_state) const;
   std::vector<Node> ExpandPar(const Node& node, const State& goal_state) const;
   std::pair<bool, Node> ExpandSingleNode(int index1, int index2,
@@ -139,6 +142,6 @@ class GraphSearch {
   // collisions
   bool is_mp_collision_free(const std::shared_ptr<MotionPrimitive> mp,
                             double step_size = 0.2) const;
-}; // class GraphSearch
+};  // class GraphSearch
 }  // namespace motion_primitives
 #endif  // MOTION_PRIMITIVES_GRAPH_SEARCH_H_

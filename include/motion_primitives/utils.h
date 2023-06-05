@@ -4,26 +4,31 @@
 
 #include <kr_planning_msgs/SplineTrajectory.h>
 #include <kr_planning_msgs/Trajectory.h>
-#include <visualization_msgs/MarkerArray.h>
 #include <ros/console.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
+#include <visualization_msgs/MarkerArray.h>
+
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
 namespace motion_primitives {
 
+// Convert from internal representation to ROS Trajectory message
 kr_planning_msgs::Trajectory path_to_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height = 0.0);
 
+// Convert from internal representation to ROS SplineTrajectory message
 kr_planning_msgs::SplineTrajectory path_to_spline_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height = 0.0);
 
+// Convert from a list of states to ROS MarkerArray message (used to visualize
+// visited states)
 auto StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
                          int spatial_dim, const std_msgs::Header& header,
                          double scale = 0.1, bool show_vel = false)
@@ -56,4 +61,4 @@ std::vector<T> read_bag(std::string file_name, std::string topic,
 }
 
 }  // namespace motion_primitives
-#endif // MOTION_PRIMITIVES_UTILS_H_
+#endif  // MOTION_PRIMITIVES_UTILS_H_

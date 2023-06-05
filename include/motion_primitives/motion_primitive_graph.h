@@ -15,6 +15,9 @@
 
 namespace motion_primitives {
 
+// Represents an edge in the motion primitive graph, which is a dynamically
+// feasible trajectory between two states. Never used alone, but subclassed to
+// implement the details of the motion primitive.
 class MotionPrimitive {
  public:
   MotionPrimitive() = default;
@@ -40,7 +43,8 @@ class MotionPrimitive {
   double traj_time_;
   Eigen::MatrixXd poly_coeffs_;
 
-  // Evaluates a motion primitive at a time t and returns a state vector
+  // Evaluates a motion primitive (often using the polynomial coefficients,
+  // depending on the subclass) at a time t and returns a state vector
   virtual Eigen::VectorXd evaluate_primitive(float t) const;
 
   // Moves the motion primitive to a new position by modifying it's start, end,
@@ -53,8 +57,11 @@ class MotionPrimitive {
   // Each row is a position
   virtual Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
+  // Computes the motion primitive from scratch (e.g. reruns the trajectory
+  // optimizaition).
   virtual void compute(double rho = 1) {}
 
+  // Overwrites properties of the primitive.
   virtual void populate(double cost, double traj_time,
                         const Eigen::MatrixXd& poly_coeffs, int start_index,
                         int end_index) {
@@ -103,7 +110,7 @@ class RuckigMotionPrimitive final : public MotionPrimitive {
   void translate(const Eigen::VectorXd& new_start);
   void compute();
   kr_planning_msgs::Spline add_to_spline(kr_planning_msgs::Spline spline,
-                                          int dim);
+                                         int dim);
   std::shared_ptr<MotionPrimitive> clone() {
     return std::make_shared<RuckigMotionPrimitive>(*this);
   }
@@ -198,4 +205,4 @@ std::ostream& operator<<(std::ostream& output, std::vector<T> const& values) {
 
 }  // namespace motion_primitives
 
-#endif  // INCLUDE_MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_
+#endif  // MOTION_PRIMITIVES_MOTION_PRIMITIVE_GRAPH_H_"
