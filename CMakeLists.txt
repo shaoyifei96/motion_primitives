@@ -21,9 +21,9 @@ find_package(Boost REQUIRED COMPONENTS timer)
 find_package(TBB REQUIRED)
 
 catkin_package(
-  INCLUDE_DIRS include 
+  INCLUDE_DIRS include ${CMAKE_CURRENT_SOURCE_DIR}/external/json/include
   LIBRARIES ${PROJECT_NAME} 
-  DEPENDS TBB
+  DEPENDS TBB ruckig
   CATKIN_DEPENDS roscpp kr_planning_msgs rosbag actionlib mav_trajectory_generation
 )
 
@@ -35,7 +35,6 @@ include_directories(
 # ##############################################################################
 # Build ##
 # ##############################################################################
-
 # Specify libraries to link a library or executable target against
 add_library(${PROJECT_NAME} src/motion_primitive_graph.cpp src/graph_search.cpp src/utils.cpp)
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
