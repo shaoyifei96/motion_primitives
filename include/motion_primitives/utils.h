@@ -9,6 +9,7 @@
 #include <rosbag/view.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <boost/math/tools/polynomial.hpp>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,6 +17,20 @@
 #include "motion_primitives/motion_primitive_graph.h"
 
 namespace motion_primitives {
+
+typedef boost::math::tools::polynomial<double> Poly;
+
+Poly differentiate(const Poly& p);
+Eigen::MatrixXd differentiate(const Eigen::MatrixXd& coeffs);
+Eigen::VectorXd evaluate_poly_coeffs(Eigen::VectorXd poly_coeffs, float t);
+
+std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
+    const kr_planning_msgs::SplineTrajectory& traj,
+    std::shared_ptr<MotionPrimitiveGraph> graph, int seg_num);
+
+
+Eigen::Vector3d getState(std::vector<std::shared_ptr<MotionPrimitive>> traj,
+                         double time, int deriv_num);
 
 // Convert from internal representation to ROS Trajectory message
 kr_planning_msgs::Trajectory path_to_traj_msg(
@@ -45,7 +60,7 @@ std::vector<T> read_bag(std::string file_name, std::string topic,
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
   std::vector<T> msgs;
-  BOOST_FOREACH(rosbag::MessageInstance const m, view) {
+  BOOST_FOREACH (rosbag::MessageInstance const m, view) {
     if (m.instantiate<T>() != NULL) {
       msgs.push_back(*m.instantiate<T>());
       if (msgs.size() > num) break;

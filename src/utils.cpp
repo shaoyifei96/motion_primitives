@@ -151,4 +151,97 @@ MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
   return marray;
 }
 
+Poly differentiate(const Poly& p) {
+  Poly::size_type rows = p.size();
+  if (rows <= 1) return Poly(0.0);
+  std::vector<double> v;
+  for (Poly::size_type i = 1; i < rows; i++) {
+    double val = static_cast<double>(i);
+    v.push_back(p[i] * val);
+  }
+  Poly result(v.data(), rows - 2);
+  return result;
+}
+
+Eigen::MatrixXd differentiate(const Eigen::MatrixXd& coeffs) {
+  if (coeffs.cols() <= 1) return Eigen::MatrixXd::Zero(coeffs.rows(), 0);
+  Eigen::MatrixXd result(coeffs.rows(), coeffs.cols() - 1);
+  for (int dim = 0; dim < coeffs.rows(); dim++) {
+    for (int i = 1; i < coeffs.cols(); i++) {
+      result(dim, i - 1) = (coeffs(dim, i) * static_cast<double>(i));
+    }
+  }
+  return result;
+}
+
+std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
+    const kr_planning_msgs::SplineTrajectory& traj,
+    std::shared_ptr<MotionPrimitiveGraph> graph, int seg_num) {
+  Eigen::VectorXd start(graph->state_dim());
+  Eigen::VectorXd end = start;
+  for (int i = 0; i < graph->spatial_dim(); i++) {
+    Poly const poly(traj.data[i].segs[seg_num].coeffs.begin(),
+                    traj.data[i].segs[seg_num].coeffs.end());
+    end[i] = poly.evaluate(1);
+    auto first_deriv = differentiate(poly);
+    end[i + graph->spatial_dim()] =
+        first_deriv.evaluate(1) * 1. / (traj.data[i].segs[seg_num].dt);
+    start[i] = traj.data[i].segs[seg_num].coeffs[0];
+    start[i + graph->spatial_dim()] = traj.data[i].segs[seg_num].coeffs[1] *
+                                      1. / (traj.data[i].segs[seg_num].dt);
+    if (graph->control_space_dim() > 2) {
+      start[i + 2 * graph->spatial_dim()] =
+          traj.data[i].segs[seg_num].coeffs[2] *
+          std::pow(1. / (traj.data[i].segs[seg_num].dt), 2);
+      end[i + 2 * graph->spatial_dim()] =
+          differentiate(first_deriv).evaluate(1) *
+          std::pow(1. / (traj.data[i].segs[seg_num].dt), 2);
+    }
+  }
+  auto mp = graph->createMotionPrimitivePtrFromGraph(start, end);
+  // mp->compute(graph_->rho());  // could copy poly_coeffs or do this
+
+  // copy poly_coeffs
+  int degree = traj.data[0].segs[seg_num].coeffs.size();
+  mp->poly_coeffs_.resize(graph->spatial_dim(), degree);
+  for (int i = 0; i < graph->spatial_dim(); i++) {
+    for (int j = 0; j < degree; j++) {
+      mp->poly_coeffs_(i, degree - j - 1) =
+          traj.data[i].segs[seg_num].coeffs[j] /
+          (std::pow(traj.data[0].segs[seg_num].dt, j));
+    }
+  }
+  mp->start_index_ = traj.data[0].segs[seg_num].start_index;
+  mp->end_index_ = traj.data[0].segs[seg_num].end_index;
+  mp->traj_time_ = traj.data[0].segs[seg_num].dt;
+  return mp;
+}
+
+Eigen::VectorXd evaluate_poly_coeffs(Eigen::VectorXd poly_coeffs, float t) {
+  Eigen::VectorXd time_multiplier(poly_coeffs.cols());
+  // TODO(laura) could replace with boost::polynomial
+  for (int i = 0; i < poly_coeffs.cols(); ++i) {
+    time_multiplier[poly_coeffs.cols() - i - 1] = std::pow(t, i);
+  }
+  return poly_coeffs * time_multiplier;
+}
+
+Eigen::Vector3d getState(std::vector<std::shared_ptr<MotionPrimitive>> traj,
+                         double time, int deriv_num) {
+  Eigen::Vector3d pos;
+  for (auto mp : traj) {
+    if (time >= mp->traj_time_) {
+      time -= mp->traj_time_;
+    } else {
+      auto coeffs = mp->poly_coeffs_;
+      for (int i = 0; i < deriv_num; i++) {
+        coeffs = differentiate(coeffs);
+      }
+      pos = evaluate_poly_coeffs(coeffs, time);
+      break;
+    }
+  }
+  return pos;
+}
+
 }  // namespace motion_primitives

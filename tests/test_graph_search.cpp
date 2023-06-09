@@ -1,6 +1,7 @@
 
 // Copyright 2021 Laura Jarin-Lipschitz
 #include <gtest/gtest.h>
+#include <motion_primitives/utils.h>
 #include <ros/console.h>
 
 #include "motion_primitives/graph_search.h"
@@ -67,6 +68,14 @@ TEST_F(GraphSearchTest, ShiftPolynomial) {
   Eigen::MatrixXd shifted_poly_coeffs = gs.shift_polynomial(poly_coeffs, t2);
   Eigen::VectorXd shifted_state = shifted_poly_coeffs * ts;
   EXPECT_EQ(unshifted_state, shifted_state);
+}
+
+TEST_F(GraphSearchTest, getStateTest) {
+  const auto mp_graph = read_motion_primitive_graph("simple_test.json");
+  GraphSearch gs(mp_graph, voxel_map_, option_);
+  const auto path = gs.Search().first;
+  motion_primitives::getState(path, 0.1, 0);
+  motion_primitives::getState(path, 0.1, 1);
 }
 
 }  // namespace

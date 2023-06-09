@@ -45,6 +45,7 @@ class MotionPrimitive {
 
   // Evaluates a motion primitive (often using the polynomial coefficients,
   // depending on the subclass) at a time t and returns a state vector
+  static Eigen::VectorXd evaluate_primitive(float t, Eigen::VectorXd coeffs);
   virtual Eigen::VectorXd evaluate_primitive(float t) const;
 
   // Moves the motion primitive to a new position by modifying it's start, end,

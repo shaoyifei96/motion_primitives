@@ -1,17 +1,16 @@
 // Copyright 2021 Laura Jarin-Lipschitz
 #include <actionlib/server/simple_action_server.h>
-#include <motion_primitives/graph_search.h>
-#include <motion_primitives/utils.h>
 #include <kr_planning_msgs/PlanTwoPointAction.h>
 #include <kr_planning_msgs/SplineTrajectory.h>
 #include <kr_planning_msgs/Trajectory.h>
 #include <kr_planning_msgs/VoxelMap.h>
+#include <motion_primitives/graph_search.h>
+#include <motion_primitives/utils.h>
 #include <ros/ros.h>
 #include <std_msgs/Float64.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <boost/circular_buffer.hpp>
-#include <boost/math/tools/polynomial.hpp>
 #include <numeric>
 namespace motion_primitives {
 
@@ -204,62 +203,6 @@ class PlanningServer {
     ROS_INFO_STREAM("Using graph " << graph_files_[graph_index_]);
   }
 
-  typedef boost::math::tools::polynomial<double> Poly;
-  Poly differentiate(const Poly& p) {
-    // differentiates polynomial
-    Poly::size_type rows = p.size();
-    if (rows <= 1) return Poly(0.0);
-    std::vector<double> v;
-    for (Poly::size_type i = 1; i < rows; i++) {
-      double val = static_cast<double>(i);
-      v.push_back(p[i] * val);
-    }
-    Poly result(v.data(), rows - 2);
-    return result;
-  }
-
-  std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
-      const kr_planning_msgs::SplineTrajectory& traj,
-      std::shared_ptr<MotionPrimitiveGraph> graph, int seg_num) {
-    Eigen::VectorXd start(graph->state_dim());
-    Eigen::VectorXd end = start;
-    for (int i = 0; i < graph->spatial_dim(); i++) {
-      Poly const poly(traj.data[i].segs[seg_num].coeffs.begin(),
-                      traj.data[i].segs[seg_num].coeffs.end());
-      end[i] = poly.evaluate(1);
-      auto first_deriv = differentiate(poly);
-      end[i + graph->spatial_dim()] =
-          first_deriv.evaluate(1) * 1. / (traj.data[i].segs[seg_num].dt);
-      start[i] = traj.data[i].segs[seg_num].coeffs[0];
-      start[i + graph->spatial_dim()] = traj.data[i].segs[seg_num].coeffs[1] *
-                                        1. / (traj.data[i].segs[seg_num].dt);
-      if (graph->control_space_dim() > 2) {
-        start[i + 2 * graph->spatial_dim()] =
-            traj.data[i].segs[seg_num].coeffs[2] *
-            std::pow(1. / (traj.data[i].segs[seg_num].dt), 2);
-        end[i + 2 * graph->spatial_dim()] =
-            differentiate(first_deriv).evaluate(1) *
-            std::pow(1. / (traj.data[i].segs[seg_num].dt), 2);
-      }
-    }
-    auto mp = graph_->createMotionPrimitivePtrFromGraph(start, end);
-    // mp->compute(graph_->rho());  // could copy poly_coeffs or do this
-
-    // copy poly_coeffs
-    int degree = traj.data[0].segs[seg_num].coeffs.size();
-    mp->poly_coeffs_.resize(graph->spatial_dim(), degree);
-    for (int i = 0; i < graph->spatial_dim(); i++) {
-      for (int j = 0; j < degree; j++) {
-        mp->poly_coeffs_(i, degree - j - 1) =
-            traj.data[i].segs[seg_num].coeffs[j] /
-            (std::pow(traj.data[0].segs[seg_num].dt, j));
-      }
-    }
-    mp->start_index_ = traj.data[0].segs[seg_num].start_index;
-    mp->end_index_ = traj.data[0].segs[seg_num].end_index;
-    mp->traj_time_ = traj.data[0].segs[seg_num].dt;
-    return mp;
-  }
   void executeCB() {
     const kr_planning_msgs::PlanTwoPointGoal::ConstPtr& msg =
         as_.acceptNewGoal();

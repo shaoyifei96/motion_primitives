@@ -1,11 +1,12 @@
 // Copyright 2021 Laura Jarin-Lipschitz
 #include <gtest/gtest.h>
+#include <motion_primitives/utils.h>
 
 #include "motion_primitives/motion_primitive_graph.h"
 
+using motion_primitives::ETHMotionPrimitive;
 using motion_primitives::PolynomialMotionPrimitive;
 using motion_primitives::RuckigMotionPrimitive;
-using motion_primitives::ETHMotionPrimitive;
 
 namespace {
 template <typename T>
@@ -29,8 +30,18 @@ typedef ::testing::Types<PolynomialMotionPrimitive, RuckigMotionPrimitive,
     MotionPrimitiveTypes;
 TYPED_TEST_CASE(MotionPrimitiveTest, MotionPrimitiveTypes);
 
+TYPED_TEST(MotionPrimitiveTest, evaluate_poly_coeffsTest) {
+  motion_primitives::evaluate_poly_coeffs(this->mp_.poly_coeffs_, 0.1);
+}
+
+TYPED_TEST(MotionPrimitiveTest, differentiate_poly_coeffsTest) {
+  this->mp_.poly_coeffs_ = Eigen::MatrixXd::Ones(3, 5);
+  ROS_INFO_STREAM(this->mp_.poly_coeffs_);
+  auto derivative = motion_primitives::differentiate(this->mp_.poly_coeffs_);
+  ROS_INFO_STREAM(derivative);
+}
+
 TYPED_TEST(MotionPrimitiveTest, TranslateTest) {
-  // TEST_F(MotionPrimitiveTest, RuckigTranslateTest) {
   Eigen::VectorXd new_start(2);
   new_start << 4, 4;
   this->mp_.translate(new_start);
