@@ -17,7 +17,7 @@ repositories:
     version: main  
   kr_planning_msgs:
     type: git
-    url: git@github.com:ljarin/kr_planning_msgs.git
+    url: git@github.com:kumarrobotics/kr_planning_msgs.git
     version: dispersion_planner
   mav_trajectory_generation:
     type: git
