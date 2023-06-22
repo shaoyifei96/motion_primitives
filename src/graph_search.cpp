@@ -68,8 +68,7 @@ bool GraphSearch::is_valid_indices(const Eigen::Vector3i& indices) const {
 bool GraphSearch::is_free_and_valid_indices(
     const Eigen::Vector3i& indices) const {
   return ((is_valid_indices(indices) &&
-           voxel_map_.data[get_linear_indices(indices)] <= 0) ||
-          !is_valid_indices(indices));
+           voxel_map_.data[get_linear_indices(indices)] <= 0));
   // 0 is free, -1 is unknown. TODO(laura): add back unknown_is_free option
 }
 
@@ -124,7 +123,7 @@ auto GraphSearch::ExpandSingleNode(int index1, int index2, const Node& node,
     return failure;
 
   // Then check if its collision free
-  if (!is_mp_collision_free(mp)) return failure;
+  if (!is_mp_collision_free(mp, options_.step_size)) return failure;
 
   // This is a good next node
   next_node.state_index = index1;
@@ -257,6 +256,12 @@ auto GraphSearch::Search()
     -> std::pair<std::vector<std::shared_ptr<MotionPrimitive>>, double> {
   timings_.clear();
   visited_states_.clear();
+
+  if (options_.start_state.size() != graph_.state_dim() ||
+      options_.goal_state.size() != graph_.state_dim()) {
+    ROS_ERROR_STREAM("Start or goal state has wrong size");
+    return {};
+  }
   // Early exit if start and end positions are close
   if (StatePosWithin(options_.start_state, options_.goal_state,
                      graph_.spatial_dim(), options_.distance_threshold)) {
@@ -271,7 +276,6 @@ auto GraphSearch::Search()
     ROS_WARN_STREAM("Goal is not free");
     return {};
   }
-
   // > for min heap
   auto node_cmp = [](const Node& n1, const Node& n2) {
     return n1.total_cost() > n2.total_cost();

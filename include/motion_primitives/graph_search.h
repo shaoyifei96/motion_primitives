@@ -44,6 +44,7 @@ class GraphSearch {
   kr_planning_msgs::VoxelMap voxel_map_;
 
  public:
+ //TODO(Laura) define State (pos,vel, etc.)
   using State = Eigen::VectorXd;
   struct Option {
     State start_state;
@@ -56,6 +57,7 @@ class GraphSearch {
     double fixed_z{0};
     double velocity_threshold = -1;
     bool using_ros{true};
+    double step_size{0.1};
   };
   struct Node {
     static constexpr auto kInfCost = std::numeric_limits<double>::infinity();
