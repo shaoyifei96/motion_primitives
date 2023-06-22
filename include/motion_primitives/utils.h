@@ -46,7 +46,7 @@ kr_planning_msgs::SplineTrajectory path_to_spline_traj_msg(
 // visited states)
 auto StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
                          int spatial_dim, const std_msgs::Header& header,
-                         double scale = 0.1, bool show_vel = false)
+                         double scale = 0.1, bool show_vel = false, double fixed_z = 0.0)
     -> visualization_msgs::MarkerArray;
 
 // num indicates the max number of elements to read, -1 means read till the end

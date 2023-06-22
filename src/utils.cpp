@@ -97,7 +97,7 @@ SplineTrajectory path_to_spline_traj_msg(
 
 MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
                                 int spatial_dim, const std_msgs::Header& header,
-                                double scale, bool show_vel) {
+                                double scale, bool show_vel, double fixed_z) {
   MarkerArray marray;
   marray.markers.reserve(2);
 
@@ -116,7 +116,7 @@ MarkerArray StatesToMarkerArray(const std::vector<Eigen::VectorXd>& states,
     Point p;
     p.x = state.x();
     p.y = state.y();
-    p.z = spatial_dim == 3 ? state.z() : 0;
+    p.z = spatial_dim == 3 ? state.z() : fixed_z;
     m_pos.points.push_back(p);
   }
   marray.markers.push_back(std::move(m_pos));
