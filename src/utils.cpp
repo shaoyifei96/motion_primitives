@@ -167,8 +167,9 @@ Eigen::MatrixXd differentiate(const Eigen::MatrixXd& coeffs) {
   if (coeffs.cols() <= 1) return Eigen::MatrixXd::Zero(coeffs.rows(), 0);
   Eigen::MatrixXd result(coeffs.rows(), coeffs.cols() - 1);
   for (int dim = 0; dim < coeffs.rows(); dim++) {
-    for (int i = 1; i < coeffs.cols(); i++) {
-      result(dim, i - 1) = (coeffs(dim, i) * static_cast<double>(i));
+    for (int i = 0; i < coeffs.cols() - 1; i++) {
+      result(dim, i) =
+          (coeffs(dim, i) * static_cast<double>(coeffs.cols() - i - 1));
     }
   }
   return result;
@@ -217,7 +218,9 @@ std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
   return mp;
 }
 
-Eigen::VectorXd evaluate_poly_coeffs(Eigen::VectorXd poly_coeffs, float t) {
+// TODO(Laura) de-duplicate from motion_primitive_graph.h
+Eigen::VectorXd evaluate_poly_coeffs(const Eigen::MatrixXd& poly_coeffs,
+                                     float t) {
   Eigen::VectorXd time_multiplier(poly_coeffs.cols());
   // TODO(laura) could replace with boost::polynomial
   for (int i = 0; i < poly_coeffs.cols(); ++i) {
@@ -226,9 +229,9 @@ Eigen::VectorXd evaluate_poly_coeffs(Eigen::VectorXd poly_coeffs, float t) {
   return poly_coeffs * time_multiplier;
 }
 
-Eigen::Vector3d getState(std::vector<std::shared_ptr<MotionPrimitive>> traj,
-                         double time, int deriv_num) {
-  Eigen::Vector3d pos;
+Eigen::Vector3d getState(
+    const std::vector<std::shared_ptr<MotionPrimitive>>& traj, double time,
+    int deriv_num, double fixed_z) {
   for (auto mp : traj) {
     if (time >= mp->traj_time_) {
       time -= mp->traj_time_;
@@ -237,11 +240,15 @@ Eigen::Vector3d getState(std::vector<std::shared_ptr<MotionPrimitive>> traj,
       for (int i = 0; i < deriv_num; i++) {
         coeffs = differentiate(coeffs);
       }
-      pos = evaluate_poly_coeffs(coeffs, time);
-      break;
+      auto result = evaluate_poly_coeffs(coeffs, time);
+      result.conservativeResize(3);
+      if (mp->spatial_dim_ < 3) {
+        result(2) = fixed_z;
+      }
+      return result;
     }
   }
-  return pos;
+  return Eigen::Vector3d::Zero();
 }
 
 }  // namespace motion_primitives

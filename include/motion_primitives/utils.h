@@ -22,15 +22,15 @@ typedef boost::math::tools::polynomial<double> Poly;
 
 Poly differentiate(const Poly& p);
 Eigen::MatrixXd differentiate(const Eigen::MatrixXd& coeffs);
-Eigen::VectorXd evaluate_poly_coeffs(Eigen::VectorXd poly_coeffs, float t);
+Eigen::VectorXd evaluate_poly_coeffs(const Eigen::MatrixXd& poly_coeffs, float t);
 
 std::shared_ptr<MotionPrimitive> recover_mp_from_SplineTrajectory(
     const kr_planning_msgs::SplineTrajectory& traj,
     std::shared_ptr<MotionPrimitiveGraph> graph, int seg_num);
 
 
-Eigen::Vector3d getState(std::vector<std::shared_ptr<MotionPrimitive>> traj,
-                         double time, int deriv_num);
+Eigen::Vector3d getState(const std::vector<std::shared_ptr<MotionPrimitive>> &traj,
+                         double time, int deriv_num, double fixed_z = 0.0);
 
 // Convert from internal representation to ROS Trajectory message
 kr_planning_msgs::Trajectory path_to_traj_msg(

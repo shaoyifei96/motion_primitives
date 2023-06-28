@@ -41,10 +41,12 @@ class MotionPrimitive {
   int end_index_;
   double cost_;
   double traj_time_;
+  //TODO(Laura) specify rows/cols are spatial dim
   Eigen::MatrixXd poly_coeffs_;
 
   // Evaluates a motion primitive (often using the polynomial coefficients,
   // depending on the subclass) at a time t and returns a state vector
+  //TODO(Laura) specify that this is just position or change to not be just position
   static Eigen::VectorXd evaluate_primitive(float t, Eigen::VectorXd coeffs);
   virtual Eigen::VectorXd evaluate_primitive(float t) const;
 
