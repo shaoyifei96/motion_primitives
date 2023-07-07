@@ -1,3 +1,4 @@
+from motion_primitives_py.occupancy_map import OccupancyMap
 from motion_primitives_py.motion_primitive_types.motion_primitive import MotionPrimitive
 from motion_primitives_py.motion_primitive_types.euclidean_motion_primitive import EuclideanMotionPrimitive
 from motion_primitives_py.motion_primitive_types.polynomial_motion_primitive import PolynomialMotionPrimitive
@@ -14,5 +15,4 @@ from motion_primitives_py.motion_primitive_types.euclidean_motion_primitive impo
 from motion_primitives_py.motion_primitive_graph import MotionPrimitiveGraph
 from motion_primitives_py.motion_primitive_lattice import MotionPrimitiveLattice
 from motion_primitives_py.motion_primitive_tree import MotionPrimitiveTree
-from motion_primitives_py.occupancy_map import OccupancyMap
 from motion_primitives_py.mp_graph_search import GraphSearch

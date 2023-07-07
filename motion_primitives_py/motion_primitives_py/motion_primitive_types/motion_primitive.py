@@ -57,6 +57,7 @@ class MotionPrimitive():
             dict = {}
         return dict
 
+    # TODO(laura) specify format of returned arrays
     def get_state(self, t):
         """
         Given a time t, return the state of the motion primitive at that time. 

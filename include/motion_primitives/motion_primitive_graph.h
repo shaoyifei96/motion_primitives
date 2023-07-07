@@ -61,7 +61,7 @@ class MotionPrimitive {
   virtual Eigen::MatrixXd sample_positions(double step_size = 0.1) const;
 
   // Computes the motion primitive from scratch (e.g. reruns the trajectory
-  // optimizaition).
+  // optimization).
   virtual void compute(double rho = 1) {}
 
   // Overwrites properties of the primitive.

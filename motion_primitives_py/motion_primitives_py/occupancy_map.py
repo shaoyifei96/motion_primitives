@@ -9,7 +9,7 @@ class OccupancyMap():
         self.resolution = resolution
         self.voxels = np.squeeze(np.array(data).reshape(dims, order='F'))
         self.dims = np.array(self.voxels.shape)
-        if force_2d and self.dims.shape[0]==3:
+        if force_2d and self.dims.shape[0] == 3:
             self.dims = self.dims[:2]
             self.voxels = self.voxels[:, :, 0]
         self.origin = origin[:len(self.dims)]
@@ -36,8 +36,12 @@ class OccupancyMap():
         origin = np.array([msgs[0].origin.x, msgs[0].origin.y, msgs[0].origin.z])
         return cls(resolution, origin, dims, np.array(msgs[0].data), force_2d=force_2d, unknown_is_free=unknown_is_free)
 
+    @staticmethod
+    def get_indices_from_position_static(point, resolution, origin):
+        return np.floor((point - origin) / resolution).astype(int)
+
     def get_indices_from_position(self, point):
-        return np.floor((point - self.origin) / self.resolution).astype(int)
+        return self.get_indices_from_position_static(point, self.resolution, self.origin)
 
     def get_voxel_center_from_indices(self, indices):
         return self.resolution * (indices + .5) + self.origin
@@ -95,7 +99,7 @@ class OccupancyMap():
             print("WARNING: cannot plot in 3D, plotting a slice in the middle")
             print(self.voxels.T.shape)
             ax.pcolormesh(np.arange(self.voxels.shape[0]+1)*self.resolution + self.origin[0], np.arange(self.voxels.shape[1]+1)
-                * self.resolution + self.origin[1], self.voxels.T[int(self.voxels.shape[2]/2),:,:], cmap='Greys', zorder=1)
+                          * self.resolution + self.origin[1], self.voxels.T[int(self.voxels.shape[2]/2), :, :], cmap='Greys', zorder=1)
 
         return ax
 

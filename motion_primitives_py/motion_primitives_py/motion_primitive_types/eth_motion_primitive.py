@@ -51,8 +51,8 @@ class ETHMotionPrimitive(MotionPrimitive):
             end.addConstraint(derivative_order.ACCELERATION, self.end_state[self.num_dims*2:self.num_dims*3])
 
         vertices = [start, end]
-        max_v = self.max_state[1] + .5
-        max_a = self.max_state[2] + .5
+        max_v = self.max_state[1]
+        max_a = self.max_state[2]
         segment_times = estimateSegmentTimes(vertices, max_v, max_a)
         if segment_times[0] <= 0:
             segment_times[0] = 1
