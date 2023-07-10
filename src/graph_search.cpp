@@ -200,9 +200,6 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
   }
   path_nodes.push_back(*prev_node);
   if (options_.access_graph) {
-    // path_mps.push_back(std::make_shared<RuckigMotionPrimitive>(
-    //     graph_.spatial_dim_, prev_node->state, curr_node->state,
-    //     graph_.max_state_));
     auto mp = graph_.createMotionPrimitivePtrFromGraph(prev_node->state,
                                                        curr_node->state);
     mp->compute(graph_.rho());
@@ -214,8 +211,15 @@ auto GraphSearch::RecoverPath(const PathHistory& history,
   }
   std::reverse(path_mps.begin(), path_mps.end());
   std::reverse(path_nodes.begin(), path_nodes.end());
+  // Compute trajectory to exact end
+  auto mp = graph_.createMotionPrimitivePtrFromGraph(
+      path_mps.back()->end_state_, options_.goal_state);
+  mp->compute(graph_.rho());
+  mp->start_index_ = path_nodes.end()->state_index;
+  mp->end_index_ = -1;
+  path_mps.push_back(mp);
   ROS_INFO_STREAM("Path cost: " << end_node.motion_cost);
-  return std::make_pair(path_mps, end_node.motion_cost);
+  return std::make_pair(path_mps, end_node.motion_cost + mp->cost_);
 }
 
 double GraphSearch::ComputeHeuristicMinTime(const State& v,
@@ -292,8 +296,6 @@ auto GraphSearch::Search()
     pq.push(node);
   }
 
-  // timer
-  boost::timer::cpu_timer timer;
   bool ros_ok = ros::ok() || !options_.using_ros;
   while (!pq.empty() && ros_ok) {
     Node curr_node = pq.top();
@@ -311,9 +313,7 @@ auto GraphSearch::Search()
       return RecoverPath(history, curr_node);
     }
 
-    timer.start();
     pq.pop();
-    timings_["astar_pop"] += Elapsed(timer);
 
     // Due to the immutability of std::priority_queue, we have no way of
     // modifying the priority of an element in the queue. Therefore, when we
@@ -332,11 +332,9 @@ auto GraphSearch::Search()
     // add current state to visited
     visited_states_.insert(curr_node.state);
 
-    timer.start();
     const auto next_nodes = options_.parallel_expand
                                 ? ExpandPar(curr_node, options_.goal_state)
                                 : Expand(curr_node, options_.goal_state);
-    timings_["astar_expand"] += Elapsed(timer);
     for (const auto& next_node : next_nodes) {
       // this is the best cost reaching this state (next_node) so far
       // could be inf if this state has never been visited
@@ -344,9 +342,7 @@ auto GraphSearch::Search()
 
       // compare reaching next_node from curr_node and mp to best cost
       if (next_node.motion_cost < best_cost) {
-        timer.start();
-        pq.push(next_node);
-        timings_["astar_push"] += Elapsed(timer);
+        pq.emplace(next_node);
         history[next_node.state] = {curr_node, next_node.motion_cost};
       }
     }
@@ -372,6 +368,7 @@ auto GraphSearch::AccessGraph(const State& start_state) const
   start_node.heuristic_cost =
       ComputeHeuristic(start_node.state, options_.goal_state);
 
+  // TODO(Laura) special logic if starting from 0 vel/acc
   if (options_.access_graph) {
     int counter = 0;
     start_node.state_index = -1;
