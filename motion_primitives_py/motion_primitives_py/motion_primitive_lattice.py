@@ -285,7 +285,9 @@ class MotionPrimitiveLattice(MotionPrimitiveGraph):
         self.num_dense_samples = num_dense_samples
         self.check_backwards_dispersion = check_backwards_dispersion
 
-        potential_sample_pts = self.sobol_state_sampling(self.max_state[:self.control_space_q], num_dense_samples)
+        potential_sample_pts = self.sobol_state_sampling_no_pos(self.max_state[:self.control_space_q], num_dense_samples)
+        # potential_sample_pts = self.sobol_state_sampling(self.max_state[:self.control_space_q], num_dense_samples)
+        # potential_sample_pts = self.uniform_state_set(self.max_state[:self.control_space_q], [np.inf,1,1])
         self.vertices, self.edges = self.compute_min_dispersion_points(
             num_output_pts, potential_sample_pts, check_backwards_dispersion, dispersion_threshold, animate)
         if self.plot:
@@ -645,18 +647,18 @@ if __name__ == "__main__":
     motion_primitive_type = ETHMotionPrimitive
     control_space_q = 3
     num_dims = 2
-    max_state = [.75, .5, .5]
-    num_dense_samples = 1000
-    num_output_pts = 10
-    mp_subclass_specific_data = {'rho': .1}
+    max_state = [1, 3, 4]
+    num_dense_samples = 2**12
+    num_output_pts = 700
+    mp_subclass_specific_data = {'rho': 50}
 
     # # build lattice
     mpl = MotionPrimitiveLattice(control_space_q, num_dims, max_state, motion_primitive_type, tiling, False, mp_subclass_specific_data)
-    mpl.saving_file_prefix = f"{pkg_path}data/lattices/testing/"
+    mpl.saving_file_prefix = f"{pkg_path}data/lattices/testing2/"
     mpl.compute_min_dispersion_space(
         num_output_pts=num_output_pts, check_backwards_dispersion=check_backwards_dispersion, animate=animate, num_dense_samples=num_dense_samples, dispersion_threshold=-1)
 
-    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/testing/10.json", plot)
+    mpl = MotionPrimitiveLattice.load(f"{pkg_path}data/lattices/testing2/68.json", plot)
     mpl.plot_config(plot_mps=True)
 
     # plot

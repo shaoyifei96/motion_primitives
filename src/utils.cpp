@@ -61,6 +61,7 @@ Trajectory path_to_traj_msg(
   return trajectory;
 }
 
+//TODO(Laura) rename to make clear it's not a "path"
 SplineTrajectory path_to_spline_traj_msg(
     const std::vector<std::shared_ptr<MotionPrimitive>>& mps,
     const std_msgs::Header& header, float z_height) {

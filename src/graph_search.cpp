@@ -377,7 +377,6 @@ auto GraphSearch::AccessGraph(const State& start_state) const
       State end_state = graph_.vertices_.row(i);
       // TODO(laura) decide if this is better than end_state(...) =
       // start_state(...)
-      // end_state.head(spatial_dim()) = start_state.head(spatial_dim());
       end_state.head(spatial_dim()) += start_state.head(spatial_dim());
       auto mp =
           graph_.createMotionPrimitivePtrFromGraph(start_state, end_state);

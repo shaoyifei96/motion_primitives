@@ -99,7 +99,6 @@ class MotionPrimitiveGraph():
             self.n = 3
         joint = np.meshgrid(*independent)
         pts = np.stack([j.ravel() for j in joint], axis=-1)
-
         # # If fuzz_factor is not zero, add independent gaussian perturbations to
         # # each point with standard deviation a fraction of the resolution.
         # if fuzz_factor != 0:
@@ -112,7 +111,7 @@ class MotionPrimitiveGraph():
         #     pts = np.minimum(np.repeat(self.max_state[:self.control_space_q], self.num_dims), pts + d)
         #     pts = np.maximum(np.repeat(-self.max_state[:self.control_space_q], self.num_dims), pts)
 
-        return pts, independent
+        return pts#, independent
 
     def sobol_state_sampling(self, bounds, num_samples):
         sampler = Sobol(self.n)
@@ -120,6 +119,15 @@ class MotionPrimitiveGraph():
 
         repeated_bounds = np.repeat(bounds, self.num_dims)[:self.n]
         scaled_sobol = samples*2*repeated_bounds-repeated_bounds
+        return scaled_sobol
+
+    def sobol_state_sampling_no_pos(self, bounds, num_samples):
+        sampler = Sobol(self.n -self.num_dims)
+        samples = sampler.random(num_samples)
+
+        repeated_bounds = np.repeat(bounds, self.num_dims)[self.num_dims:self.n]
+        scaled_sobol = samples*2*repeated_bounds-repeated_bounds
+        scaled_sobol = np.concatenate([np.zeros((scaled_sobol.shape[0],self.num_dims)), scaled_sobol], axis=1)
         return scaled_sobol
 
     def dispersion_distance_fn_simple_norm(self, start_pts, end_pts):
